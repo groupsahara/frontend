@@ -72,7 +72,7 @@ export function VendorGrid({ search, categoryId }: VendorGridProps) {
 function VendorCard({ vendor }: { vendor: StorefrontVendor }) {
   return (
     <article className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="relative flex h-36 items-center justify-center overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+      <div className="relative flex h-36 items-center justify-center overflow-hidden bg-linear-to-br from-gray-100 to-gray-200">
         {vendor.icon ? (
           // eslint-disable-next-line @next/next/no-img-element -- external vendor icons
           <img
