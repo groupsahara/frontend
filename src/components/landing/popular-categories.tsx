@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys, storefrontApi, type StorefrontCategory } from "@/src/api/api";
+import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { SpinnerIcon } from "@/src/components/icons";
 
 interface PopularCategoriesProps {
@@ -17,16 +17,47 @@ const COLLAGE = [
   "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=600&q=80&auto=format&fit=crop",
 ];
 
+/** Emoji fallback per category name (used when a category has no image). */
+const EMOJI_BY_NAME: Record<string, string> = {
+  "executive chef": "👨‍🍳",
+  "sous chef": "🍳",
+  cdp: "🍲",
+  commis: "🔪",
+  steward: "🍽️",
+  housekeeping: "🧹",
+  "utility staff": "🧽",
+  bartender: "🍸",
+  chef: "👨‍🍳",
+  "chef catagory": "👨‍🍳",
+  "helpers & waiters": "🧑‍🍳",
+  carpenter: "🔨",
+  electrician: "💡",
+  "pest controll": "🐜",
+  "pest control": "🐜",
+  technician: "🛠️",
+  "deep cleaning": "🧼",
+  plumber: "🚿",
+  cleaning: "🧹",
+  beauty: "💇",
+  salon: "💅",
+};
+
+const FALLBACK_EMOJI = "🧰";
+
+function emojiFor(name: string): string {
+  return EMOJI_BY_NAME[name.trim().toLowerCase()] ?? FALLBACK_EMOJI;
+}
+
 export function PopularCategories({
   selectedCategoryId,
   onSelect,
 }: PopularCategoriesProps) {
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.storefrontCategories,
-    queryFn: () => storefrontApi.categories(),
+    queryKey: queryKeys.categoryTree,
+    queryFn: () => categoryTreeApi.tree(),
   });
 
-  const categories = data?.categories ?? [];
+  const categories = data ?? [];
 
   return (
     <section id="categories" className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -102,12 +133,13 @@ function CategoryTile({
   active,
   onClick,
 }: {
-  category: StorefrontCategory;
+  category: CategoryTreeNode;
   active: boolean;
   onClick: () => void;
 }) {
+  const hasImage = Boolean(category.profileImage);
   return (
-    <button onClick={onClick} className="group flex flex-col items-center gap-2 text-center">
+    <button onClick={onClick} className="group flex cursor-pointer flex-col items-center gap-3 text-center">
       <div
         className={`relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border bg-gray-50 transition ${
           active
@@ -115,7 +147,7 @@ function CategoryTile({
             : "border-transparent group-hover:border-gray-200 group-hover:shadow-sm"
         }`}
       >
-        {category.profileImage ? (
+        {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external category images
           <img
             src={category.profileImage}
@@ -123,18 +155,12 @@ function CategoryTile({
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (
-          <span className="text-2xl font-semibold text-gray-300">
-            {category.name.charAt(0)}
-          </span>
-        )}
-
-        {category.vendorCount > 0 && (
-          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 rounded-md border border-gray-100 bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 shadow-sm">
-            {category.vendorCount} {category.vendorCount === 1 ? "vendor" : "vendors"}
+          <span className="text-4xl transition duration-300 group-hover:scale-110">
+            {emojiFor(category.name)}
           </span>
         )}
       </div>
-      <p className="line-clamp-2 text-xs font-medium leading-tight text-gray-800">
+      <p className="line-clamp-2 text-sm font-medium leading-tight text-gray-800">
         {category.name}
       </p>
     </button>

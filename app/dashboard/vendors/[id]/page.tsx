@@ -72,7 +72,7 @@ export default function VendorProfilePage() {
   });
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => serviceApi.import(file, vendorId),
+    mutationFn: (file: File) => serviceApi.import(file, { vendorId }),
     onSuccess: (result) => {
       setImportMsg(result);
       queryClient.invalidateQueries({ queryKey: ["services"] });

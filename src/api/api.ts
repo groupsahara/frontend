@@ -280,9 +280,42 @@ export interface Category {
   name: string;
 }
 
+export interface CategoryInput {
+  name: string;
+  description?: string;
+  /** Parent category id; omit/0 for a top-level category. */
+  parentId?: number | null;
+  /** Image file — required on create, optional on update. */
+  image?: File | null;
+}
+
+function categoryFormData(body: CategoryInput): FormData {
+  const fd = new FormData();
+  fd.append("name", body.name);
+  if (body.description) fd.append("description", body.description);
+  if (body.parentId != null) fd.append("parentId", String(body.parentId));
+  if (body.image) fd.append("catagoryImage", body.image);
+  return fd;
+}
+
 export const categoryApi = {
-  // GET /v1/catagories (public) — returns the list of top-level categories.
+  // GET /v1/catagories (public) — returns the full category tree.
   list: () => apiClient.get<Category[]>("/v1/catagories"),
+
+  /** POST /v1/catagories/create-categories — multipart, image required. */
+  create: (body: CategoryInput) =>
+    uploadFile<CategoryTreeNode>(
+      "/v1/catagories/create-categories",
+      categoryFormData(body),
+    ),
+
+  /** PATCH /v1/catagories/:id — multipart, image optional. */
+  update: (id: number, body: CategoryInput) =>
+    uploadFile<CategoryTreeNode>(`/v1/catagories/${id}`, categoryFormData(body), "PATCH"),
+
+  /** DELETE /v1/catagories/service-categories/:id */
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/catagories/service-categories/${id}`),
 };
 
 /* ====================== Services (catalog) & variants =================== */
@@ -372,6 +405,13 @@ export const serviceApi = {
     apiClient.patch<CatalogService>(`/v1/service/${id}`, body),
   remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/service/${id}`),
 
+  /** POST /v1/service/:id/image — multipart image upload to Cloudinary. */
+  uploadImage: (id: number, image: File) => {
+    const fd = new FormData();
+    fd.append("serviceImage", image);
+    return uploadFile<CatalogService>(`/v1/service/${id}/image`, fd);
+  },
+
   listVariants: (serviceId: number) =>
     apiClient.get<{ variants: ServiceVariant[] }>(`/v1/service/${serviceId}/variants`),
   addVariant: (serviceId: number, body: ServiceVariantInput) =>
@@ -379,66 +419,60 @@ export const serviceApi = {
   removeVariant: (variantId: number) =>
     apiClient.delete<{ message: string }>(`/v1/service/variants/${variantId}`),
 
-  import: (file: File, vendorId?: number) => {
+  import: (file: File, opts?: { vendorId?: number; categoryId?: number }) => {
     const fd = new FormData();
     fd.append("file", file);
-    return uploadFile<ImportResult>(
-      `/v1/service/import${vendorId ? `?vendorId=${vendorId}` : ""}`,
-      fd,
-    );
+    const qs = toQueryString({
+      vendorId: opts?.vendorId,
+      categoryId: opts?.categoryId,
+    });
+    return uploadFile<ImportResult>(`/v1/service/import${qs}`, fd);
   },
   downloadTemplate: () => downloadFile("/v1/service/import/template"),
 };
 
-/* ===================== Storefront (public landing) ===================== */
+/* ================== Category tree (public landing) ===================== */
 /*
- * Public, unauthenticated endpoints used by the pre-login landing page.
- * They mirror `/v1/storefront/*` on the backend and require no token.
+ * The public `/v1/catagories` endpoint returns the full storefront hierarchy:
+ * category → groups (sub-categories) → services → variants. The landing page
+ * is driven entirely from this, so no separate storefront/vendor API is needed.
  */
 
-export interface StorefrontCategory {
+export interface CategoryTreeVariant {
+  variantId: number;
+  name: string;
+  price: number;
+  profileImage: string | null;
+}
+
+export interface CategoryTreeService {
+  serviceId: number;
+  name: string;
+  price: number | null;
+  profileImage: string | null;
+  variants: CategoryTreeVariant[];
+}
+
+export interface CategoryTreeGroup {
+  groupId: number;
+  name: string;
+  profileImage: string | null;
+  services: CategoryTreeService[];
+}
+
+export interface CategoryTreeNode {
   categoryId: number;
   name: string;
   description: string | null;
   profileImage: string;
-  vendorCount: number;
-  serviceCount: number;
+  /** Services attached directly to this category (no sub-category). */
+  services: CategoryTreeService[];
+  groups: CategoryTreeGroup[];
 }
 
-export interface StorefrontVendor {
-  vendorId: number;
-  name: string;
-  icon: string | null;
-  description: string | null;
-  address: string | null;
-  city: string | null;
-  isOpen: boolean;
-  offersServices: boolean;
-  category: { categoryId: number; name: string } | null;
-  servicesCount: number;
-}
-
-export interface StorefrontVendorParams {
-  search?: string;
-  categoryId?: number;
-}
-
-export const storefrontApi = {
-  /** GET /v1/storefront/categories — popular categories (public). */
-  categories: () =>
-    apiClient.get<{ categories: StorefrontCategory[] }>("/v1/storefront/categories", {
-      skipAuth: true,
-    }),
-
-  /** GET /v1/storefront/vendors — active vendors (public, dynamic). */
-  vendors: (params: StorefrontVendorParams = {}) =>
-    apiClient.get<{ vendors: StorefrontVendor[] }>(
-      `/v1/storefront/vendors${toQueryString({
-        search: params.search,
-        categoryId: params.categoryId,
-      })}`,
-      { skipAuth: true },
-    ),
+export const categoryTreeApi = {
+  /** GET /v1/catagories — full category → service → variant tree (public). */
+  tree: () => apiClient.get<CategoryTreeNode[]>("/v1/catagories", { skipAuth: true }),
 };
 
 /* ============================ Query keys ================================ */
@@ -450,7 +484,5 @@ export const queryKeys = {
   vendor: (id: number) => ["vendor", id] as const,
   categories: ["categories"] as const,
   services: (params: ServiceListParams) => ["services", params] as const,
-  storefrontCategories: ["storefront", "categories"] as const,
-  storefrontVendors: (params: StorefrontVendorParams) =>
-    ["storefront", "vendors", params] as const,
+  categoryTree: ["categoryTree"] as const,
 };

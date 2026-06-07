@@ -11,10 +11,49 @@ import {
   type ServiceVariantInput,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
-import { CloseIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@/src/components/icons";
+import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
+
+const VARIANTS_PLACEHOLDER = `[
+  { "name": "north Indian chef", "price": 299, "durationMinutes": 60 },
+  { "name": "north Indian chef", "price": 499, "durationMinutes": 60 }
+]`;
+
+/** Parse the variants JSON textarea into validated ServiceVariantInput[]. */
+function parseVariantsJson(raw: string): ServiceVariantInput[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error("Invalid JSON — check for missing commas, quotes or brackets.");
+  }
+  if (!Array.isArray(data)) {
+    throw new Error('Variants must be a JSON array, e.g. [{ "name": "...", "price": 299 }]');
+  }
+  return data.map((item, i) => {
+    const pos = `Item ${i + 1}`;
+    if (!item || typeof item !== "object") {
+      throw new Error(`${pos}: each variant must be an object.`);
+    }
+    const v = item as Record<string, unknown>;
+    const name = typeof v.name === "string" ? v.name.trim() : "";
+    if (!name) throw new Error(`${pos}: "name" is required.`);
+    const price = Number(v.price);
+    if (!Number.isFinite(price)) throw new Error(`${pos}: "price" must be a number.`);
+    const variant: ServiceVariantInput = { name, price };
+    if (v.durationMinutes != null && v.durationMinutes !== "") {
+      const duration = Number(v.durationMinutes);
+      if (!Number.isFinite(duration)) {
+        throw new Error(`${pos}: "durationMinutes" must be a number.`);
+      }
+      variant.durationMinutes = Math.round(duration);
+    }
+    return variant;
+  });
+}
 
 interface ServiceFormProps {
-  vendorId: number;
+  /** Optional — services created from a category page have no vendor. */
+  vendorId?: number;
   defaultCategoryId?: number | null;
   service: CatalogService | null; // null => create
   onClose: () => void;
@@ -39,10 +78,12 @@ export function ServiceForm({ vendorId, defaultCategoryId, service, onClose }: S
   const [description, setDescription] = useState(service?.description ?? "");
   const [isActive, setIsActive] = useState(service?.isActive ?? true);
   const [isFeatured, setIsFeatured] = useState(service?.isFeatured ?? false);
-  const [variants, setVariants] = useState<ServiceVariantInput[]>([]);
+  const [variantsJson, setVariantsJson] = useState("");
+  const [variantError, setVariantError] = useState<string | null>(null);
+  const [image, setImage] = useState<File | null>(null);
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async (parsedVariants?: ServiceVariantInput[]) => {
       const payload: ServiceInput = {
         name: name.trim(),
         categoryId: Number(categoryId),
@@ -51,20 +92,23 @@ export function ServiceForm({ vendorId, defaultCategoryId, service, onClose }: S
         basePrice: basePrice ? Number(basePrice) : undefined,
         isActive,
         isFeatured,
-        variants:
-          !isEdit && variants.length
-            ? variants
-                .filter((v) => v.name.trim())
-                .map((v) => ({ name: v.name.trim(), price: Number(v.price) || 0 }))
-            : undefined,
+        variants: !isEdit && parsedVariants?.length ? parsedVariants : undefined,
       };
-      return service
-        ? serviceApi.update(service.serviceId, payload)
-        : serviceApi.create(payload);
+      const saved = service
+        ? await serviceApi.update(service.serviceId, payload)
+        : await serviceApi.create(payload);
+      // Upload the image (if chosen) against the saved service id.
+      if (image) {
+        await serviceApi.uploadImage(saved.serviceId, image);
+      }
+      return saved;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      queryClient.invalidateQueries({ queryKey: ["vendor", vendorId] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
+      if (vendorId != null) {
+        queryClient.invalidateQueries({ queryKey: ["vendor", vendorId] });
+      }
       onClose();
     },
   });
@@ -72,7 +116,20 @@ export function ServiceForm({ vendorId, defaultCategoryId, service, onClose }: S
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!categoryId) return;
-    mutation.mutate();
+
+    setVariantError(null);
+    let parsedVariants: ServiceVariantInput[] | undefined;
+
+    if (!isEdit && variantsJson.trim()) {
+      try {
+        parsedVariants = parseVariantsJson(variantsJson);
+      } catch (err) {
+        setVariantError(err instanceof Error ? err.message : "Invalid variants JSON");
+        return;
+      }
+    }
+
+    mutation.mutate(parsedVariants);
   };
 
   const errorMessage =
@@ -158,65 +215,62 @@ export function ServiceForm({ vendorId, defaultCategoryId, service, onClose }: S
             />
           </label>
 
+          <label className="block space-y-1.5">
+            <span className="text-sm font-medium text-muted-foreground">
+              Image{" "}
+              {isEdit && service?.profileImage && (
+                <span className="font-normal text-muted-foreground">
+                  (leave empty to keep current)
+                </span>
+              )}
+            </span>
+            <div className="flex items-center gap-3">
+              {(image || service?.profileImage) && (
+                // eslint-disable-next-line @next/next/no-img-element -- local preview / external URL
+                <img
+                  src={image ? URL.createObjectURL(image) : (service?.profileImage ?? "")}
+                  alt="Service preview"
+                  className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                />
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+                className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm file:text-foreground`}
+              />
+            </div>
+          </label>
+
           <div className="flex flex-wrap gap-5">
             <Toggle label="Published" checked={isActive} onChange={setIsActive} />
             <Toggle label="Featured" checked={isFeatured} onChange={setIsFeatured} />
           </div>
 
           {!isEdit && (
-            <div className="space-y-2 rounded-lg border border-border p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">Variants / Add-ons</span>
-                <button
-                  type="button"
-                  onClick={() => setVariants((v) => [...v, { name: "", price: 0 }])}
-                  className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                >
-                  <PlusIcon className="h-4 w-4" /> Add
-                </button>
-              </div>
-              {variants.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Optional — e.g. Standard / Premium tiers.
-                </p>
-              )}
-              {variants.map((v, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={v.name}
-                    onChange={(e) =>
-                      setVariants((arr) =>
-                        arr.map((x, idx) => (idx === i ? { ...x, name: e.target.value } : x)),
-                      )
-                    }
-                    placeholder="Variant name"
-                    className={inputClass}
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    value={v.price}
-                    onChange={(e) =>
-                      setVariants((arr) =>
-                        arr.map((x, idx) =>
-                          idx === i ? { ...x, price: Number(e.target.value) } : x,
-                        ),
-                      )
-                    }
-                    placeholder="Price"
-                    className={`${inputClass} max-w-28`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setVariants((arr) => arr.filter((_, idx) => idx !== i))}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-danger/10 hover:text-danger"
-                    aria-label="Remove variant"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+            <label className="block space-y-1.5 rounded-lg border border-border p-3">
+              <span className="text-sm font-medium text-foreground">
+                Variants / Add-ons{" "}
+                <span className="font-normal text-muted-foreground">(JSON, optional)</span>
+              </span>
+              <textarea
+                value={variantsJson}
+                onChange={(e) => setVariantsJson(e.target.value)}
+                rows={7}
+                spellCheck={false}
+                placeholder={VARIANTS_PLACEHOLDER}
+                className={`${inputClass} font-mono text-xs`}
+              />
+              <span className="block text-xs text-muted-foreground">
+                Paste an array of{" "}
+                <code className="rounded bg-muted px-1">
+                  {'{ "name", "price", "durationMinutes?" }'}
+                </code>{" "}
+                objects. <code className="rounded bg-muted px-1">durationMinutes</code> is
+                optional.
+              </span>
+              {variantError && <span className="block text-xs text-danger">{variantError}</span>}
+            </label>
           )}
 
           {errorMessage && (

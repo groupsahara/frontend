@@ -15,9 +15,8 @@ const LOGO_URL =
   "https://imgproxy.royodispatch.com/insecure/fit/300/100/sm/0/plain/https://restocare-asset.s3.ap-south-1.amazonaws.com/assets/Clientlogo/FE4tX1iKGv1yJIk1JijoEtq11jm1yGTIdMPIUjpa.png";
 
 const NAV_LINKS = [
-  { label: "Services", href: "#categories" },
-  { label: "Vendors", href: "#vendors" },
-  { label: "Beauty", href: "#categories" },
+  { label: "Categories", href: "#categories" },
+  { label: "Services", href: "#services" },
 ];
 
 interface LandingHeaderProps {

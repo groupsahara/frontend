@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Hero } from "@/src/components/landing/hero";
 import { PopularCategories } from "@/src/components/landing/popular-categories";
-import { VendorGrid } from "@/src/components/landing/vendor-grid";
+import { HowItWorks } from "@/src/components/landing/how-it-works";
+import { ServiceGrid } from "@/src/components/landing/service-grid";
+import { WhyChooseUs } from "@/src/components/landing/why-choose-us";
+import { TopProviders } from "@/src/components/landing/top-providers";
+import { RestaurantRepair } from "@/src/components/landing/restaurant-repair";
+import { VideoBanner } from "@/src/components/landing/video-banner";
+import { PartnerCTA, Testimonials } from "@/src/components/landing/testimonials";
+import { FAQs } from "@/src/components/landing/faqs";
+import { Footer } from "@/src/components/landing/footer";
 
 export default function Home() {
   const [search, setSearch] = useState("");
@@ -23,14 +31,18 @@ export default function Home() {
       <main>
         <Hero />
         <PopularCategories selectedCategoryId={categoryId} onSelect={setCategoryId} />
-        <VendorGrid search={debouncedSearch} categoryId={categoryId} />
+        <HowItWorks />
+        <ServiceGrid search={debouncedSearch} categoryId={categoryId} />
+        <WhyChooseUs />
+        <TopProviders />
+        <RestaurantRepair />
+        <VideoBanner />
+        <PartnerCTA />
+        <Testimonials />
+        <FAQs />
       </main>
 
-      <footer className="border-t border-gray-100 bg-gray-50">
-        <div className="mx-auto max-w-7xl px-4 py-8 text-center text-sm text-gray-500 sm:px-6">
-          © {new Date().getFullYear()} RestoCare. Home services at your doorstep.
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

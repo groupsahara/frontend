@@ -211,13 +211,20 @@ async function request<T>(
   return parsed as T;
 }
 
-/** Upload multipart form data (e.g. an .xlsx file). Lets the browser set the boundary. */
-export async function uploadFile<T>(path: string, formData: FormData): Promise<T> {
+/**
+ * Upload multipart form data (e.g. an .xlsx file or an image). Lets the browser
+ * set the boundary. `method` defaults to POST; pass PATCH/PUT for updates.
+ */
+export async function uploadFile<T>(
+  path: string,
+  formData: FormData,
+  method: "POST" | "PATCH" | "PUT" = "POST",
+): Promise<T> {
   const token = getToken();
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      method: "POST",
+      method,
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: formData,
     });
