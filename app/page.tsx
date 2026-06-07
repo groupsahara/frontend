@@ -5,6 +5,7 @@ import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Reveal } from "@/src/components/landing/reveal";
 import { CursorFollower } from "@/src/components/landing/cursor-follower";
 import { Hero } from "@/src/components/landing/hero";
+import { PhoneShowcase } from "@/src/components/landing/phone-showcase";
 import { StatsBand } from "@/src/components/landing/stats-band";
 import { Brands } from "@/src/components/landing/brands";
 import { PopularCategories } from "@/src/components/landing/popular-categories";
@@ -35,6 +36,7 @@ export default function Home() {
       <LandingHeader search={search} onSearchChange={setSearch} />
       <main>
         <Hero />
+        <PhoneShowcase />
         <Reveal>
           <PopularCategories selectedCategoryId={categoryId} onSelect={setCategoryId} />
         </Reveal>
