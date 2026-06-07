@@ -1,24 +1,31 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { StarIcon, UsersIcon } from "@/src/components/icons";
+import { bannerApi, queryKeys } from "@/src/api/api";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay, EffectFade } from "swiper/modules";
 
 import "swiper/css";
 import "swiper/css/effect-fade";
 
-const IMAGES = [
+// Fallback imagery shown until banners are configured in the admin panel.
+const FALLBACK_IMAGES = [
   "https://plain-apac-prod-public.komododecks.com/202606/07/TGdQgmdeyYfX7Z7E2See/image.jpg",
   "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1920&q=80",
   "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=1920&q=80",
   "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1920&q=80",
-  // "https://res.cloudinary.com/dijucynmp/image/upload/f_auto,q_auto/51c9d608-ee28-4051-8e4c-7bd18fff0abe_1_kc5axn",
-  // "https://instasize.com/api/image/6f277fe63c1823b52807f82454ab2496c2993a43b80fb3b38bd98dbf32be4097.jpeg",
-  // "https://canva.link/ge0f4vlkld7kfuw",
-  // "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1920&q=80",
 ];
 
 export function Hero() {
+  const { data: banners } = useQuery({
+    queryKey: queryKeys.bannersActive,
+    queryFn: () => bannerApi.listActive(),
+  });
+
+  // Managed banners take precedence; fall back to the built-in imagery.
+  const images = banners && banners.length > 0 ? banners.map((b) => b.imageUrl) : FALLBACK_IMAGES;
+
   return (
     <section className="relative border-b border-gray-800 bg-gray-900">
       {/* Background Carousel */}
@@ -30,7 +37,7 @@ export function Hero() {
           loop={true}
           className="h-full w-full"
         >
-          {IMAGES.map((src, index) => (
+          {images.map((src, index) => (
             <SwiperSlide key={index}>
               <div
                 className="h-full w-full bg-cover bg-center"

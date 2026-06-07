@@ -475,6 +475,69 @@ export const categoryTreeApi = {
   tree: () => apiClient.get<CategoryTreeNode[]>("/v1/catagories", { skipAuth: true }),
 };
 
+/* ============================== Banners ================================= */
+
+export interface Banner {
+  bannerId: number;
+  title: string | null;
+  subtitle: string | null;
+  imageUrl: string;
+  imagePublicId: string | null;
+  linkUrl: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BannerInput {
+  title?: string;
+  subtitle?: string;
+  linkUrl?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  /** Image file — required on create, optional on update. */
+  image?: File | null;
+}
+
+/** Recommended banner image dimensions / size (shown + validated in the panel). */
+export const BANNER_SPEC = {
+  width: 1920,
+  height: 640,
+  minWidth: 1200,
+  maxBytes: 5 * 1024 * 1024,
+  label: "1920 × 640 px (3:1), max 5 MB",
+};
+
+function bannerFormData(body: BannerInput): FormData {
+  const fd = new FormData();
+  if (body.title !== undefined) fd.append("title", body.title);
+  if (body.subtitle !== undefined) fd.append("subtitle", body.subtitle);
+  if (body.linkUrl !== undefined) fd.append("linkUrl", body.linkUrl);
+  if (body.isActive !== undefined) fd.append("isActive", String(body.isActive));
+  if (body.sortOrder !== undefined) fd.append("sortOrder", String(body.sortOrder));
+  if (body.image) fd.append("bannerImage", body.image);
+  return fd;
+}
+
+export const bannerApi = {
+  /** GET /v1/banner — all banners (admin). */
+  list: () => apiClient.get<Banner[]>("/v1/banner"),
+
+  /** GET /v1/banner/active — active banners for the landing carousel (public). */
+  listActive: () => apiClient.get<Banner[]>("/v1/banner/active", { skipAuth: true }),
+
+  /** POST /v1/banner — multipart, image required. */
+  create: (body: BannerInput) => uploadFile<Banner>("/v1/banner", bannerFormData(body)),
+
+  /** PATCH /v1/banner/:id — multipart, image optional. */
+  update: (id: number, body: BannerInput) =>
+    uploadFile<Banner>(`/v1/banner/${id}`, bannerFormData(body), "PATCH"),
+
+  /** DELETE /v1/banner/:id */
+  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/banner/${id}`),
+};
+
 /* ============================ Query keys ================================ */
 
 export const queryKeys = {
@@ -485,4 +548,6 @@ export const queryKeys = {
   categories: ["categories"] as const,
   services: (params: ServiceListParams) => ["services", params] as const,
   categoryTree: ["categoryTree"] as const,
+  banners: ["banners"] as const,
+  bannersActive: ["banners", "active"] as const,
 };

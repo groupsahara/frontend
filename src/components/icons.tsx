@@ -192,6 +192,14 @@ export const SpinnerIcon = (p: IconProps) => (
   </svg>
 );
 
+export const ImageIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="9" r="2" />
+    <path d="m21 15-4.5-4.5L3 21" />
+  </svg>
+);
+
 export const MapPinIcon = (p: IconProps) => (
   <svg {...base} {...p}>
     <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
