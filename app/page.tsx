@@ -36,10 +36,11 @@ export default function Home() {
       <LandingHeader search={search} onSearchChange={setSearch} />
       <main>
         <Hero />
-        <PhoneShowcase />
+       
         <Reveal>
           <PopularCategories selectedCategoryId={categoryId} onSelect={setCategoryId} />
         </Reveal>
+         <PhoneShowcase />
         <Reveal>
           <HowItWorks />
         </Reveal>
