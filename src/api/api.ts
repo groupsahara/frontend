@@ -540,6 +540,82 @@ export const bannerApi = {
   remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/banner/${id}`),
 };
 
+/* =============================== Cart ==================================== */
+/*
+ * Guest-friendly cart. The backend uses an OptionalJwtAuthGuard, so for the
+ * public storefront we identify the cart purely by a client-generated
+ * `sessionId` (no customer login required). All calls skip auth so the
+ * admin token is never attached to a shopper's cart.
+ */
+
+export interface CartItemData {
+  id: number;
+  serviceId: number;
+  variantId: number | null;
+  quantity: number;
+  name: string;
+  image: string | null;
+  price: number;
+  total: number;
+  variantName: string | null;
+}
+
+export interface CartPriceSummary {
+  itemTotal?: number;
+  platformFee?: number;
+  tax?: number;
+  discount?: number;
+  grandTotal?: number;
+}
+
+export interface CartResponse {
+  id: number | null;
+  items: CartItemData[];
+  priceSummary: CartPriceSummary;
+}
+
+export interface AddToCartBody {
+  serviceId: number;
+  quantity?: number;
+  variantId?: number;
+  sessionId: string;
+}
+
+export interface UpdateCartBody {
+  serviceId: number;
+  variantId?: number | null;
+  quantity: number;
+  action: "increment" | "decrement";
+}
+
+export const cartApi = {
+  /** GET /v1/manage-cart/get-cart?sessionId — full cart with price summary. */
+  get: (sessionId: string) =>
+    apiClient.get<CartResponse>(
+      `/v1/manage-cart/get-cart${toQueryString({ sessionId })}`,
+      { skipAuth: true },
+    ),
+
+  /** POST /v1/manage-cart/add — add a service (optionally a variant). */
+  add: (body: AddToCartBody) =>
+    apiClient.post<unknown>("/v1/manage-cart/add", body, { skipAuth: true }),
+
+  /** PATCH /v1/manage-cart/update?cartId — change an item's quantity. */
+  updateQuantity: (cartId: number, body: UpdateCartBody) =>
+    apiClient.patch<unknown>(
+      `/v1/manage-cart/update${toQueryString({ cartId })}`,
+      body,
+      { skipAuth: true },
+    ),
+
+  /** DELETE /v1/manage-cart/delete/:cartItemId — remove one line item. */
+  deleteItem: (cartItemId: number) =>
+    apiClient.delete<{ message: string }>(
+      `/v1/manage-cart/delete/${cartItemId}`,
+      { skipAuth: true },
+    ),
+};
+
 /* ============================ Query keys ================================ */
 
 export const queryKeys = {
@@ -552,4 +628,5 @@ export const queryKeys = {
   categoryTree: ["categoryTree"] as const,
   banners: ["banners"] as const,
   bannersActive: ["banners", "active"] as const,
+  cart: (sessionId: string) => ["cart", sessionId] as const,
 };

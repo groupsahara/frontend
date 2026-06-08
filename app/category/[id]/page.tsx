@@ -13,6 +13,7 @@ import {
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
 import { SpinnerIcon, StarIcon, ArrowRightIcon } from "@/src/components/icons";
+import { useCart } from "@/src/lib/cart";
 
 /** A service flattened out of the category → group → service tree. */
 interface FlatService extends CategoryTreeService {
@@ -189,6 +190,7 @@ function ServiceCard({
   service: FlatService;
   fallbackEmoji: string;
 }) {
+  const { requestAdd } = useCart();
   const hasImage = Boolean(service.profileImage);
   const lowestVariant =
     service.variants.length > 0
@@ -196,6 +198,7 @@ function ServiceCard({
       : null;
   const displayPrice =
     service.price != null && service.price > 0 ? service.price : lowestVariant;
+  const hasVariants = service.variants.length > 0;
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
@@ -264,8 +267,19 @@ function ServiceCard({
               {formatPrice(displayPrice)}
             </p>
           </div>
-          <button className="inline-flex items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700">
-            Book
+          <button
+            onClick={() =>
+              requestAdd({
+                serviceId: service.serviceId,
+                name: service.name,
+                price: service.price,
+                profileImage: service.profileImage,
+                variants: service.variants,
+              })
+            }
+            className="inline-flex items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+          >
+            {hasVariants ? "Select" : "Book"}
             <ArrowRightIcon className="h-4 w-4" />
           </button>
         </div>
