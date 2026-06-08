@@ -9,6 +9,7 @@ import {
   type CategoryTreeNode,
 } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
+import { useCart } from "@/src/lib/cart";
 import {
   CartIcon,
   ChevronDownIcon,
@@ -72,6 +73,7 @@ interface LandingHeaderProps {
 
 export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   const location = useCurrentLocation();
+  const { count, openMini } = useCart();
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -272,9 +274,15 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         <div className="flex shrink-0 items-center gap-1">
           <button
             aria-label="Cart"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+            onClick={openMini}
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
           >
             <CartIcon className="h-5 w-5" />
+            {count > 0 && (
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-600 px-1 text-[10px] font-bold leading-none text-white">
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
           </button>
           <Link
             href="/login"
