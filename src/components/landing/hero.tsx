@@ -27,7 +27,7 @@ export function Hero() {
   const images = banners && banners.length > 0 ? banners.map((b) => b.imageUrl) : FALLBACK_IMAGES;
 
   return (
-    <section className="relative border-b border-gray-800 bg-gray-900">
+    <section className="relative flex items-center border-b border-gray-800 bg-gray-900 min-h-62.5 lg:min-h-175">
       {/* Background Carousel */}
       <div className="absolute inset-0 z-0">
         <Swiper
