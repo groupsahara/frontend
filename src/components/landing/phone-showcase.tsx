@@ -57,7 +57,7 @@ export function PhoneShowcase() {
 
       <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:py-20">
         {/* Copy */}
-        <div className="text-center lg:text-left">
+        <div className="text-center lg:order-2 lg:text-left">
           <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
             See it in action
           </span>
@@ -79,7 +79,7 @@ export function PhoneShowcase() {
         </div>
 
         {/* 3D phone */}
-        <div className="relative h-[520px] w-full sm:h-[640px]">
+        <div className="relative h-[520px] w-full sm:h-[640px] lg:order-1">
           {mounted && (
             <Canvas
               camera={{ position: [0, 0, 11.5], fov: 32 }}

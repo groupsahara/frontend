@@ -114,14 +114,9 @@ export function PopularCategories({
 
         {/* RIGHT — image collage covering the space */}
         <div className="hidden grid-cols-2 gap-4 lg:grid">
-          <div className="space-y-4">
-            <CollageImage src={COLLAGE[0]} className="h-2/3" />
-            <CollageImage src={COLLAGE[2]} className="h-1/3" />
-          </div>
-          <div className="space-y-4 pt-10">
-            <CollageImage src={COLLAGE[1]} className="h-1/3" />
-            <CollageImage src={COLLAGE[3]} className="h-2/3" />
-          </div>
+          {COLLAGE.map((src, i) => (
+            <CollageImage key={i} src={src} className="aspect-square" />
+          ))}
         </div>
       </div>
     </section>

@@ -1,28 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import "swiper/css";
 
 interface Brand {
   name: string;
-  /** Optional company domain — used to fetch a logo via Clearbit. */
-  domain?: string;
+  logo: string;
 }
 
 const BRANDS: Brand[] = [
-  { name: "Indian Airforce" },
-  { name: "Burger Singh", domain: "burgersinghonline.com" },
-  { name: "McDonald's", domain: "mcdonalds.com" },
-  { name: "Skill India" },
-  { name: "Tourism & Hospitality Skill Council" },
-  { name: "Pyramid Cafe" },
-  { name: "Domino's", domain: "dominos.com" },
-  { name: "KFC", domain: "kfc.com" },
-  { name: "Subway", domain: "subway.com" },
-  { name: "Barbeque Nation", domain: "barbequenation.com" },
-  { name: "Taj Hotels", domain: "tajhotels.com" },
+  {
+    name: "Indian Air Force",
+    logo: "/brands/army.png",
+  },
+  {
+    name: "Burger Singh",
+    logo: "/brands/burger.png",
+  },
+  {
+    name: "McDonald's",
+    logo: "/brands/macdonal.jpg",
+  },
+  {
+    name: "Skill India",
+    logo: "/brands/skill.png",
+  },
+  {
+    name: "Tourism & Hospitality Skill Council",
+    logo: "/brands/thsc.png",
+  },
+  {
+    name: "Pyramid Cafe",
+    logo: "/brands/pyramid.jpeg",
+  },
+  {
+    name: "Domino's",
+    logo: "/brands/dominos.png",
+  },
+  {
+    name: "KFC",
+    logo: "/brands/kfc.svg",
+  },
+  {
+    name: "Subway",
+    logo: "/brands/subway.webp",
+  },
+  {
+    name: "Barbeque Nation",
+    logo: "/brands/barbeque.png",
+  },
+  {
+    name: "Taj Hotels",
+    logo: "/brands/taj.svg"
+  },
 ];
 
 export function Brands() {
@@ -32,6 +64,7 @@ export function Brands() {
         <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
           Our Associated Brands
         </h2>
+
         <p className="mx-auto mt-2 max-w-xl text-center text-sm text-gray-500">
           Trusted by leading restaurants, institutions and hospitality brands.
         </p>
@@ -43,7 +76,11 @@ export function Brands() {
             speed={4000}
             spaceBetween={24}
             slidesPerView={2}
-            autoplay={{ delay: 0, disableOnInteraction: false, pauseOnMouseEnter: true }}
+            autoplay={{
+              delay: 0,
+              disableOnInteraction: false,
+              pauseOnMouseEnter: true,
+            }}
             allowTouchMove={false}
             breakpoints={{
               640: { slidesPerView: 3 },
@@ -53,7 +90,7 @@ export function Brands() {
             className="!ease-linear [&_.swiper-wrapper]:!ease-linear"
           >
             {BRANDS.map((brand) => (
-              <SwiperSlide key={brand.name} className="!h-auto">
+              <SwiperSlide key={brand.name}>
                 <BrandLogo brand={brand} />
               </SwiperSlide>
             ))}
@@ -65,35 +102,21 @@ export function Brands() {
 }
 
 function BrandLogo({ brand }: { brand: Brand }) {
-  const [errored, setErrored] = useState(false);
-  const logoUrl = brand.domain ? `https://logo.clearbit.com/${brand.domain}` : null;
-
-  const initials = brand.name
-    .split(" ")
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   return (
     <div className="group flex flex-col items-center gap-3 py-2 text-center">
-      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-white shadow-sm ring-1 ring-gray-100 transition duration-300 group-hover:-translate-y-1 group-hover:shadow-md">
-        {logoUrl && !errored ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external brand logos
-          <img
-            src={logoUrl}
-            alt={brand.name}
-            className="h-10 w-10 object-contain grayscale transition duration-300 group-hover:grayscale-0"
-            onError={() => setErrored(true)}
-          />
-        ) : (
-          <span className="text-lg font-bold text-gray-400 transition group-hover:text-[#e2563b]">
-            {initials}
-          </span>
-        )}
+      <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+        <Image
+          src={brand.logo}
+          alt={brand.name}
+          width={60}
+          height={60}
+          className="object-contain"
+        />
       </div>
-      <p className="max-w-[9rem] text-sm font-medium leading-tight text-gray-600">{brand.name}</p>
+
+      <p className="max-w-[9rem] text-sm font-medium leading-tight text-gray-700">
+        {brand.name}
+      </p>
     </div>
   );
 }

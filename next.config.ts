@@ -14,7 +14,15 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'randomuser.me',
-      }
+      },
+      {
+        protocol: 'https',
+        hostname: 'plain-apac-prod-public.komododecks.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
     ],
   },
 };
