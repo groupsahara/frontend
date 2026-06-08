@@ -448,7 +448,9 @@ export interface CategoryTreeVariant {
 export interface CategoryTreeService {
   serviceId: number;
   name: string;
+  description: string | null;
   price: number | null;
+  durationMinutes: number | null;
   profileImage: string | null;
   variants: CategoryTreeVariant[];
 }

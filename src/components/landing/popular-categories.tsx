@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { SpinnerIcon } from "@/src/components/icons";
 
 interface PopularCategoriesProps {
-  selectedCategoryId: number | null;
-  onSelect: (categoryId: number | null) => void;
+  /** Kept for backwards-compat with the landing page; clicking a tile now
+   *  navigates to the category page instead of filtering in place. */
+  selectedCategoryId?: number | null;
+  onSelect?: (categoryId: number | null) => void;
 }
 
 /** Images for the right-hand collage (Urban Company–style hero imagery). */
@@ -48,10 +51,8 @@ function emojiFor(name: string): string {
   return EMOJI_BY_NAME[name.trim().toLowerCase()] ?? FALLBACK_EMOJI;
 }
 
-export function PopularCategories({
-  selectedCategoryId,
-  onSelect,
-}: PopularCategoriesProps) {
+export function PopularCategories(_props: PopularCategoriesProps) {
+  void _props;
   const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.categoryTree,
     queryFn: () => categoryTreeApi.tree(),
@@ -73,15 +74,6 @@ export function PopularCategories({
       <div className="grid items-stretch gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* LEFT — category card */}
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-          {selectedCategoryId !== null && (
-            <button
-              onClick={() => onSelect(null)}
-              className="mb-4 text-sm font-medium text-gray-900 underline"
-            >
-              ← Clear filter
-            </button>
-          )}
-
           {isLoading ? (
             <div className="flex h-72 items-center justify-center text-gray-400">
               <SpinnerIcon className="h-6 w-6" />
@@ -95,18 +87,7 @@ export function PopularCategories({
           ) : (
             <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4">
               {categories.map((category) => (
-                <CategoryTile
-                  key={category.categoryId}
-                  category={category}
-                  active={selectedCategoryId === category.categoryId}
-                  onClick={() =>
-                    onSelect(
-                      selectedCategoryId === category.categoryId
-                        ? null
-                        : category.categoryId,
-                    )
-                  }
-                />
+                <CategoryTile key={category.categoryId} category={category} />
               ))}
             </div>
           )}
@@ -123,25 +104,14 @@ export function PopularCategories({
   );
 }
 
-function CategoryTile({
-  category,
-  active,
-  onClick,
-}: {
-  category: CategoryTreeNode;
-  active: boolean;
-  onClick: () => void;
-}) {
+function CategoryTile({ category }: { category: CategoryTreeNode }) {
   const hasImage = Boolean(category.profileImage);
   return (
-    <button onClick={onClick} className="group flex cursor-pointer flex-col items-center gap-3 text-center">
-      <div
-        className={`relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border bg-gray-50 transition ${
-          active
-            ? "border-gray-900 ring-2 ring-gray-900/10"
-            : "border-transparent group-hover:border-gray-200 group-hover:shadow-sm"
-        }`}
-      >
+    <Link
+      href={`/category/${category.categoryId}`}
+      className="group flex cursor-pointer flex-col items-center gap-3 text-center"
+    >
+      <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-transparent bg-gray-50 transition group-hover:border-gray-200 group-hover:shadow-sm">
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external category images
           <img
@@ -158,7 +128,7 @@ function CategoryTile({
       <p className="line-clamp-2 text-sm font-medium leading-tight text-gray-800">
         {category.name}
       </p>
-    </button>
+    </Link>
   );
 }
 
