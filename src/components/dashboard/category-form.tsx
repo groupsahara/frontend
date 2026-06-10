@@ -33,6 +33,7 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
   const [description, setDescription] = useState(category?.description ?? "");
   const [parentId, setParentId] = useState<number | "">("");
   const [image, setImage] = useState<File | null>(null);
+  const [banner, setBanner] = useState<File | null>(null);
   const [services, setServices] = useState<DraftService[]>([]);
 
   // Parent dropdown: existing top-level categories (can't be the category itself).
@@ -51,6 +52,7 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
         description: description.trim() || undefined,
         parentId: parentId === "" ? null : Number(parentId),
         image,
+        banner,
       };
 
       if (category) {
@@ -153,7 +155,7 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
                 className={inputClass}
               />
             </Field>
-            <Field label={isEdit ? "Image (leave empty to keep current)" : "Image *"} full>
+            <Field label={isEdit ? "Icon (leave empty to keep current)" : "Icon *"} full>
               <input
                 type="file"
                 accept="image/*"
@@ -162,9 +164,23 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
               />
               {!isEdit && !image && (
                 <span className="text-xs text-muted-foreground">
-                  An image is required to create a category.
+                  A square icon is required to create a category.
                 </span>
               )}
+            </Field>
+            <Field
+              label={isEdit ? "Banner (leave empty to keep current)" : "Banner (optional)"}
+              full
+            >
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setBanner(e.target.files?.[0] ?? null)}
+                className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm file:text-foreground`}
+              />
+              <span className="text-xs text-muted-foreground">
+                Wide image shown at the top of the category page in the app.
+              </span>
             </Field>
           </div>
 
