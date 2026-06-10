@@ -121,7 +121,7 @@ function CategoryPageContent() {
             <section className="relative h-64 w-full overflow-hidden sm:h-80">
               {/* eslint-disable-next-line @next/next/no-img-element -- external category image */}
               <img
-                src={category.profileImage}
+                src={category.bannerImage || category.profileImage}
                 alt={category.name}
                 className="absolute inset-0 h-full w-full object-cover"
               />

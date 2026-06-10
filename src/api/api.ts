@@ -285,8 +285,10 @@ export interface CategoryInput {
   description?: string;
   /** Parent category id; omit/0 for a top-level category. */
   parentId?: number | null;
-  /** Image file — required on create, optional on update. */
+  /** Square icon image — required on create, optional on update. */
   image?: File | null;
+  /** Wide banner image shown on the category page — optional. */
+  banner?: File | null;
 }
 
 function categoryFormData(body: CategoryInput): FormData {
@@ -295,6 +297,7 @@ function categoryFormData(body: CategoryInput): FormData {
   if (body.description) fd.append("description", body.description);
   if (body.parentId != null) fd.append("parentId", String(body.parentId));
   if (body.image) fd.append("catagoryImage", body.image);
+  if (body.banner) fd.append("bannerImage", body.banner);
   return fd;
 }
 
@@ -467,6 +470,8 @@ export interface CategoryTreeNode {
   name: string;
   description: string | null;
   profileImage: string;
+  /** Wide banner image shown on the category page (optional). */
+  bannerImage?: string | null;
   /** Services attached directly to this category (no sub-category). */
   services: CategoryTreeService[];
   groups: CategoryTreeGroup[];
