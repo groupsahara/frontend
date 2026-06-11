@@ -68,7 +68,17 @@ export function HowItWorks() {
 
         {/* Wide bottom card */}
         <div className="grid overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:grid-cols-[1fr_1fr]">
-          <div className="min-h-[250px] bg-[#111827] md:min-h-[300px]"></div>
+          <div className="relative min-h-[250px] overflow-hidden bg-[#111827] md:min-h-[300px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80"
+              alt="Professional service technician at work"
+              className="h-full w-full object-cover opacity-90"
+              style={{ position: "absolute", inset: 0 }}
+            />
+            {/* subtle dark overlay for contrast */}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/20" />
+          </div>
           <div className="flex flex-col justify-center p-8 md:p-12">
             <h3 className="mb-4 text-2xl font-bold text-gray-900 sm:text-3xl">
               See how on-demand service works in real life

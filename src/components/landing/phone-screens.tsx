@@ -37,13 +37,12 @@ export function PhoneScreens() {
       {/* App header */}
       <div className="flex items-center justify-between px-5 pb-3 pt-2">
         <div className="flex items-center gap-2">
-          <span
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-bold text-white"
-            style={{ backgroundColor: ACCENT }}
-          >
-            RC
-          </span>
-          <span className="text-sm font-bold tracking-tight">RestoCare</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://imgproxy.royodispatch.com/insecure/fit/300/100/sm/0/plain/https://restocare-asset.s3.ap-south-1.amazonaws.com/assets/Clientlogo/FE4tX1iKGv1yJIk1JijoEtq11jm1yGTIdMPIUjpa.png"
+            alt="RestoCare"
+            className="h-6 w-auto object-contain"
+          />
         </div>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${

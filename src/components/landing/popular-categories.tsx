@@ -12,12 +12,12 @@ interface PopularCategoriesProps {
   onSelect?: (categoryId: number | null) => void;
 }
 
-/** Images for the right-hand collage (Urban Company–style hero imagery). */
-const COLLAGE = [
-  "https://plus.unsplash.com/premium_photo-1661778091956-15dbe6e47442?w=900&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y2hlZnxlbnwwfHwwfHx8MA%3D%3D",
-  "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=600&q=80&auto=format&fit=crop",
+/** Videos for the right-hand collage (order: video2, video3, video4, video1). */
+const COLLAGE_VIDEOS = [
+  "/videos/video2.mp4",
+  "/videos/video3.mp4",
+  "/videos/video4.mp4",
+  "/videos/video1.mp4",
 ];
 
 /** Emoji fallback per category name (used when a category has no image). */
@@ -93,10 +93,10 @@ export function PopularCategories(_props: PopularCategoriesProps) {
           )}
         </div>
 
-        {/* RIGHT — image collage covering the space */}
+        {/* RIGHT — video collage covering the space */}
         <div className="hidden grid-cols-2 gap-4 lg:grid">
-          {COLLAGE.map((src, i) => (
-            <CollageImage key={i} src={src} className="aspect-square" />
+          {COLLAGE_VIDEOS.map((src, i) => (
+            <CollageVideo key={i} src={src} className="aspect-square" />
           ))}
         </div>
       </div>
@@ -132,13 +132,19 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
   );
 }
 
-function CollageImage({ src, className }: { src: string; className?: string }) {
+function CollageVideo({ src, className }: { src: string; className?: string }) {
   return (
     <div
-      className={`overflow-hidden rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-2xl bg-black ${className ?? ""}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- external stock imagery */}
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <video
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover"
+      />
     </div>
   );
 }

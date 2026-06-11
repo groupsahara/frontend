@@ -49,14 +49,43 @@ export function WhyChooseUs() {
             </ul>
           </div>
 
-          {/* Right image */}
-          <div className="relative overflow-hidden rounded-[2rem] shadow-sm bg-gray-100">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=80"
-              alt="Customer service"
-              className="h-full w-full object-cover aspect-video lg:aspect-[4/3]"
-            />
+          {/* Right — stacked image collage */}
+          <div className="relative grid grid-cols-2 gap-4">
+            {/* Top-left: large main image */}
+            <div className="col-span-2 overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=900&q=80"
+                alt="Professional chef in a restaurant kitchen"
+                className="h-56 w-full object-cover lg:h-64"
+              />
+            </div>
+            {/* Bottom-left */}
+            <div className="overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80"
+                alt="Restaurant kitchen equipment being serviced"
+                className="h-40 w-full object-cover"
+              />
+            </div>
+            {/* Bottom-right */}
+            <div className="overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80"
+                alt="Technician repairing commercial kitchen appliance"
+                className="h-40 w-full object-cover"
+              />
+            </div>
+            {/* Floating trust badge */}
+            <div className="absolute -bottom-4 -left-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">✅</span>
+              <div>
+                <p className="text-sm font-bold text-gray-900">10,000+ Services</p>
+                <p className="text-xs text-gray-500">Completed this month</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

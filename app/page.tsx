@@ -41,6 +41,7 @@ export default function Home() {
           <PopularCategories selectedCategoryId={categoryId} onSelect={setCategoryId} />
         </Reveal>
          <PhoneShowcase />
+        <VideoBanner />
         <Reveal>
           <HowItWorks />
         </Reveal>
@@ -62,9 +63,7 @@ export default function Home() {
         <Reveal>
           <RestaurantRepair />
         </Reveal>
-        <Reveal>
-          <VideoBanner />
-        </Reveal>
+
         <Reveal>
           <PartnerCTA />
         </Reveal>
