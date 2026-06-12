@@ -58,7 +58,7 @@ export function Footer() {
               <li><Link href="#" className="hover:text-white transition">Become Our Partner</Link></li>
               <li><Link href="#" className="hover:text-white transition">Refund & Cancellation Policy</Link></li>
               <li><Link href="#" className="hover:text-white transition">Terms And Conditions</Link></li>
-              <li><Link href="#" className="hover:text-white transition">Privacy Policy</Link></li>
+              <li><Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link></li>
               <li><Link href="#" className="hover:text-white transition">Freelancer Registration</Link></li>
             </ul>
           </div>
