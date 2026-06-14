@@ -855,6 +855,13 @@ function normalizeBookingResponse(value: unknown): BookingSummary {
   };
 }
 
+/** The professional assigned to a booking (who accepted it). */
+export interface BookingProfessional {
+  professionalId?: number;
+  rating?: number | null;
+  user?: { name?: string | null; email?: string | null; mobile?: string | null } | null;
+}
+
 /** A booking row as returned by GET /v1/booking/get (loosely shaped). */
 export interface BookingRecord {
   bookingId?: number;
@@ -865,11 +872,14 @@ export interface BookingRecord {
   variantName?: string | null;
   service?: { serviceId?: number; name?: string; profileImage?: string | null } | null;
   variant?: { variantId?: number; name?: string } | null;
+  professionalId?: number | null;
+  professional?: BookingProfessional | null;
   bookingDate?: string;
   startTime?: string;
   totalAmount?: number;
   paymentMode?: string;
   status?: string;
+  otpVerified?: boolean;
   createdAt?: string;
 }
 

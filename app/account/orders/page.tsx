@@ -21,21 +21,40 @@ const normalizeStatus = (status?: string) =>
 const isPastStatus = (status?: string) =>
   /cancel|reject|complete|finished|done/.test(normalizeStatus(status));
 
-const PROGRESS_LABELS = ["Confirmed", "Accepted", "In Progress", "Completed"];
+const PROGRESS_LABELS = ["Confirmed", "Accepted", "On the way", "Completed"];
 
 function progressStep(status?: string): number {
   const s = normalizeStatus(status);
   if (/complete|finished|done/.test(s)) return 4;
-  if (/started|in-progress|inprogress|arrived|progress/.test(s)) return 3;
+  if (/on-the-way|started|in-progress|inprogress|arrived|progress/.test(s)) return 3;
   if (/accepted/.test(s)) return 2;
-  if (/pending|confirmed/.test(s)) return 1;
+  if (/pending|confirmed|assigned/.test(s)) return 1;
   return 1;
 }
 
 const showProgress = (status?: string) =>
-  /pending|confirmed|accepted|started|in-progress|inprogress|arrived|progress|complete|finished|done/.test(
+  /pending|confirmed|assigned|accepted|on-the-way|started|in-progress|inprogress|arrived|progress|complete|finished|done/.test(
     normalizeStatus(status),
   );
+
+/** A booking is "accepted by a professional" once it's past the pending stage. */
+const isAccepted = (status?: string) =>
+  /accepted|on-the-way|started|in-progress|inprogress|arrived|progress|complete|finished|done/.test(
+    normalizeStatus(status),
+  );
+
+/** Friendly label for the current status. */
+function statusLabel(status?: string): string {
+  const s = normalizeStatus(status);
+  if (/on-the-way/.test(s)) return "On the way";
+  if (/in-progress|inprogress|started|progress|arrived/.test(s)) return "In progress";
+  if (/complete|finished|done/.test(s)) return "Completed";
+  if (/accepted/.test(s)) return "Accepted";
+  if (/cancel/.test(s)) return "Cancelled";
+  if (/reject/.test(s)) return "Rejected";
+  if (/assigned/.test(s)) return "Assigned";
+  return "Pending";
+}
 
 export default function MyBookingsPage() {
   const router = useRouter();
@@ -170,6 +189,9 @@ export default function MyBookingsPage() {
               const variantName = b.variant?.name || b.variantName || "Variant";
               const step = progressStep(b.status);
               const cancelled = b.status?.toLowerCase().includes("cancel");
+              const proName = b.professional?.user?.name?.trim();
+              const proMobile = b.professional?.user?.mobile?.trim();
+              const accepted = isAccepted(b.status) && Boolean(b.professionalId || b.professional);
               return (
                 <div
                   key={id}
@@ -224,7 +246,7 @@ export default function MyBookingsPage() {
                       <span
                         className={`text-xs font-bold ${cancelled ? "text-red-600" : "text-gray-900"}`}
                       >
-                        {b.status || "Unknown"}
+                        {statusLabel(b.status)}
                       </span>
                     )}
                   </div>
@@ -240,6 +262,33 @@ export default function MyBookingsPage() {
                       {inr(b.totalAmount || 0)}
                     </span>
                   </div>
+
+                  {/* Who accepted the booking */}
+                  {accepted && (
+                    <div className="mt-3 flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 p-3">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-600 text-sm font-bold text-white">
+                        {(proName ?? "P").slice(0, 1).toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-green-700">
+                          {statusLabel(b.status) === "Completed"
+                            ? "Service completed by"
+                            : "Accepted by"}
+                        </p>
+                        <p className="truncate text-sm font-bold text-gray-900">
+                          {proName || `Professional #${b.professionalId ?? ""}`}
+                        </p>
+                      </div>
+                      {proMobile ? (
+                        <a
+                          href={`tel:${proMobile}`}
+                          className="shrink-0 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700"
+                        >
+                          📞 Call
+                        </a>
+                      ) : null}
+                    </div>
+                  )}
 
                   {/* Progress */}
                   {showProgress(b.status) && (
