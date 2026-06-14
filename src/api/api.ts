@@ -484,6 +484,9 @@ export const categoryTreeApi = {
 
 /* ============================== Banners ================================= */
 
+/** Where a banner is shown: the web storefront or the mobile app. */
+export type BannerPlatform = "WEB" | "MOBILE";
+
 export interface Banner {
   bannerId: number;
   title: string | null;
@@ -493,6 +496,8 @@ export interface Banner {
   linkUrl: string | null;
   isActive: boolean;
   sortOrder: number;
+  /** Defaults to WEB for banners created before the platform field existed. */
+  platform?: BannerPlatform;
   createdAt: string;
   updatedAt: string;
 }
@@ -503,18 +508,44 @@ export interface BannerInput {
   linkUrl?: string;
   isActive?: boolean;
   sortOrder?: number;
+  platform?: BannerPlatform;
   /** Image file — required on create, optional on update. */
   image?: File | null;
 }
 
-/** Recommended banner image dimensions / size (shown + validated in the panel). */
-export const BANNER_SPEC = {
-  width: 1920,
-  height: 640,
-  minWidth: 1200,
-  maxBytes: 5 * 1024 * 1024,
-  label: "1920 × 640 px (3:1), max 5 MB",
+/** Recommended banner image dimensions / size, per platform. */
+export interface BannerSpec {
+  width: number;
+  height: number;
+  minWidth: number;
+  maxBytes: number;
+  aspect: string;
+  label: string;
+}
+
+export const BANNER_SPECS: Record<BannerPlatform, BannerSpec> = {
+  // Web storefront hero — wide landscape.
+  WEB: {
+    width: 1920,
+    height: 640,
+    minWidth: 1200,
+    maxBytes: 5 * 1024 * 1024,
+    aspect: "3:1",
+    label: "1920 × 640 px (3:1), max 5 MB",
+  },
+  // Mobile app banner — matches the app's full-width 2:1 hero.
+  MOBILE: {
+    width: 1080,
+    height: 540,
+    minWidth: 720,
+    maxBytes: 5 * 1024 * 1024,
+    aspect: "2:1",
+    label: "1080 × 540 px (2:1), max 5 MB",
+  },
 };
+
+/** Back-compat default spec (web). */
+export const BANNER_SPEC = BANNER_SPECS.WEB;
 
 function bannerFormData(body: BannerInput): FormData {
   const fd = new FormData();
@@ -523,6 +554,7 @@ function bannerFormData(body: BannerInput): FormData {
   if (body.linkUrl !== undefined) fd.append("linkUrl", body.linkUrl);
   if (body.isActive !== undefined) fd.append("isActive", String(body.isActive));
   if (body.sortOrder !== undefined) fd.append("sortOrder", String(body.sortOrder));
+  if (body.platform !== undefined) fd.append("platform", body.platform);
   if (body.image) fd.append("bannerImage", body.image);
   return fd;
 }
@@ -531,8 +563,12 @@ export const bannerApi = {
   /** GET /v1/banner — all banners (admin). */
   list: () => apiClient.get<Banner[]>("/v1/banner"),
 
-  /** GET /v1/banner/active — active banners for the landing carousel (public). */
-  listActive: () => apiClient.get<Banner[]>("/v1/banner/active", { skipAuth: true }),
+  /** GET /v1/banner/active — active banners for a platform (public). */
+  listActive: (platform?: BannerPlatform) =>
+    apiClient.get<Banner[]>(
+      `/v1/banner/active${platform ? toQueryString({ platform }) : ""}`,
+      { skipAuth: true },
+    ),
 
   /** POST /v1/banner — multipart, image required. */
   create: (body: BannerInput) => uploadFile<Banner>("/v1/banner", bannerFormData(body)),

@@ -19,8 +19,8 @@ const FALLBACK_IMAGES = [
 
 export function Hero() {
   const { data: banners } = useQuery({
-    queryKey: queryKeys.bannersActive,
-    queryFn: () => bannerApi.listActive(),
+    queryKey: [...queryKeys.bannersActive, "WEB"],
+    queryFn: () => bannerApi.listActive("WEB"),
   });
 
   // Managed banners take precedence; fall back to the built-in imagery.

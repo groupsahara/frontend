@@ -2,12 +2,20 @@
 
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { BANNER_SPEC, bannerApi, queryKeys, type Banner } from "@/src/api/api";
+import {
+  BANNER_SPECS,
+  bannerApi,
+  queryKeys,
+  type Banner,
+  type BannerPlatform,
+} from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
 
 interface BannerFormProps {
   banner: Banner | null; // null => create
+  /** Platform pre-selected when creating a new banner (defaults to WEB). */
+  defaultPlatform?: BannerPlatform;
   onClose: () => void;
 }
 
@@ -28,7 +36,7 @@ function readImageSize(file: File): Promise<{ width: number; height: number }> {
   });
 }
 
-export function BannerForm({ banner, onClose }: BannerFormProps) {
+export function BannerForm({ banner, defaultPlatform = "WEB", onClose }: BannerFormProps) {
   const isEdit = Boolean(banner);
   const queryClient = useQueryClient();
 
@@ -37,8 +45,14 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
   const [linkUrl, setLinkUrl] = useState(banner?.linkUrl ?? "");
   const [isActive, setIsActive] = useState(banner?.isActive ?? true);
   const [sortOrder, setSortOrder] = useState<string>(String(banner?.sortOrder ?? 0));
+  const [platform, setPlatform] = useState<BannerPlatform>(
+    banner?.platform ?? defaultPlatform,
+  );
   const [image, setImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+
+  // Recommended size + validation thresholds depend on the chosen platform.
+  const spec = BANNER_SPECS[platform];
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -48,6 +62,7 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
         linkUrl: linkUrl.trim(),
         isActive,
         sortOrder: Number(sortOrder) || 0,
+        platform,
         image,
       };
       return banner ? bannerApi.update(banner.bannerId, payload) : bannerApi.create(payload);
@@ -64,10 +79,10 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
     setImage(null);
     if (!file) return;
 
-    if (file.size > BANNER_SPEC.maxBytes) {
+    if (file.size > spec.maxBytes) {
       setImageError(
         `Image is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is ${(
-          BANNER_SPEC.maxBytes / 1024 / 1024
+          spec.maxBytes / 1024 / 1024
         ).toFixed(0)} MB.`,
       );
       return;
@@ -75,9 +90,9 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
 
     try {
       const { width, height } = await readImageSize(file);
-      if (width < BANNER_SPEC.minWidth) {
+      if (width < spec.minWidth) {
         setImageError(
-          `Image is ${width}×${height}px — too small. Use at least ${BANNER_SPEC.minWidth}px wide (recommended ${BANNER_SPEC.width}×${BANNER_SPEC.height}).`,
+          `Image is ${width}×${height}px — too small. Use at least ${spec.minWidth}px wide (recommended ${spec.width}×${spec.height}).`,
         );
         return;
       }
@@ -132,6 +147,39 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
+          {/* Platform: web storefront vs mobile app */}
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium text-muted-foreground">Banner for</span>
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: "WEB" as const, label: "🖥️ Web", hint: BANNER_SPECS.WEB.label },
+                  { value: "MOBILE" as const, label: "📱 Mobile", hint: BANNER_SPECS.MOBILE.label },
+                ]
+              ).map((opt) => {
+                const active = platform === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setPlatform(opt.value);
+                      setImageError(null);
+                    }}
+                    className={`rounded-xl border p-3 text-left transition ${
+                      active
+                        ? "border-primary bg-primary/5 ring-2 ring-ring/30"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold text-foreground">{opt.label}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{opt.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Image + size guidance */}
           <div className="space-y-2 rounded-xl border border-border bg-background/40 p-4">
             <div className="flex items-center justify-between">
@@ -139,7 +187,7 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
                 Banner image {isEdit ? "" : "*"}
               </span>
               <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
-                Recommended: {BANNER_SPEC.label}
+                Recommended: {spec.label}
               </span>
             </div>
 
@@ -149,7 +197,8 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
                 <img
                   src={previewSrc}
                   alt="Banner preview"
-                  className="aspect-[3/1] w-full object-cover"
+                  style={{ aspectRatio: platform === "MOBILE" ? "2 / 1" : "3 / 1" }}
+                  className="w-full object-cover"
                 />
               </div>
             )}
@@ -161,8 +210,10 @@ export function BannerForm({ banner, onClose }: BannerFormProps) {
               className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm file:text-foreground`}
             />
             <p className="text-xs text-muted-foreground">
-              Wide landscape image works best (aspect ratio 3:1). Max file size{" "}
-              {(BANNER_SPEC.maxBytes / 1024 / 1024).toFixed(0)} MB.
+              {platform === "MOBILE"
+                ? `Mobile app banner — use a ${spec.aspect} image (recommended ${spec.width}×${spec.height}px).`
+                : `Wide landscape works best — ${spec.aspect} (recommended ${spec.width}×${spec.height}px).`}{" "}
+              Max file size {(spec.maxBytes / 1024 / 1024).toFixed(0)} MB.
             </p>
             {imageError && <p className="text-xs text-danger">{imageError}</p>}
           </div>

@@ -221,6 +221,14 @@ function CustomerLoginContent() {
       <p className="mt-6 text-center text-xs text-gray-400">
         By continuing you agree to RestoCare&apos;s Terms &amp; Privacy Policy.
       </p>
+
+      {/* Admins / super admins sign in with email + password instead of OTP. */}
+      <Link
+        href="/login"
+        className="mt-4 text-center text-xs font-medium text-gray-500 underline-offset-2 hover:text-gray-900 hover:underline"
+      >
+        Are you an admin? Sign in with email &amp; password →
+      </Link>
     </div>
   );
 }

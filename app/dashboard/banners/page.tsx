@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BANNER_SPEC, bannerApi, queryKeys, type Banner } from "@/src/api/api";
+import {
+  BANNER_SPECS,
+  bannerApi,
+  queryKeys,
+  type Banner,
+  type BannerPlatform,
+} from "@/src/api/api";
 import { BannerForm } from "@/src/components/dashboard/banner-form";
 import { ImageIcon, PencilIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@/src/components/icons";
 
@@ -10,6 +16,7 @@ export default function BannersPage() {
   const queryClient = useQueryClient();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Banner | null>(null);
+  const [platformTab, setPlatformTab] = useState<BannerPlatform>("WEB");
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.banners,
@@ -33,7 +40,18 @@ export default function BannersPage() {
     },
   });
 
-  const banners = data ?? [];
+  const banners = useMemo(() => data ?? [], [data]);
+  const platformOf = (b: Banner): BannerPlatform => b.platform ?? "WEB";
+
+  const counts = useMemo(
+    () => ({
+      WEB: banners.filter((b) => platformOf(b) === "WEB").length,
+      MOBILE: banners.filter((b) => platformOf(b) === "MOBILE").length,
+    }),
+    [banners],
+  );
+  const filtered = banners.filter((b) => platformOf(b) === platformTab);
+  const spec = BANNER_SPECS[platformTab];
 
   const openCreate = () => {
     setEditing(null);
@@ -56,7 +74,8 @@ export default function BannersPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Banner</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage the homepage hero banners. Recommended size {BANNER_SPEC.label}.
+            Manage {platformTab === "WEB" ? "web storefront" : "mobile app"} banners.
+            Recommended size {spec.label}.
           </p>
         </div>
         <button
@@ -64,8 +83,40 @@ export default function BannersPage() {
           className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
         >
           <PlusIcon className="h-4 w-4" />
-          Add Banner
+          Add {platformTab === "WEB" ? "Web" : "Mobile"} Banner
         </button>
+      </div>
+
+      {/* Platform tabs */}
+      <div className="flex gap-1 rounded-xl border border-border bg-card p-1">
+        {(
+          [
+            { value: "WEB" as const, label: "🖥️ Web Banners" },
+            { value: "MOBILE" as const, label: "📱 Mobile Banners" },
+          ]
+        ).map((t) => {
+          const active = platformTab === t.value;
+          return (
+            <button
+              key={t.value}
+              onClick={() => setPlatformTab(t.value)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {t.label}
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-xs ${
+                  active ? "bg-primary-foreground/20" : "bg-muted"
+                }`}
+              >
+                {counts[t.value]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {isLoading ? (
@@ -82,31 +133,39 @@ export default function BannersPage() {
             Retry
           </button>
         </div>
-      ) : banners.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex h-60 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card text-center">
           <ImageIcon className="h-10 w-10 text-muted-foreground" />
-          <p className="text-muted-foreground">No banners yet.</p>
+          <p className="text-muted-foreground">
+            No {platformTab === "WEB" ? "web" : "mobile"} banners yet.
+          </p>
           <button
             onClick={openCreate}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
-            Add your first banner
+            Add a {platformTab === "WEB" ? "web" : "mobile"} banner
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          {banners.map((banner) => (
+          {filtered.map((banner) => (
             <div
               key={banner.bannerId}
               className="overflow-hidden rounded-2xl border border-border bg-card"
             >
-              <div className="relative aspect-[3/1] w-full bg-muted">
+              <div
+                className="relative w-full bg-muted"
+                style={{ aspectRatio: platformOf(banner) === "MOBILE" ? "2 / 1" : "3 / 1" }}
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element -- external banner image */}
                 <img
                   src={banner.imageUrl}
                   alt={banner.title ?? "Banner"}
                   className="h-full w-full object-cover"
                 />
+                <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-white">
+                  {platformOf(banner) === "MOBILE" ? "📱 Mobile" : "🖥️ Web"}
+                </span>
                 <span
                   className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium ${
                     banner.isActive
@@ -158,7 +217,13 @@ export default function BannersPage() {
         </div>
       )}
 
-      {formOpen && <BannerForm banner={editing} onClose={() => setFormOpen(false)} />}
+      {formOpen && (
+        <BannerForm
+          banner={editing}
+          defaultPlatform={platformTab}
+          onClose={() => setFormOpen(false)}
+        />
+      )}
     </div>
   );
 }
