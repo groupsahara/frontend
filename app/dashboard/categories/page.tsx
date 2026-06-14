@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { categoryApi, categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
@@ -46,13 +46,82 @@ export default function CategoriesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree }),
   });
 
+  // Best-effort backend persistence of the order (so web + app match). If the
+  // endpoint isn't deployed yet, the local order still applies in the admin.
+  const reorderMutation = useMutation({
+    mutationFn: (ids: number[]) => categoryApi.reorder(ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree }),
+  });
+
   const categories = useMemo(() => data ?? [], [data]);
+
+  // ── Drag-and-drop ordering (persisted locally in the admin browser) ──
+  const ORDER_KEY = "rc.categoryOrder";
+  const [order, setOrder] = useState<number[]>([]);
+  const dragId = useRef<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Deferred to a microtask so we never setState synchronously in-effect.
+    queueMicrotask(() => {
+      try {
+        const raw = window.localStorage.getItem(ORDER_KEY);
+        if (raw) setOrder(JSON.parse(raw) as number[]);
+      } catch {
+        /* ignore */
+      }
+    });
+  }, []);
+
+  const persistOrder = (ids: number[]) => {
+    // Local order = instant admin feedback (and a fallback if the backend
+    // reorder endpoint isn't deployed yet).
+    setOrder(ids);
+    try {
+      window.localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
+    } catch {
+      /* ignore */
+    }
+    // Persist to the backend so the website + customer app share this order.
+    reorderMutation.mutate(ids);
+  };
+
+  // Apply the saved order; unknown/new categories fall to the end (stable).
+  const orderedCategories = useMemo(() => {
+    if (!order.length) return categories;
+    const pos = new Map(order.map((id, i) => [id, i]));
+    return categories
+      .map((c, i) => ({ c, i }))
+      .sort((a, b) => {
+        const pa = pos.get(a.c.categoryId) ?? Number.MAX_SAFE_INTEGER;
+        const pb = pos.get(b.c.categoryId) ?? Number.MAX_SAFE_INTEGER;
+        return pa !== pb ? pa - pb : a.i - b.i;
+      })
+      .map((x) => x.c);
+  }, [categories, order]);
+
+  const isSearching = search.trim().length > 0;
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter((c) => c.name.toLowerCase().includes(q));
-  }, [categories, search]);
+    if (!q) return orderedCategories;
+    return orderedCategories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [orderedCategories, search]);
+
+  // Reorder: move the dragged category to where it was dropped, then persist.
+  const handleDrop = (targetId: number) => {
+    const src = dragId.current;
+    dragId.current = null;
+    setDragOverId(null);
+    if (src == null || src === targetId) return;
+    const ids = orderedCategories.map((c) => c.categoryId);
+    const from = ids.indexOf(src);
+    const to = ids.indexOf(targetId);
+    if (from < 0 || to < 0) return;
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    persistOrder(ids);
+  };
 
   const stats = useMemo(
     () => ({
@@ -144,6 +213,7 @@ export default function CategoriesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="w-10 px-2 py-3 font-medium" aria-label="Reorder" />
                   <th className="px-5 py-3 font-medium">Category</th>
                   <th className="px-5 py-3 font-medium">Description</th>
                   <th className="px-5 py-3 font-medium">Services</th>
@@ -155,8 +225,40 @@ export default function CategoriesPage() {
                 {filtered.map((category) => (
                   <tr
                     key={category.categoryId}
-                    className="border-t border-border transition-colors hover:bg-muted/40"
+                    draggable={!isSearching}
+                    onDragStart={() => {
+                      dragId.current = category.categoryId;
+                    }}
+                    onDragOver={(e) => {
+                      if (isSearching) return;
+                      e.preventDefault();
+                      if (dragOverId !== category.categoryId) setDragOverId(category.categoryId);
+                    }}
+                    onDragLeave={() => {
+                      if (dragOverId === category.categoryId) setDragOverId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleDrop(category.categoryId);
+                    }}
+                    onDragEnd={() => {
+                      dragId.current = null;
+                      setDragOverId(null);
+                    }}
+                    className={`border-t border-border transition-colors hover:bg-muted/40 ${
+                      dragOverId === category.categoryId ? "bg-primary/10" : ""
+                    }`}
                   >
+                    <td className="px-2 py-3">
+                      <span
+                        title={isSearching ? "Clear search to reorder" : "Drag to reorder"}
+                        className={`flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground ${
+                          isSearching ? "opacity-30" : "cursor-grab hover:bg-muted active:cursor-grabbing"
+                        }`}
+                      >
+                        <GripIcon className="h-4 w-4" />
+                      </span>
+                    </td>
                     <td className="px-5 py-3">
                       <Link
                         href={`/dashboard/categories/${category.categoryId}`}
@@ -202,14 +304,34 @@ export default function CategoriesPage() {
         )}
 
         {filtered.length > 0 && (
-          <div className="border-t border-border px-5 py-3 text-sm text-muted-foreground">
-            Showing {filtered.length} of {categories.length} entries
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-3 text-sm text-muted-foreground">
+            <span>
+              Showing {filtered.length} of {categories.length} entries
+            </span>
+            <span className="text-xs">
+              {isSearching
+                ? "Clear the search to reorder categories"
+                : "Tip: drag the ⠿ handle to reorder categories"}
+            </span>
           </div>
         )}
       </div>
 
       {formOpen && <CategoryForm category={editing} onClose={() => setFormOpen(false)} />}
     </div>
+  );
+}
+
+function GripIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="9" cy="6" r="1.6" />
+      <circle cx="15" cy="6" r="1.6" />
+      <circle cx="9" cy="12" r="1.6" />
+      <circle cx="15" cy="12" r="1.6" />
+      <circle cx="9" cy="18" r="1.6" />
+      <circle cx="15" cy="18" r="1.6" />
+    </svg>
   );
 }
 

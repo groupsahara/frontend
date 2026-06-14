@@ -319,6 +319,11 @@ export const categoryApi = {
   /** DELETE /v1/catagories/service-categories/:id */
   remove: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/catagories/service-categories/${id}`),
+
+  /** PATCH /v1/catagories/reorder — persist admin drag-and-drop order so the
+   *  web storefront and customer app show categories in the same sequence. */
+  reorder: (ids: number[]) =>
+    apiClient.patch<{ message: string; count: number }>("/v1/catagories/reorder", { ids }),
 };
 
 /* ====================== Services (catalog) & variants =================== */
