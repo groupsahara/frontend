@@ -1,0 +1,94 @@
+function CheckIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width={20}
+      height={20}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+export function WhyChooseUs() {
+  const points = [
+    "Verified providers with quality checks",
+    "Real-time order and booking updates",
+    "Secure checkout and easy support",
+    "Fast reschedule and cancellation options",
+  ];
+
+  return (
+    <section className="bg-white py-16 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-24">
+          {/* Left content */}
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-4xl">
+              WHY CUSTOMERS CHOOSE US
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-gray-500 max-w-lg">
+              We combine trusted professionals, verified reviews, transparent pricing, and premium customer support.
+            </p>
+
+            <ul className="mt-8 space-y-4">
+              {points.map((point, index) => (
+                <li key={index} className="flex items-center gap-3">
+                  <div className="shrink-0 text-emerald-500">
+                    <CheckIcon className="h-5 w-5" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600 sm:text-base">{point}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Right — stacked image collage */}
+          <div className="relative grid grid-cols-2 gap-4">
+            {/* Top-left: large main image */}
+            <div className="col-span-2 overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=900&q=80"
+                alt="Professional chef in a restaurant kitchen"
+                className="h-56 w-full object-cover lg:h-64"
+              />
+            </div>
+            {/* Bottom-left */}
+            <div className="overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80"
+                alt="Restaurant kitchen equipment being serviced"
+                className="h-40 w-full object-cover"
+              />
+            </div>
+            {/* Bottom-right */}
+            <div className="overflow-hidden rounded-2xl shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80"
+                alt="Technician repairing commercial kitchen appliance"
+                className="h-40 w-full object-cover"
+              />
+            </div>
+            {/* Floating trust badge */}
+            <div className="absolute -bottom-4 -left-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">✅</span>
+              <div>
+                <p className="text-sm font-bold text-gray-900">10,000+ Services</p>
+                <p className="text-xs text-gray-500">Completed this month</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

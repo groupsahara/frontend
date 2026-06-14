@@ -6,6 +6,7 @@ import {
   BagIcon,
   ChartIcon,
   GridIcon,
+  ImageIcon,
   LogoutIcon,
   SettingsIcon,
   StoreIcon,
@@ -23,7 +24,8 @@ type NavItem = {
 const NAV: NavItem[] = [
   { label: "Overview", href: "/dashboard", icon: GridIcon },
   { label: "Analytics", href: "/dashboard/analytics", icon: ChartIcon },
-  { label: "Vendors", href: "/dashboard/vendors", icon: StoreIcon },
+  { label: "Categories", href: "/dashboard/categories", icon: StoreIcon },
+  { label: "Banner", href: "/dashboard/banners", icon: ImageIcon },
   { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon },
   { label: "Customers", href: "/dashboard/customers", icon: UsersIcon },
   { label: "Payments", href: "/dashboard/payments", icon: WalletIcon },

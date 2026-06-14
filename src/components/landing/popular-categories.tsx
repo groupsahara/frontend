@@ -1,32 +1,64 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { queryKeys, storefrontApi, type StorefrontCategory } from "@/src/api/api";
+import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
 import { SpinnerIcon } from "@/src/components/icons";
 
 interface PopularCategoriesProps {
-  selectedCategoryId: number | null;
-  onSelect: (categoryId: number | null) => void;
+  /** Kept for backwards-compat with the landing page; clicking a tile now
+   *  navigates to the category page instead of filtering in place. */
+  selectedCategoryId?: number | null;
+  onSelect?: (categoryId: number | null) => void;
 }
 
-/** Images for the right-hand collage (Urban Company–style hero imagery). */
-const COLLAGE = [
-  "https://images.unsplash.com/photo-1556228720-195a672e8a03?w=600&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=600&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&q=80&auto=format&fit=crop",
-  "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=600&q=80&auto=format&fit=crop",
+/** Videos for the right-hand collage (order: video2, video3, video4, video1). */
+const COLLAGE_VIDEOS = [
+  "/videos/video2.mp4",
+  "/videos/video3.mp4",
+  "/videos/video4.mp4",
+  "/videos/video1.mp4",
 ];
 
-export function PopularCategories({
-  selectedCategoryId,
-  onSelect,
-}: PopularCategoriesProps) {
+/** Emoji fallback per category name (used when a category has no image). */
+const EMOJI_BY_NAME: Record<string, string> = {
+  "executive chef": "👨‍🍳",
+  "sous chef": "🍳",
+  cdp: "🍲",
+  commis: "🔪",
+  steward: "🍽️",
+  housekeeping: "🧹",
+  "utility staff": "🧽",
+  bartender: "🍸",
+  chef: "👨‍🍳",
+  "chef catagory": "👨‍🍳",
+  "helpers & waiters": "🧑‍🍳",
+  carpenter: "🔨",
+  electrician: "💡",
+  "pest controll": "🐜",
+  "pest control": "🐜",
+  technician: "🛠️",
+  "deep cleaning": "🧼",
+  plumber: "🚿",
+  cleaning: "🧹",
+  beauty: "💇",
+  salon: "💅",
+};
+
+const FALLBACK_EMOJI = "🧰";
+
+function emojiFor(name: string): string {
+  return EMOJI_BY_NAME[name.trim().toLowerCase()] ?? FALLBACK_EMOJI;
+}
+
+export function PopularCategories(_props: PopularCategoriesProps) {
+  void _props;
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.storefrontCategories,
-    queryFn: () => storefrontApi.categories(),
+    queryKey: queryKeys.categoryTree,
+    queryFn: () => categoryTreeApi.tree(),
   });
 
-  const categories = data?.categories ?? [];
+  const categories = data ?? [];
 
   return (
     <section id="categories" className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -42,15 +74,6 @@ export function PopularCategories({
       <div className="grid items-stretch gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* LEFT — category card */}
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
-          {selectedCategoryId !== null && (
-            <button
-              onClick={() => onSelect(null)}
-              className="mb-4 text-sm font-medium text-gray-900 underline"
-            >
-              ← Clear filter
-            </button>
-          )}
-
           {isLoading ? (
             <div className="flex h-72 items-center justify-center text-gray-400">
               <SpinnerIcon className="h-6 w-6" />
@@ -64,58 +87,32 @@ export function PopularCategories({
           ) : (
             <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4">
               {categories.map((category) => (
-                <CategoryTile
-                  key={category.categoryId}
-                  category={category}
-                  active={selectedCategoryId === category.categoryId}
-                  onClick={() =>
-                    onSelect(
-                      selectedCategoryId === category.categoryId
-                        ? null
-                        : category.categoryId,
-                    )
-                  }
-                />
+                <CategoryTile key={category.categoryId} category={category} />
               ))}
             </div>
           )}
         </div>
 
-        {/* RIGHT — image collage covering the space */}
+        {/* RIGHT — video collage covering the space */}
         <div className="hidden grid-cols-2 gap-4 lg:grid">
-          <div className="space-y-4">
-            <CollageImage src={COLLAGE[0]} className="h-2/3" />
-            <CollageImage src={COLLAGE[2]} className="h-1/3" />
-          </div>
-          <div className="space-y-4 pt-10">
-            <CollageImage src={COLLAGE[1]} className="h-1/3" />
-            <CollageImage src={COLLAGE[3]} className="h-2/3" />
-          </div>
+          {COLLAGE_VIDEOS.map((src, i) => (
+            <CollageVideo key={i} src={src} className="aspect-square" />
+          ))}
         </div>
       </div>
     </section>
   );
 }
 
-function CategoryTile({
-  category,
-  active,
-  onClick,
-}: {
-  category: StorefrontCategory;
-  active: boolean;
-  onClick: () => void;
-}) {
+function CategoryTile({ category }: { category: CategoryTreeNode }) {
+  const hasImage = Boolean(category.profileImage);
   return (
-    <button onClick={onClick} className="group flex flex-col items-center gap-2 text-center">
-      <div
-        className={`relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border bg-gray-50 transition ${
-          active
-            ? "border-gray-900 ring-2 ring-gray-900/10"
-            : "border-transparent group-hover:border-gray-200 group-hover:shadow-sm"
-        }`}
-      >
-        {category.profileImage ? (
+    <Link
+      href={`/category/${category.categoryId}`}
+      className="group flex cursor-pointer flex-col items-center gap-3 text-center"
+    >
+      <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-transparent bg-gray-50 transition group-hover:border-gray-200 group-hover:shadow-sm">
+        {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external category images
           <img
             src={category.profileImage}
@@ -123,31 +120,31 @@ function CategoryTile({
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (
-          <span className="text-2xl font-semibold text-gray-300">
-            {category.name.charAt(0)}
-          </span>
-        )}
-
-        {category.vendorCount > 0 && (
-          <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 rounded-md border border-gray-100 bg-white/95 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 shadow-sm">
-            {category.vendorCount} {category.vendorCount === 1 ? "vendor" : "vendors"}
+          <span className="text-4xl transition duration-300 group-hover:scale-110">
+            {emojiFor(category.name)}
           </span>
         )}
       </div>
-      <p className="line-clamp-2 text-xs font-medium leading-tight text-gray-800">
+      <p className="line-clamp-2 text-sm font-medium leading-tight text-gray-800">
         {category.name}
       </p>
-    </button>
+    </Link>
   );
 }
 
-function CollageImage({ src, className }: { src: string; className?: string }) {
+function CollageVideo({ src, className }: { src: string; className?: string }) {
   return (
     <div
-      className={`overflow-hidden rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 ${className ?? ""}`}
+      className={`relative overflow-hidden rounded-2xl bg-black ${className ?? ""}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- external stock imagery */}
-      <img src={src} alt="" className="h-full w-full object-cover" />
+      <video
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 h-full w-full object-cover"
+      />
     </div>
   );
 }
