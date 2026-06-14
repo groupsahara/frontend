@@ -769,6 +769,9 @@ export const customerAuthApi = {
     apiClient
       .post<unknown>("/v1/auth/otp-verify-user", body, { skipAuth: true })
       .then(normalizeAuthResult),
+
+  /** POST /v1/auth/deleteAccountById — permanently delete the signed-in account. */
+  deleteAccount: () => apiClient.post<unknown>("/v1/auth/deleteAccountById"),
 };
 
 /* ============================ User addresses ============================ */
@@ -852,6 +855,29 @@ function normalizeBookingResponse(value: unknown): BookingSummary {
   };
 }
 
+/** A booking row as returned by GET /v1/booking/get (loosely shaped). */
+export interface BookingRecord {
+  bookingId?: number;
+  id?: number;
+  serviceId?: number;
+  variantId?: number | null;
+  serviceName?: string;
+  variantName?: string | null;
+  service?: { serviceId?: number; name?: string; profileImage?: string | null } | null;
+  variant?: { variantId?: number; name?: string } | null;
+  bookingDate?: string;
+  startTime?: string;
+  totalAmount?: number;
+  paymentMode?: string;
+  status?: string;
+  createdAt?: string;
+}
+
+export interface UserBookingsResponse {
+  bookings: BookingRecord[];
+  pagination?: { page: number; limit: number; total: number; totalPages: number };
+}
+
 export const bookingApi = {
   /** GET /v1/booking/get/slots — professional availability for a service+date. */
   getAvailableSlots: (params: { serviceId: number; variantId: number; date: string }) =>
@@ -866,6 +892,16 @@ export const bookingApi = {
   /** POST /v1/booking/book — create a booking for one cart item. */
   create: (payload: CreateBookingPayload) =>
     apiClient.post<unknown>("/v1/booking/book", payload).then(normalizeBookingResponse),
+
+  /** GET /v1/booking/get?userId — the signed-in customer's bookings. */
+  listByUser: (userId: string | number, page = 1, limit = 50) =>
+    apiClient.get<UserBookingsResponse>(
+      `/v1/booking/get${toQueryString({ userId, page, limit })}`,
+    ),
+
+  /** POST /v1/booking/cancel — cancel a booking by id. */
+  cancel: (bookingId: number) =>
+    apiClient.post<unknown>("/v1/booking/cancel", { bookingId }).then(normalizeBookingResponse),
 };
 
 /* =============================== Payments =============================== */
@@ -915,4 +951,5 @@ export const queryKeys = {
   bannersActive: ["banners", "active"] as const,
   cart: (sessionId: string) => ["cart", sessionId] as const,
   userAddresses: (userId: string | number) => ["addresses", userId] as const,
+  userBookings: (userId: string | number) => ["bookings", "user", userId] as const,
 };

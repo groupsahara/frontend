@@ -12,20 +12,20 @@ interface MenuItem {
   title: string;
   subtitle: string;
   icon: string;
-  href?: string;
+  href: string;
   comingSoon?: boolean;
 }
 
 // Mirrors the RN AccountScreen menu (chats filtered out, like the app does).
 const MENU: MenuItem[] = [
-  { id: "orders", title: "My Orders", subtitle: "Track your service history", icon: "🛍️" },
-  { id: "loyalty", title: "Loyalty", subtitle: "Points and perks", icon: "💖", comingSoon: true },
-  { id: "wallet", title: "Wallet", subtitle: "Balance and cashback", icon: "💳", comingSoon: true },
-  { id: "wishlist", title: "Wishlist", subtitle: "Saved services", icon: "🤍", comingSoon: true },
-  { id: "join", title: "Join Us", subtitle: "Partner with RestoCare", icon: "🔗", comingSoon: true },
-  { id: "settings", title: "Settings", subtitle: "Preferences and privacy", icon: "⚙️", comingSoon: true },
-  { id: "sos", title: "SOS", subtitle: "Emergency support", icon: "🆘", comingSoon: true },
-  { id: "contact", title: "Support Center", subtitle: "WhatsApp, Call & Email support", icon: "🎧", comingSoon: true },
+  { id: "orders", title: "My Orders", subtitle: "Track your bookings & history", icon: "🛍️", href: "/account/orders" },
+  { id: "loyalty", title: "Loyalty", subtitle: "Points and perks", icon: "💖", href: "/account/loyalty", comingSoon: true },
+  { id: "wallet", title: "Wallet", subtitle: "Balance and cashback", icon: "💳", href: "/account/wallet", comingSoon: true },
+  { id: "wishlist", title: "Wishlist", subtitle: "Saved services", icon: "🤍", href: "/account/wishlist", comingSoon: true },
+  { id: "join", title: "Join Us", subtitle: "Partner with RestoCare", icon: "🔗", href: "/account/join", comingSoon: true },
+  { id: "settings", title: "Settings", subtitle: "Preferences, privacy & account", icon: "⚙️", href: "/account/settings" },
+  { id: "sos", title: "SOS", subtitle: "Emergency support", icon: "🆘", href: "/account/sos" },
+  { id: "contact", title: "Support Center", subtitle: "WhatsApp, Call & Email support", icon: "🎧", href: "/account/contact" },
 ];
 
 export default function AccountPage() {
@@ -89,49 +89,28 @@ export default function AccountPage() {
 
         {/* Menu */}
         <div className="mt-5 space-y-3">
-          {MENU.map((item) => {
-            const Inner = (
-              <>
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-base">
-                  {item.icon}
+          {MENU.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => router.push(item.href)}
+              className="flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-gray-300"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-base">
+                {item.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-gray-900">{item.title}</span>
+                <span className="block truncate text-xs text-gray-400">{item.subtitle}</span>
+              </span>
+              {item.comingSoon ? (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+                  Coming soon
                 </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-gray-900">
-                    {item.title}
-                  </span>
-                  <span className="block truncate text-xs text-gray-400">
-                    {item.subtitle}
-                  </span>
-                </span>
-                {item.comingSoon ? (
-                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-                    Coming soon
-                  </span>
-                ) : (
-                  <span className="text-gray-300">›</span>
-                )}
-              </>
-            );
-
-            return item.href && !item.comingSoon ? (
-              <button
-                key={item.id}
-                onClick={() => router.push(item.href!)}
-                className="flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-gray-300"
-              >
-                {Inner}
-              </button>
-            ) : (
-              <div
-                key={item.id}
-                className={`flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 ${
-                  item.comingSoon ? "opacity-80" : ""
-                }`}
-              >
-                {Inner}
-              </div>
-            );
-          })}
+              ) : (
+                <span className="text-gray-300">›</span>
+              )}
+            </button>
+          ))}
 
           {/* Logout */}
           <button
