@@ -10,6 +10,7 @@ import {
   type BannerPlatform,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
+import { compressImage } from "@/src/lib/image";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
 
 interface BannerFormProps {
@@ -55,7 +56,13 @@ export function BannerForm({ banner, defaultPlatform = "WEB", onClose }: BannerF
   const spec = BANNER_SPECS[platform];
 
   const mutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
+      // Downscale + compress before upload so large images don't hit the live
+      // API's ~1 MB nginx body cap (which surfaces as "Unable to reach server").
+      const compressed = image
+        ? await compressImage(image, { maxWidth: spec.width, maxBytes: 800_000 })
+        : null;
+
       const payload = {
         title: title.trim(),
         subtitle: subtitle.trim(),
@@ -63,7 +70,7 @@ export function BannerForm({ banner, defaultPlatform = "WEB", onClose }: BannerF
         isActive,
         sortOrder: Number(sortOrder) || 0,
         platform,
-        image,
+        image: compressed,
       };
       return banner ? bannerApi.update(banner.bannerId, payload) : bannerApi.create(payload);
     },

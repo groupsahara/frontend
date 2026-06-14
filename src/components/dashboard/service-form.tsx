@@ -11,6 +11,7 @@ import {
   type ServiceVariantInput,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
+import { compressImage } from "@/src/lib/image";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
 
 const VARIANTS_PLACEHOLDER = `[
@@ -97,9 +98,11 @@ export function ServiceForm({ vendorId, defaultCategoryId, service, onClose }: S
       const saved = service
         ? await serviceApi.update(service.serviceId, payload)
         : await serviceApi.create(payload);
-      // Upload the image (if chosen) against the saved service id.
+      // Upload the image (if chosen) against the saved service id. Compress
+      // first so large photos don't hit the live API's ~1 MB nginx body cap.
       if (image) {
-        await serviceApi.uploadImage(saved.serviceId, image);
+        const compressed = await compressImage(image, { maxWidth: 1024, maxBytes: 800_000 });
+        await serviceApi.uploadImage(saved.serviceId, compressed);
       }
       return saved;
     },

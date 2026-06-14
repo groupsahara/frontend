@@ -10,6 +10,7 @@ import {
   type CategoryTreeNode,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
+import { compressImage } from "@/src/lib/image";
 import { CloseIcon, PlusIcon, SpinnerIcon, TrashIcon } from "@/src/components/icons";
 
 interface CategoryFormProps {
@@ -47,12 +48,22 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
 
   const mutation = useMutation({
     mutationFn: async () => {
+      // The live API is behind an ~1 MB nginx body cap. Downscale + compress
+      // before upload so large photos/screenshots don't 413. Use a tighter
+      // budget when both files are sent together.
+      const bothFiles = Boolean(image && banner);
+      const perFileBudget = bothFiles ? 420_000 : 800_000;
+      const [icon, bannerImg] = await Promise.all([
+        image ? compressImage(image, { maxWidth: 512, maxBytes: perFileBudget }) : null,
+        banner ? compressImage(banner, { maxWidth: 1600, maxBytes: perFileBudget }) : null,
+      ]);
+
       const payload = {
         name: name.trim(),
         description: description.trim() || undefined,
         parentId: parentId === "" ? null : Number(parentId),
-        image,
-        banner,
+        image: icon,
+        banner: bannerImg,
       };
 
       if (category) {
