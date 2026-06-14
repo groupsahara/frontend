@@ -46,6 +46,9 @@ interface CartContextValue {
   requestAdd: (candidate: AddCandidate) => void;
   /** Commit an add once a variant (if any) is chosen. */
   confirmAdd: (serviceId: number, variantId?: number) => void;
+  /** Add an item and resolve when the cart is refreshed (no mini-cart popup).
+   *  Used by the booking flow before navigating to checkout. */
+  addItemAsync: (serviceId: number, variantId?: number) => Promise<void>;
   closeVariant: () => void;
   openMini: () => void;
   closeMini: () => void;
@@ -150,6 +153,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       },
       confirmAdd: (serviceId, variantId) =>
         addMutation.mutate({ serviceId, variantId }),
+      addItemAsync: async (serviceId, variantId) => {
+        await cartApi.add({ serviceId, variantId, quantity: 1, sessionId });
+        await invalidate();
+      },
       closeVariant: () => setVariantTarget(null),
       openMini: () => setMiniOpen(true),
       closeMini: () => setMiniOpen(false),

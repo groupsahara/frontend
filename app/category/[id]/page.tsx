@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -191,6 +191,7 @@ function ServiceCard({
   fallbackEmoji: string;
 }) {
   const { requestAdd } = useCart();
+  const router = useRouter();
   const hasImage = Boolean(service.profileImage);
   const lowestVariant =
     service.variants.length > 0
@@ -268,15 +269,25 @@ function ServiceCard({
             </p>
           </div>
           <button
-            onClick={() =>
-              requestAdd({
-                serviceId: service.serviceId,
+            onClick={() => {
+              if (hasVariants) {
+                // Open the variant picker; it then routes to the schedule step.
+                requestAdd({
+                  serviceId: service.serviceId,
+                  name: service.name,
+                  price: service.price,
+                  profileImage: service.profileImage,
+                  variants: service.variants,
+                });
+                return;
+              }
+              // No variants — go straight to the date & shift step.
+              const qs = new URLSearchParams({
                 name: service.name,
-                price: service.price,
-                profileImage: service.profileImage,
-                variants: service.variants,
-              })
-            }
+                image: service.profileImage ?? "",
+              });
+              router.push(`/booking/${service.serviceId}?${qs.toString()}`);
+            }}
             className="inline-flex items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
           >
             {hasVariants ? "Select" : "Book"}

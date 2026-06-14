@@ -10,6 +10,7 @@ import {
 } from "@/src/api/api";
 import { useCurrentLocation } from "@/src/lib/location";
 import { useCart } from "@/src/lib/cart";
+import { useCustomerAuth } from "@/src/lib/customer-auth";
 import {
   CartIcon,
   ChevronDownIcon,
@@ -74,6 +75,7 @@ interface LandingHeaderProps {
 export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   const location = useCurrentLocation();
   const { count, openMini } = useCart();
+  const { isLoggedIn, user } = useCustomerAuth();
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -284,13 +286,26 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
               </span>
             )}
           </button>
-          <Link
-            href="/login"
-            aria-label="Account"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
-          >
-            <UserCircleIcon className="h-5 w-5" />
-          </Link>
+          {isLoggedIn ? (
+            <Link
+              href="/account"
+              title={`My account${user?.name ? ` (${user.name})` : user?.mobile ? ` (${user.mobile})` : ""}`}
+              aria-label="My account"
+              className="flex h-10 items-center rounded-full px-1 text-gray-700 transition hover:bg-gray-100"
+            >
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-xs font-bold text-orange-700">
+                {(user?.name ?? user?.mobile ?? "U").slice(0, 1).toUpperCase()}
+              </span>
+            </Link>
+          ) : (
+            <Link
+              href="/account/login"
+              aria-label="Account"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100"
+            >
+              <UserCircleIcon className="h-5 w-5" />
+            </Link>
+          )}
         </div>
       </div>
     </header>

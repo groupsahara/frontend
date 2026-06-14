@@ -621,6 +621,286 @@ export const cartApi = {
     ),
 };
 
+/* =========================== Customer auth ============================== */
+/*
+ * The storefront customer signs in with a mobile number + OTP (the same flow as
+ * the React Native app). This is distinct from the admin email/password login.
+ * Responses are loosely shaped, so we normalize tokens + user out of them.
+ */
+
+export interface CustomerUser {
+  id: string;
+  name?: string;
+  email?: string;
+  mobile?: string;
+  phone?: string;
+  [key: string]: unknown;
+}
+
+export interface CustomerAuthResult {
+  success?: boolean;
+  message?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  sessionId?: string;
+  user?: CustomerUser;
+  raw?: unknown;
+}
+
+export interface VerifyOtpRequest {
+  otp_input: string;
+  mobile: string;
+  fcmToken: string;
+  deviceId: string;
+  platform: string;
+}
+
+/** Strip a country code / non-digits down to a bare 10-digit Indian number. */
+export function normalizeMobileNumber(value: string): string {
+  const digitsOnly = value.replace(/\D/g, "");
+  if (digitsOnly.startsWith("91") && digitsOnly.length === 12) {
+    return digitsOnly.slice(2);
+  }
+  return digitsOnly;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function collectRecords(value: unknown): Record<string, unknown>[] {
+  const visited = new Set<Record<string, unknown>>();
+  const queue: unknown[] = [value];
+  const records: Record<string, unknown>[] = [];
+  while (queue.length > 0) {
+    const current = asRecord(queue.shift());
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+    records.push(current);
+    for (const key of ["data", "payload", "result", "tokens", "auth", "user", "profile", "booking"]) {
+      if (current[key] && typeof current[key] === "object") queue.push(current[key]);
+    }
+  }
+  return records;
+}
+
+function pickString(records: Record<string, unknown>[], keys: string[]): string | undefined {
+  for (const record of records) {
+    for (const key of keys) {
+      const v = record[key];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+  }
+  return undefined;
+}
+
+function pickNumber(records: Record<string, unknown>[], keys: string[]): number | undefined {
+  for (const record of records) {
+    for (const key of keys) {
+      const v = record[key];
+      if (typeof v === "number" && Number.isFinite(v)) return v;
+      if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
+    }
+  }
+  return undefined;
+}
+
+function pickBoolean(records: Record<string, unknown>[], keys: string[]): boolean | undefined {
+  for (const record of records) {
+    for (const key of keys) {
+      if (typeof record[key] === "boolean") return record[key] as boolean;
+    }
+  }
+  return undefined;
+}
+
+function normalizeCustomerUser(records: Record<string, unknown>[]): CustomerUser | undefined {
+  for (const record of records) {
+    const hasShape =
+      ("id" in record || "userId" in record || "mobile" in record || "phone" in record || "email" in record) &&
+      !("accessToken" in record) &&
+      !("refreshToken" in record);
+    if (!hasShape) continue;
+    const idCandidate = record.id ?? record.userId ?? record._id;
+    const id =
+      typeof idCandidate === "string"
+        ? idCandidate
+        : typeof idCandidate === "number"
+          ? String(idCandidate)
+          : undefined;
+    const mobile = pickString([record], ["mobile", "phone"]);
+    const email = pickString([record], ["email"]);
+    const name = pickString([record], ["name"]);
+    if (!id && !mobile && !email) continue;
+    return { ...record, id: id ?? mobile ?? email ?? "user", mobile, phone: mobile, email, name };
+  }
+  return undefined;
+}
+
+function normalizeAuthResult(value: unknown): CustomerAuthResult {
+  const records = collectRecords(value);
+  return {
+    success: pickBoolean(records, ["success", "ok"]),
+    message: pickString(records, ["message", "msg"]),
+    accessToken: pickString(records, ["accessToken", "access_token", "token"]),
+    refreshToken: pickString(records, ["refreshToken", "refresh_token"]),
+    sessionId: pickString(records, ["sessionId", "session_id"]),
+    user: normalizeCustomerUser(records),
+    raw: value,
+  };
+}
+
+export const customerAuthApi = {
+  /** POST /v1/auth/otp-generate-user — send an OTP to the mobile number. */
+  generateOtp: (mobile: string) =>
+    apiClient
+      .post<unknown>("/v1/auth/otp-generate-user", { mobile }, { skipAuth: true })
+      .then(normalizeAuthResult),
+
+  /** POST /v1/auth/resend-otp — re-send the OTP. */
+  resendOtp: (mobile: string) =>
+    apiClient
+      .post<unknown>("/v1/auth/resend-otp", { mobile }, { skipAuth: true })
+      .then(normalizeAuthResult),
+
+  /** POST /v1/auth/otp-verify-user — verify the OTP, returns tokens + user. */
+  verifyOtp: (body: VerifyOtpRequest) =>
+    apiClient
+      .post<unknown>("/v1/auth/otp-verify-user", body, { skipAuth: true })
+      .then(normalizeAuthResult),
+};
+
+/* ============================ User addresses ============================ */
+
+export interface UserAddress {
+  id?: number | string;
+  addressId?: number | string;
+  label: string;
+  address: string;
+  city: string;
+  state?: string;
+  country?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
+  isDefault?: boolean;
+}
+
+export interface AddAddressPayload {
+  label: string;
+  address: string;
+  city: string;
+  zipCode?: string;
+  state?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  isDefault?: boolean;
+}
+
+export const userApi = {
+  /** GET /v1/auth/user/:id/addresses — the user's saved addresses. */
+  getAddresses: (userId: string | number) =>
+    apiClient.get<unknown>(`/v1/auth/user/${userId}/addresses`),
+
+  /** POST /v1/auth/user/:id/addresses — save a new address. */
+  addAddress: (userId: string | number, payload: AddAddressPayload) =>
+    apiClient.post<unknown>(`/v1/auth/user/${userId}/addresses`, payload),
+};
+
+/* =============================== Booking ================================ */
+
+export interface AvailableSlot {
+  id: string;
+  label: string;
+  startTime: string;
+  endTime?: string;
+  professionalId: number | null;
+  professionalName?: string;
+}
+
+export interface CreateBookingPayload {
+  userId?: number;
+  professionalId: number | null;
+  serviceId: number;
+  variantId: number | null;
+  bookingDate: string;
+  startTime: string;
+  totalAmount: number;
+  serviceLat: number;
+  serviceLng: number;
+  serviceCity: string;
+  serviceAddress: string;
+  paymentMode: string;
+}
+
+export interface BookingSummary {
+  bookingId: number;
+  status: string;
+  message?: string;
+  raw?: unknown;
+}
+
+function normalizeBookingResponse(value: unknown): BookingSummary {
+  const records = collectRecords(value);
+  return {
+    bookingId: pickNumber(records, ["bookingId", "id"]) ?? 0,
+    status: pickString(records, ["status", "bookingStatus", "action"]) ?? "Pending",
+    message: pickString(records, ["message", "msg"]),
+    raw: value,
+  };
+}
+
+export const bookingApi = {
+  /** GET /v1/booking/get/slots — professional availability for a service+date. */
+  getAvailableSlots: (params: { serviceId: number; variantId: number; date: string }) =>
+    apiClient.get<unknown>(
+      `/v1/booking/get/slots${toQueryString({
+        serviceId: params.serviceId,
+        variantId: params.variantId,
+        date: params.date,
+      })}`,
+    ),
+
+  /** POST /v1/booking/book — create a booking for one cart item. */
+  create: (payload: CreateBookingPayload) =>
+    apiClient.post<unknown>("/v1/booking/book", payload).then(normalizeBookingResponse),
+};
+
+/* =============================== Payments =============================== */
+
+export interface CreatedRazorpayOrder {
+  id: string;
+  amount: number; // in paise
+  currency: string;
+  receipt?: string;
+  status?: string;
+  keyId: string;
+}
+
+export interface VerifyRazorpayPayload {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+export interface VerifyRazorpayResult {
+  success: boolean;
+  message?: string;
+  isValid?: boolean;
+}
+
+export const paymentsApi = {
+  /** POST /v1/payments/create-order — amount in INR (backend converts to paise). */
+  createOrder: (amount: number, currency = "INR") =>
+    apiClient.post<CreatedRazorpayOrder>("/v1/payments/create-order", { amount, currency }),
+
+  /** POST /v1/payments/verify — verify the Razorpay signature server-side. */
+  verify: (payload: VerifyRazorpayPayload) =>
+    apiClient.post<VerifyRazorpayResult>("/v1/payments/verify", payload),
+};
+
 /* ============================ Query keys ================================ */
 
 export const queryKeys = {
@@ -634,4 +914,5 @@ export const queryKeys = {
   banners: ["banners"] as const,
   bannersActive: ["banners", "active"] as const,
   cart: (sessionId: string) => ["cart", sessionId] as const,
+  userAddresses: (userId: string | number) => ["addresses", userId] as const,
 };

@@ -142,9 +142,12 @@ export default function CartPage() {
                   {inr(summary.grandTotal ?? 0)}
                 </span>
               </div>
-              <button className="mt-5 w-full rounded-xl bg-orange-600 py-3 text-sm font-semibold text-white transition hover:bg-orange-700">
+              <Link
+                href="/checkout"
+                className="mt-5 block w-full rounded-xl bg-orange-600 py-3 text-center text-sm font-semibold text-white transition hover:bg-orange-700"
+              >
                 Proceed to checkout
-              </button>
+              </Link>
               <Link
                 href="/"
                 className="mt-3 block text-center text-sm font-medium text-gray-500 hover:text-gray-900"

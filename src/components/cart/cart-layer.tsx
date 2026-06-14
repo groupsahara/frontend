@@ -3,12 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCart, type AddCandidate } from "@/src/lib/cart";
-import {
-  CartIcon,
-  CloseIcon,
-  SpinnerIcon,
-  TrashIcon,
-} from "@/src/components/icons";
+import { CartIcon, CloseIcon, TrashIcon } from "@/src/components/icons";
 
 function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -32,10 +27,26 @@ function VariantModal() {
 }
 
 function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
-  const { closeVariant, confirmAdd, isMutating } = useCart();
+  const { closeVariant } = useCart();
+  const router = useRouter();
   const [selected, setSelected] = useState<number | null>(
     variantTarget.variants[0]?.variantId ?? null,
   );
+
+  // Booking flow: once a variant is chosen, go to the schedule step (date +
+  // shift). The schedule page adds the item to the cart and routes to checkout.
+  const continueToSchedule = () => {
+    if (selected == null) return;
+    const variant = variantTarget.variants.find((v) => v.variantId === selected);
+    const qs = new URLSearchParams({
+      variantId: String(selected),
+      variantName: variant?.name ?? "",
+      name: variantTarget.name,
+      image: variant?.profileImage ?? variantTarget.profileImage ?? "",
+    });
+    closeVariant();
+    router.push(`/booking/${variantTarget.serviceId}?${qs.toString()}`);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -97,14 +108,11 @@ function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
         </div>
 
         <button
-          disabled={selected == null || isMutating}
-          onClick={() =>
-            selected != null && confirmAdd(variantTarget.serviceId, selected)
-          }
+          disabled={selected == null}
+          onClick={continueToSchedule}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:opacity-60"
         >
-          {isMutating ? <SpinnerIcon className="h-4 w-4" /> : null}
-          Add to cart
+          Continue ›
         </button>
       </div>
     </div>

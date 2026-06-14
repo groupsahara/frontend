@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ThemeProvider } from "@/src/lib/theme";
 import { CartProvider } from "@/src/lib/cart";
+import { CustomerAuthProvider } from "@/src/lib/customer-auth";
 import { CartLayer } from "@/src/components/cart/cart-layer";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -24,10 +25,12 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <CartProvider>
-          {children}
-          <CartLayer />
-        </CartProvider>
+        <CustomerAuthProvider>
+          <CartProvider>
+            {children}
+            <CartLayer />
+          </CartProvider>
+        </CustomerAuthProvider>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
     </QueryClientProvider>
