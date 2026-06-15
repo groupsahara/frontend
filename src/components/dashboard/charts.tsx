@@ -191,8 +191,8 @@ export function TrafficDonut({ data }: { data: TrafficSlice[] }) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h3 className="text-base font-semibold text-foreground">Traffic sources</h3>
-      <p className="text-sm text-muted-foreground">By acquisition channel</p>
+      <h3 className="text-base font-semibold text-foreground">Booking status</h3>
+      <p className="text-sm text-muted-foreground">Distribution by current status</p>
 
       <div className="mt-4 flex flex-col items-center gap-6 sm:flex-row sm:justify-around">
         <div className="relative h-44 w-44">

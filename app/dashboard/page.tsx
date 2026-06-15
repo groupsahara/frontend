@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { dashboardApi, queryKeys, type RecentOrder } from "@/src/api/api";
 import { RevenueChart, StatCard, TrafficDonut } from "@/src/components/dashboard/charts";
@@ -50,7 +51,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {data.stats.map((stat) => (
           <StatCard key={stat.key} stat={stat} />
         ))}
@@ -68,7 +69,12 @@ export default function DashboardPage() {
       <div className="rounded-2xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h3 className="text-base font-semibold text-foreground">Recent bookings</h3>
-          <button className="text-sm font-medium text-primary hover:underline">View all</button>
+          <Link
+            href="/dashboard/bookings"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            View all
+          </Link>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
