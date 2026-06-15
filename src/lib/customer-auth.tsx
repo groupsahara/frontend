@@ -9,7 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
+  cartApi,
   customerAuthApi,
   normalizeMobileNumber,
   type CustomerUser,
@@ -21,6 +23,9 @@ import {
   setSessionId,
   setToken,
 } from "@/src/api/apiClient";
+
+// Guest cart session id — kept in sync with SESSION_KEY in src/lib/cart.tsx.
+const CART_SESSION_KEY = "rc_cart_session";
 
 const USER_KEY = "rc.customer";
 const DEVICE_KEY = "rc.deviceId";
@@ -75,6 +80,7 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CustomerUser | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const queryClient = useQueryClient();
 
   // Hydrate the stored customer (only treat as logged in if a token is present
   // too). Deferred to a microtask so we never setState synchronously in-effect.
@@ -132,10 +138,23 @@ export function CustomerAuthProvider({ children }: { children: ReactNode }) {
         /* ignore */
       }
       setUser(nextUser);
+
+      // Restore the guest cart into the now-authenticated account. The token is
+      // already stored (setToken above), so cartApi.merge carries it. Best-effort:
+      // a merge failure must not block a successful login.
+      try {
+        const guestSessionId = window.localStorage.getItem(CART_SESSION_KEY);
+        if (guestSessionId) await cartApi.merge(guestSessionId);
+      } catch {
+        /* best-effort: ignore merge failure */
+      }
+      // Refetch the cart so it shows the merged items (now resolved via the auth
+      // token to the user's cart, not the deleted guest sessionId).
+      await queryClient.invalidateQueries({ queryKey: ["cart"] });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(() => {
     clearAuth();
