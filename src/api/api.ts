@@ -40,6 +40,10 @@ export const authApi = {
 
   /** GET /v1/admin/me — the authenticated admin profile. */
   me: () => apiClient.get<AdminUser>("/v1/admin/me"),
+
+  /** POST /v1/admin/change-password — reset the signed-in admin's password. */
+  changePassword: (body: { newPassword: string }) =>
+    apiClient.post<{ message: string }>("/v1/admin/change-password", body),
 };
 
 /** URL the "Continue with Google" button redirects to, to start OAuth. */
@@ -90,106 +94,202 @@ export interface DashboardOverview {
   recentOrders: RecentOrder[];
 }
 
-function delay<T>(value: T, ms = 450): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
+/** The full set of booking lifecycle states the backend can return. */
+export type AdminBookingStatus =
+  | "PENDING"
+  | "ASSIGNED"
+  | "ACCEPTED"
+  | "ON_THE_WAY"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export interface AdminBooking {
+  id: string;
+  bookingId: number;
+  customer: string;
+  mobile: string | null;
+  service: string;
+  amount: number;
+  status: AdminBookingStatus;
+  paymentMode: string;
+  date: string;
 }
 
-const overviewSample: DashboardOverview = {
-  stats: [
-    {
-      key: "revenue",
-      label: "Total Revenue",
-      value: "₹4,82,900",
-      delta: 12.5,
-      spark: [12, 18, 14, 22, 19, 28, 26, 34],
-    },
-    {
-      key: "orders",
-      label: "Bookings",
-      value: "1,284",
-      delta: 8.2,
-      spark: [30, 26, 32, 28, 35, 31, 38, 42],
-    },
-    {
-      key: "users",
-      label: "Active Users",
-      value: "9,531",
-      delta: 3.1,
-      spark: [20, 22, 21, 25, 24, 27, 29, 31],
-    },
-    {
-      key: "refunds",
-      label: "Refund Rate",
-      value: "1.8%",
-      delta: -0.4,
-      spark: [8, 7, 9, 6, 5, 6, 4, 3],
-    },
-  ],
-  revenue: [
-    { month: "Jan", revenue: 32000, orders: 210 },
-    { month: "Feb", revenue: 41000, orders: 248 },
-    { month: "Mar", revenue: 38500, orders: 232 },
-    { month: "Apr", revenue: 52000, orders: 301 },
-    { month: "May", revenue: 47800, orders: 288 },
-    { month: "Jun", revenue: 61200, orders: 356 },
-    { month: "Jul", revenue: 58400, orders: 339 },
-    { month: "Aug", revenue: 72500, orders: 401 },
-  ],
-  traffic: [
-    { label: "Organic", value: 42 },
-    { label: "Direct", value: 26 },
-    { label: "Referral", value: 18 },
-    { label: "Social", value: 14 },
-  ],
-  recentOrders: [
-    {
-      id: "#RC-10293",
-      customer: "Aarav Sharma",
-      service: "Deep Home Cleaning",
-      amount: 2499,
-      status: "Completed",
-      date: "Jun 06, 2026",
-    },
-    {
-      id: "#RC-10292",
-      customer: "Diya Patel",
-      service: "AC Repair",
-      amount: 1299,
-      status: "Pending",
-      date: "Jun 06, 2026",
-    },
-    {
-      id: "#RC-10291",
-      customer: "Vivaan Mehta",
-      service: "Electrician Visit",
-      amount: 799,
-      status: "Completed",
-      date: "Jun 05, 2026",
-    },
-    {
-      id: "#RC-10290",
-      customer: "Ananya Iyer",
-      service: "Salon at Home",
-      amount: 1899,
-      status: "Cancelled",
-      date: "Jun 05, 2026",
-    },
-    {
-      id: "#RC-10289",
-      customer: "Kabir Singh",
-      service: "Plumbing",
-      amount: 649,
-      status: "Completed",
-      date: "Jun 04, 2026",
-    },
-  ],
+export interface AdminBookingListParams {
+  status?: AdminBookingStatus;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface AdminBookingListResponse {
+  bookings: AdminBooking[];
+  /** Count per status plus an `all` total, for the filter tabs. */
+  counts: Record<string, number>;
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+/* ----------------------------- Dispatcher ------------------------------- */
+
+export interface PartnerRow {
+  professionalId: number;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  category: string | null;
+  service: string | null;
+  city: string | null;
+  experience: number | null;
+  description: string | null;
+  rating: number;
+  totalJobs: number;
+  isOnline: boolean;
+  isVerified: boolean;
+  isBlocked: boolean;
+  walletBalance: number;
+  profileImage: string | null;
+}
+
+export interface PartnerDetail extends PartnerRow {
+  categoryId: number | null;
+  joinedAt: string;
+}
+
+export interface UpdatePartnerInput {
+  name?: string;
+  city?: string;
+  experience?: number;
+  description?: string;
+  categoryId?: number;
+}
+
+export interface WalletRow {
+  walletId: number;
+  professionalId: number;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  city: string | null;
+  balance: number;
+  transactionCount: number;
+}
+
+export interface WalletListResponse {
+  totalBalance: number;
+  wallets: WalletRow[];
+}
+
+export const dispatcherApi = {
+  /** GET /v1/admin/partners — service partners (professionals). */
+  listPartners: (search?: string) =>
+    apiClient.get<PartnerRow[]>(`/v1/admin/partners${toQueryString({ search })}`),
+
+  /** GET /v1/admin/wallets — partner wallet balances. */
+  listWallets: (search?: string) =>
+    apiClient.get<WalletListResponse>(`/v1/admin/wallets${toQueryString({ search })}`),
+
+  /** GET /v1/admin/partners/:id — a single partner's full profile. */
+  getPartner: (professionalId: number) =>
+    apiClient.get<PartnerDetail>(`/v1/admin/partners/${professionalId}`),
+
+  /** PATCH /v1/admin/partners/:id — edit a partner's basic profile. */
+  updatePartner: (professionalId: number, body: UpdatePartnerInput) =>
+    apiClient.patch<{ message: string }>(`/v1/admin/partners/${professionalId}`, body),
+
+  /** PATCH /v1/admin/partners/:id/block — block or unblock a partner. */
+  setPartnerBlocked: (professionalId: number, isBlocked: boolean) =>
+    apiClient.patch<{ message: string; isBlocked: boolean }>(
+      `/v1/admin/partners/${professionalId}/block`,
+      { isBlocked },
+    ),
+
+  /** DELETE /v1/admin/partners/:id — remove a partner. */
+  deletePartner: (professionalId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/partners/${professionalId}`),
+
+  /** POST /v1/admin/wallets/:id/credit — add balance to a partner's wallet. */
+  creditWallet: (professionalId: number, amount: number, description?: string) =>
+    apiClient.post<unknown>(`/v1/admin/wallets/${professionalId}/credit`, { amount, description }),
+
+  /** POST /v1/admin/wallets/:id/debit — deduct balance from a partner's wallet. */
+  debitWallet: (professionalId: number, amount: number, description?: string) =>
+    apiClient.post<unknown>(`/v1/admin/wallets/${professionalId}/debit`, { amount, description }),
+};
+
+/* ------------------------------ Customers ------------------------------- */
+
+export interface CustomerRow {
+  userId: number;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  restaurantName: string | null;
+  profileImage: string | null;
+  bookingsCount: number;
+  addressCount: number;
+  joinedAt: string;
+}
+
+export interface CustomerAddress {
+  id: number;
+  label: string | null;
+  address: string;
+  city: string;
+  state: string | null;
+  zipCode: string;
+  country: string | null;
+  isDefault: boolean;
+}
+
+export interface CustomerBooking {
+  id: string;
+  service: string;
+  variant: string | null;
+  amount: number;
+  status: "Completed" | "Pending" | "Cancelled";
+  paymentMode: string;
+  date: string;
+}
+
+export interface CustomerDetail {
+  userId: number;
+  name: string;
+  email: string | null;
+  mobile: string | null;
+  dob: string | null;
+  gstNumber: string | null;
+  restaurantName: string | null;
+  profileImage: string | null;
+  joinedAt: string;
+  stats: { totalBookings: number; completed: number; cancelled: number; totalSpent: number };
+  addresses: CustomerAddress[];
+  bookings: CustomerBooking[];
+}
+
+export const customersApi = {
+  /** GET /v1/admin/customers — all customers (USER accounts). */
+  list: (search?: string) =>
+    apiClient.get<CustomerRow[]>(`/v1/admin/customers${toQueryString({ search })}`),
+
+  /** GET /v1/admin/customers/:id — a single customer's full profile. */
+  get: (userId: number) => apiClient.get<CustomerDetail>(`/v1/admin/customers/${userId}`),
 };
 
 export const dashboardApi = {
-  /** GET /v1/admin/dashboard/overview (sample data for now). */
-  getOverview: () =>
-    // return apiClient.get<DashboardOverview>("/v1/admin/dashboard/overview");
-    delay(overviewSample),
+  /** GET /v1/admin/dashboard/overview — real metrics aggregated by the backend. */
+  getOverview: () => apiClient.get<DashboardOverview>("/v1/admin/dashboard/overview"),
+
+  /** GET /v1/admin/bookings — full, paginated booking history (admin). */
+  listBookings: (params: AdminBookingListParams = {}) =>
+    apiClient.get<AdminBookingListResponse>(
+      `/v1/admin/bookings${toQueryString({
+        status: params.status,
+        search: params.search,
+        page: params.page,
+        limit: params.limit,
+      })}`,
+    ),
 };
 
 /* ============================== Vendors ================================= */
@@ -863,6 +963,13 @@ export const userApi = {
   /** POST /v1/auth/user/:id/addresses — save a new address. */
   addAddress: (userId: string | number, payload: AddAddressPayload) =>
     apiClient.post<unknown>(`/v1/auth/user/${userId}/addresses`, payload),
+
+  /** PATCH /v1/auth/user/:id/profile — update the customer's business profile
+   *  (owner name, restaurant name, GST) captured at checkout. */
+  updateProfile: (
+    userId: string | number,
+    payload: { name?: string; restaurantName?: string; gstNumber?: string },
+  ) => apiClient.patch<unknown>(`/v1/auth/user/${userId}/profile`, payload),
 };
 
 /* =============================== Booking ================================ */
@@ -1005,6 +1112,12 @@ export const paymentsApi = {
 export const queryKeys = {
   me: ["auth", "me"] as const,
   dashboardOverview: ["dashboard", "overview"] as const,
+  adminBookings: (params: AdminBookingListParams) => ["admin-bookings", params] as const,
+  partners: (search: string) => ["dispatcher", "partners", search] as const,
+  partner: (id: number) => ["dispatcher", "partner", id] as const,
+  partnerWallets: (search: string) => ["dispatcher", "wallets", search] as const,
+  customers: (search: string) => ["customers", search] as const,
+  customer: (id: number) => ["customer", id] as const,
   vendors: (params: VendorListParams) => ["vendors", params] as const,
   vendor: (id: number) => ["vendor", id] as const,
   categories: ["categories"] as const,

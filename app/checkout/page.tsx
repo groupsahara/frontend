@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { LandingHeader } from "@/src/components/landing/landing-header";
@@ -92,6 +92,19 @@ export default function CheckoutPage() {
   const [country, setCountry] = useState("India");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
+
+  // Business details captured before checkout (shown on the GST invoice).
+  const [ownerName, setOwnerName] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+
+  // Prefill from the logged-in customer's profile once it hydrates.
+  useEffect(() => {
+    if (!user) return;
+    setOwnerName((v) => v || String(user.name ?? ""));
+    setRestaurantName((v) => v || String(user.restaurantName ?? ""));
+    setGstNumber((v) => v || String(user.gstNumber ?? ""));
+  }, [user]);
 
   const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -327,6 +340,13 @@ export default function CheckoutPage() {
       setAddressModal(true);
       return;
     }
+    const owner = ownerName.trim();
+    const restaurant = restaurantName.trim();
+    const gst = gstNumber.trim();
+    if (!owner || !restaurant || !gst) {
+      setError("Please fill your owner name, restaurant name and GST number.");
+      return;
+    }
     if (!paymentMode) {
       setError("Please select a payment method.");
       setPaymentModal(true);
@@ -335,6 +355,13 @@ export default function CheckoutPage() {
 
     setIsPlacing(true);
     try {
+      // Persist the business details to the customer's profile so they appear
+      // on the invoice and in the admin dashboard.
+      await userApi.updateProfile(user.id, {
+        name: owner,
+        restaurantName: restaurant,
+        gstNumber: gst,
+      });
       const payloads = buildPayloads(paymentMode);
       if (paymentMode === "RAZORPAY") {
         await payWithRazorpayThenBook(payloads);
@@ -412,6 +439,23 @@ export default function CheckoutPage() {
                 >
                   Change ›
                 </button>
+              </div>
+            </section>
+
+            {/* Business details (for GST invoice) */}
+            <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <p className="text-sm font-bold text-gray-900">Your business details</p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Required for your booking &amp; GST invoice.
+              </p>
+              <div className="mt-3 space-y-2">
+                <Input value={ownerName} onChange={setOwnerName} placeholder="Owner name *" />
+                <Input
+                  value={restaurantName}
+                  onChange={setRestaurantName}
+                  placeholder="Restaurant name *"
+                />
+                <Input value={gstNumber} onChange={setGstNumber} placeholder="GST number *" />
               </div>
             </section>
 
