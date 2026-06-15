@@ -9,7 +9,7 @@
  */
 
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
+"https://api.restocare.in/api"
 
 const ACCESS_TOKEN_KEY = "rc.accessToken";
 const REFRESH_TOKEN_KEY = "rc.refreshToken";
