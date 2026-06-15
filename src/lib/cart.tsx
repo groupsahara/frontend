@@ -24,6 +24,9 @@ export interface AddCandidate {
   name: string;
   price: number | null;
   profileImage: string | null;
+  /** Whether this service's category uses the date + shift booking flow.
+   *  When false, picking a variant adds straight to the cart (no slot step). */
+  useSlots: boolean;
   variants: {
     variantId: number;
     name: string;

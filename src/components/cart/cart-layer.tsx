@@ -27,16 +27,22 @@ function VariantModal() {
 }
 
 function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
-  const { closeVariant } = useCart();
+  const { closeVariant, confirmAdd } = useCart();
   const router = useRouter();
   const [selected, setSelected] = useState<number | null>(
     variantTarget.variants[0]?.variantId ?? null,
   );
 
-  // Booking flow: once a variant is chosen, go to the schedule step (date +
-  // shift). The schedule page adds the item to the cart and routes to checkout.
-  const continueToSchedule = () => {
+  // Slot categories: once a variant is chosen, go to the schedule step (date +
+  // shift), which adds the item and routes to checkout. Every other category
+  // adds the chosen variant straight to the cart (no slot step).
+  const confirmSelection = () => {
     if (selected == null) return;
+    if (!variantTarget.useSlots) {
+      confirmAdd(variantTarget.serviceId, selected);
+      closeVariant();
+      return;
+    }
     const variant = variantTarget.variants.find((v) => v.variantId === selected);
     const qs = new URLSearchParams({
       variantId: String(selected),
@@ -109,10 +115,10 @@ function VariantPicker({ target: variantTarget }: { target: AddCandidate }) {
 
         <button
           disabled={selected == null}
-          onClick={continueToSchedule}
+          onClick={confirmSelection}
           className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:opacity-60"
         >
-          Continue ›
+          {variantTarget.useSlots ? "Continue ›" : "Add to cart"}
         </button>
       </div>
     </div>

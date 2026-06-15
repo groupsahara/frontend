@@ -14,6 +14,7 @@ import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
 import { SpinnerIcon, StarIcon, ArrowRightIcon } from "@/src/components/icons";
 import { useCart } from "@/src/lib/cart";
+import { categoryUsesSlots } from "@/src/lib/slot-categories";
 
 /** A service flattened out of the category → group → service tree. */
 interface FlatService extends CategoryTreeService {
@@ -169,6 +170,7 @@ function CategoryPageContent() {
                       key={service.serviceId}
                       service={service}
                       fallbackEmoji={emojiFor(category.name)}
+                      useSlots={categoryUsesSlots(category.name)}
                     />
                   ))}
                 </div>
@@ -186,9 +188,11 @@ function CategoryPageContent() {
 function ServiceCard({
   service,
   fallbackEmoji,
+  useSlots,
 }: {
   service: FlatService;
   fallbackEmoji: string;
+  useSlots: boolean;
 }) {
   const { requestAdd } = useCart();
   const router = useRouter();
@@ -271,26 +275,40 @@ function ServiceCard({
           <button
             onClick={() => {
               if (hasVariants) {
-                // Open the variant picker; it then routes to the schedule step.
+                // Open the variant picker. For slot categories it then routes
+                // to the schedule step; otherwise it adds straight to the cart.
                 requestAdd({
                   serviceId: service.serviceId,
                   name: service.name,
                   price: service.price,
                   profileImage: service.profileImage,
+                  useSlots,
                   variants: service.variants,
                 });
                 return;
               }
-              // No variants — go straight to the date & shift step.
-              const qs = new URLSearchParams({
+              if (useSlots) {
+                // Slot category, no variants — go straight to the date & shift step.
+                const qs = new URLSearchParams({
+                  name: service.name,
+                  image: service.profileImage ?? "",
+                });
+                router.push(`/booking/${service.serviceId}?${qs.toString()}`);
+                return;
+              }
+              // Non-slot category, no variants — instant add to cart.
+              requestAdd({
+                serviceId: service.serviceId,
                 name: service.name,
-                image: service.profileImage ?? "",
+                price: service.price,
+                profileImage: service.profileImage,
+                useSlots,
+                variants: [],
               });
-              router.push(`/booking/${service.serviceId}?${qs.toString()}`);
             }}
             className="inline-flex items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
           >
-            {hasVariants ? "Select" : "Book"}
+            {hasVariants ? "Select" : useSlots ? "Book" : "Add"}
             <ArrowRightIcon className="h-4 w-4" />
           </button>
         </div>
