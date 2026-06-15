@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...but DO commit the production public API URL so Vercel builds bake it in.
+# (NEXT_PUBLIC_* values are public — they ship in the client bundle regardless.)
+!.env.production
 
 # vercel
 .vercel

@@ -635,16 +635,28 @@ export interface UpdateCartBody {
 }
 
 export const cartApi = {
-  /** GET /v1/manage-cart/get-cart?sessionId — full cart with price summary. */
+  /** GET /v1/manage-cart/get-cart?sessionId — full cart with price summary.
+   *  NOT skipAuth: when a token is present the backend (OptionalJwtAuthGuard)
+   *  prioritises the user's cart over the guest sessionId — essential after
+   *  login/merge, when the guest cart no longer exists. */
   get: (sessionId: string) =>
     apiClient.get<CartResponse>(
       `/v1/manage-cart/get-cart${toQueryString({ sessionId })}`,
-      { skipAuth: true },
     ),
 
-  /** POST /v1/manage-cart/add — add a service (optionally a variant). */
+  /** POST /v1/manage-cart/merge — fold the guest cart (sessionId) into the
+   *  logged-in user's cart. Requires the Bearer token (JwtAuthGuard). */
+  merge: (sessionId: string) =>
+    apiClient.post<{ message: string; cartId?: number }>(
+      "/v1/manage-cart/merge",
+      { sessionId },
+    ),
+
+  /** POST /v1/manage-cart/add — add a service (optionally a variant).
+   *  NOT skipAuth: a logged-in user must add to their own cart (resolved via the
+   *  token), while guests add to the sessionId cart. Keeps add + get consistent. */
   add: (body: AddToCartBody) =>
-    apiClient.post<unknown>("/v1/manage-cart/add", body, { skipAuth: true }),
+    apiClient.post<unknown>("/v1/manage-cart/add", body),
 
   /** PATCH /v1/manage-cart/update?cartId — change an item's quantity. */
   updateQuantity: (cartId: number, body: UpdateCartBody) =>
