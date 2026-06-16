@@ -27,23 +27,26 @@ export function Hero() {
   const images = banners && banners.length > 0 ? banners.map((b) => b.imageUrl) : FALLBACK_IMAGES;
 
   return (
-    <section className="w-full border-b border-gray-800 min-h-62.5 lg:min-h-175">
+    <section className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
       <Swiper
         modules={[Autoplay, EffectFade]}
         effect="fade"
         autoplay={{ delay: 3000, disableOnInteraction: false }}
         loop={true}
-        className="h-full w-full min-h-62.5 lg:min-h-175"
+        className="w-full"
       >
         {images.map((src, index) => (
-          <SwiperSlide key={index} className="relative min-h-62.5 lg:min-h-175">
-            <Image
-              src={src}
-              alt=""
-              fill
-              className="object-cover"
-              priority={index === 0}
-            />
+          <SwiperSlide key={index}>
+            <div className="relative w-full aspect-[1720/650] overflow-hidden rounded-2xl">
+              <Image
+                src={src}
+                fill
+                alt="banner"
+                sizes="(max-width: 1280px) 100vw, 1280px"
+                className="object-cover object-center"
+                priority={index === 0}
+              />
+            </div>
           </SwiperSlide>
         ))}
       </Swiper>
