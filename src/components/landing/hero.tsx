@@ -27,7 +27,7 @@ export function Hero() {
   const images = banners && banners.length > 0 ? banners.map((b) => b.imageUrl) : FALLBACK_IMAGES;
 
   return (
-    <section className="mx-auto w-full max-w-8xl px-4 py-6 sm:px-6">
+    <section className="mx-auto w-full max-w-8xl px-4 py-4 sm:py-4 sm:px-4">
       <Swiper
         modules={[Autoplay, EffectFade]}
         effect="fade"
