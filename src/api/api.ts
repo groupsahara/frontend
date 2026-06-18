@@ -925,6 +925,21 @@ export const customerAuthApi = {
 
   /** POST /v1/auth/deleteAccountById — permanently delete the signed-in account. */
   deleteAccount: () => apiClient.post<unknown>("/v1/auth/deleteAccountById"),
+
+  /**
+   * POST /v1/auth/delete-account — self-service account deletion gated by OTP.
+   * The caller first sends an OTP via `generateOtp`, then submits the mobile +
+   * OTP here to permanently erase the account. No login/token required — this
+   * powers the public /delete-account page linked from the Play Store listing.
+   */
+  deleteAccountWithOtp: (mobile: string, otpInput: string) =>
+    apiClient
+      .post<unknown>(
+        "/v1/auth/delete-account",
+        { mobile, otp_input: otpInput },
+        { skipAuth: true },
+      )
+      .then(normalizeAuthResult),
 };
 
 /* ============================ User addresses ============================ */
