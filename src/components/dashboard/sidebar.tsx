@@ -11,7 +11,10 @@ import {
   ImageIcon,
   LogoutIcon,
   MapPinIcon,
+  MonitorIcon,
+  PaletteIcon,
   SettingsIcon,
+  SmartphoneIcon,
   StoreIcon,
   UsersIcon,
   WalletIcon,
@@ -42,6 +45,14 @@ const NAV: NavEntry[] = [
   },
   { label: "Customers", href: "/dashboard/customers", icon: UsersIcon },
   { label: "Payments", href: "/dashboard/payments", icon: WalletIcon },
+  {
+    label: "Styling",
+    icon: PaletteIcon,
+    children: [
+      { label: "Web Styling", href: "/dashboard/styling/web", icon: MonitorIcon },
+      { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon },
+    ],
+  },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon },
 ];
 

@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RestoCare Admin",
+  title: {
+    default: "RestoCare",
+    template: "%s | RestoCare",
+  },
   description: "Admin dashboard for RestoCare",
 };
 

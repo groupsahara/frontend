@@ -276,8 +276,8 @@ const SUPPORT_OPTIONS = [
     id: "whatsapp",
     icon: "💬",
     title: "WhatsApp",
-    subtitle: "Chat with our support team",
-    href: "https://wa.me/911800123900",
+    subtitle: "+91 98993 00646",
+    href: "https://wa.me/919899300646",
   },
   { id: "call", icon: "📞", title: "Call us", subtitle: "+91 1800 123 900", href: "tel:+911800123900" },
   {

@@ -27,10 +27,10 @@ export function WhyChooseUs() {
   return (
     <section className="bg-white py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-24">
+        <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-24">
           {/* Left content */}
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px]">
               WHY CUSTOMERS CHOOSE US
             </h2>
             <p className="mt-4 text-base leading-relaxed text-gray-500 max-w-lg">
@@ -55,8 +55,8 @@ export function WhyChooseUs() {
             <div className="col-span-2 overflow-hidden rounded-2xl shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=900&q=80"
-                alt="Professional chef in a restaurant kitchen"
+                src="/verified-providers.png"
+                alt="Verified providers with quality checks"
                 className="h-56 w-full object-cover lg:h-64"
               />
             </div>
@@ -64,8 +64,8 @@ export function WhyChooseUs() {
             <div className="overflow-hidden rounded-2xl shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80"
-                alt="Restaurant kitchen equipment being serviced"
+                src="/fast-reschedule.png"
+                alt="Fast reschedule and cancellation options"
                 className="h-40 w-full object-cover"
               />
             </div>
@@ -73,18 +73,10 @@ export function WhyChooseUs() {
             <div className="overflow-hidden rounded-2xl shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80"
-                alt="Technician repairing commercial kitchen appliance"
+                src="/realtime-updates.png"
+                alt="Real-time order and booking updates"
                 className="h-40 w-full object-cover"
               />
-            </div>
-            {/* Floating trust badge */}
-            <div className="absolute -bottom-4 -left-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">✅</span>
-              <div>
-                <p className="text-sm font-bold text-gray-900">10,000+ Services</p>
-                <p className="text-xs text-gray-500">Completed this month</p>
-              </div>
             </div>
           </div>
         </div>

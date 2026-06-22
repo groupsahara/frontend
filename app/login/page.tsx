@@ -43,6 +43,7 @@ export default function LoginPage() {
     onSuccess: (data: LoginResponse) => {
       persistSession({
         accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
         sessionId: data.sessionId,
         user: data.user,
       });

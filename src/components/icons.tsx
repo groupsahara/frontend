@@ -242,6 +242,29 @@ export const ArrowRightIcon = (p: IconProps) => (
   </svg>
 );
 
+export const PaletteIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 3a9 9 0 0 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.39-.61-.39-1 0-.83.67-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8Z" />
+    <circle cx="7.5" cy="10.5" r="1" />
+    <circle cx="12" cy="7.5" r="1" />
+    <circle cx="16.5" cy="10.5" r="1" />
+  </svg>
+);
+
+export const MonitorIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <path d="M8 21h8M12 17v4" />
+  </svg>
+);
+
+export const SmartphoneIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="6" y="2" width="12" height="20" rx="2.5" />
+    <path d="M11 18h2" />
+  </svg>
+);
+
 export const GoogleIcon = (p: IconProps) => (
   <svg width={20} height={20} viewBox="0 0 24 24" {...p}>
     <path

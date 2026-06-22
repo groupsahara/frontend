@@ -1,6 +1,6 @@
 "use client";
 
-import { clearToken, getToken, setToken } from "@/src/api/apiClient";
+import { clearAuth, getToken, setRefreshToken, setToken } from "@/src/api/apiClient";
 import type { AdminUser } from "@/src/api/api";
 
 const SESSION_KEY = "rc.sessionId";
@@ -9,10 +9,14 @@ const USER_KEY = "rc.user";
 /** Persist the auth result from a successful login. */
 export function persistSession(params: {
   accessToken: string;
+  refreshToken: string;
   sessionId: string;
   user: AdminUser;
 }) {
   setToken(params.accessToken);
+  // The refresh token is required for the silent token refresh in apiClient;
+  // without it, the first 401 after the access token expires forces a logout.
+  setRefreshToken(params.refreshToken);
   try {
     window.localStorage.setItem(SESSION_KEY, params.sessionId);
     window.localStorage.setItem(USER_KEY, JSON.stringify(params.user));
@@ -42,12 +46,7 @@ export function isAuthenticated(): boolean {
 }
 
 export function clearSession() {
-  clearToken();
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(SESSION_KEY);
-    window.localStorage.removeItem(USER_KEY);
-  } catch {
-    /* ignore */
-  }
+  // clearAuth wipes the access token, refresh token, session id and user —
+  // the same keys persistSession writes — so logout leaves nothing behind.
+  clearAuth();
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   categoryTreeApi,
@@ -8,6 +9,8 @@ import {
   type CategoryTreeNode,
   type CategoryTreeService,
 } from "@/src/api/api";
+import { useCart } from "@/src/lib/cart";
+import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { ArrowRightIcon, SpinnerIcon, StarIcon, StoreIcon } from "@/src/components/icons";
 
 interface ServiceGridProps {
@@ -73,7 +76,12 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
   });
 
   const services = useMemo(() => {
-    const flat = flattenServices(data ?? [], categoryId);
+    let flat = flattenServices(data ?? [], categoryId);
+    // On the home "Popular services" row (no category selected) only show the
+    // services an admin has marked as featured. The category page shows all.
+    if (!categoryId) {
+      flat = flat.filter((s) => s.isFeatured);
+    }
     const q = search.trim().toLowerCase();
     if (!q) return flat;
     return flat.filter(
@@ -88,7 +96,7 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
     <section id="services" className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
             {categoryId ? "Services in this category" : "Popular services"}
           </h2>
           <p className="mt-1 text-sm text-gray-500">
@@ -161,9 +169,48 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
 }
 
 function ServiceCard({ service }: { service: FlatService }) {
+  const router = useRouter();
+  const { requestAdd } = useCart();
+  const hasVariants = service.variants.length > 0;
+  const useSlots = categoryUsesSlots(service.categoryName);
+
+  const handleAdd = () => {
+    if (hasVariants) {
+      // Open the variant picker. For slot categories it then routes to the
+      // schedule step; otherwise it adds straight to the cart.
+      requestAdd({
+        serviceId: service.serviceId,
+        name: service.name,
+        price: service.price,
+        profileImage: service.profileImage,
+        useSlots,
+        variants: service.variants,
+      });
+      return;
+    }
+    if (useSlots) {
+      // Slot category, no variants — go straight to the date & shift step.
+      const qs = new URLSearchParams({
+        name: service.name,
+        image: service.profileImage ?? "",
+      });
+      router.push(`/booking/${service.serviceId}?${qs.toString()}`);
+      return;
+    }
+    // Non-slot category, no variants — instant add to cart.
+    requestAdd({
+      serviceId: service.serviceId,
+      name: service.name,
+      price: service.price,
+      profileImage: service.profileImage,
+      useSlots,
+      variants: [],
+    });
+  };
+
   return (
     <article className="group overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg">
-      <div className="relative flex h-36 items-center justify-center overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200">
+      <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-linear-to-br from-gray-100 to-gray-200">
         {service.profileImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external service images
           <img
@@ -192,14 +239,25 @@ function ServiceCard({ service }: { service: FlatService }) {
             : ""}
         </p>
 
-        <div className="flex items-center justify-between border-t border-gray-100 pt-3">
-          <span className="text-sm font-semibold text-gray-900">{priceLabel(service)}</span>
-          {service.variants.length > 0 && (
-            <span className="text-xs text-gray-500">
-              {service.variants.length}{" "}
-              {service.variants.length === 1 ? "option" : "options"}
+        <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
+          <div className="min-w-0">
+            <span className="block text-sm font-semibold text-gray-900">
+              {priceLabel(service)}
             </span>
-          )}
+            {hasVariants && (
+              <span className="text-xs text-gray-500">
+                {service.variants.length}{" "}
+                {service.variants.length === 1 ? "option" : "options"}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleAdd}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+          >
+            {hasVariants ? "Select" : useSlots ? "Book" : "Add"}
+            <ArrowRightIcon className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </article>

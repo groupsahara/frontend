@@ -58,7 +58,7 @@ export function FAQs() {
     <section className="bg-white py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-12 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-4xl uppercase">
+          <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">
             FREQUENTLY ASKED <span className="text-[#FA5C7C]">QUESTIONS</span>
           </h2>
           <p className="mt-4 text-sm text-gray-500 sm:text-base">
