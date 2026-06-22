@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { GOOGLE_MAPS_API_KEY } from "@/src/lib/maps";
 
 export interface LocationState {
   label: string;
@@ -11,24 +12,80 @@ export interface LocationState {
 
 const STORAGE_KEY = "rc.location";
 
-/** Reverse-geocode lat/lng to a short human label using a key-less public API. */
-async function reverseGeocode(lat: number, lng: number): Promise<string> {
+/**
+ * Reverse-geocode lat/lng to a precise street-level label via the Google Maps
+ * Geocoding API — the same source the customer app uses, so the result matches
+ * what users expect. Returns null on any failure so the caller can fall back.
+ */
+async function reverseGeocodeGoogle(lat: number, lng: number): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`,
     );
-    if (!res.ok) throw new Error("geocode failed");
     const data = (await res.json()) as {
-      locality?: string;
-      city?: string;
-      principalSubdivision?: string;
+      status?: string;
+      results?: Array<{
+        formatted_address?: string;
+        address_components?: Array<{ long_name: string; types: string[] }>;
+      }>;
     };
-    const parts = [data.locality || data.city, data.principalSubdivision].filter(Boolean);
+    if (data.status !== "OK" || !data.results?.length) return null;
+
+    const best = data.results[0];
+    const comps = best.address_components ?? [];
+    const pick = (type: string) =>
+      comps.find((c) => c.types.includes(type))?.long_name ?? "";
+
+    const city =
+      pick("locality") ||
+      pick("postal_town") ||
+      pick("sublocality") ||
+      pick("administrative_area_level_2");
+    const state = pick("administrative_area_level_1");
+
+    const parts = [city, state].filter(Boolean);
     if (parts.length) return parts.join(", ");
+    if (best.formatted_address) return best.formatted_address;
+    return null;
   } catch {
-    /* fall through to coordinates */
+    return null;
   }
-  return `${lat.toFixed(3)}, ${lng.toFixed(3)}`;
+}
+
+/** OpenStreetMap (Nominatim) reverse geocoder — free, key-less fallback. */
+async function reverseGeocodeOSM(lat: number, lng: number): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      address?: {
+        city?: string;
+        town?: string;
+        village?: string;
+        suburb?: string;
+        county?: string;
+        state?: string;
+      };
+    };
+    const a = data.address ?? {};
+    const city = a.city || a.town || a.village || a.suburb || a.county || "";
+    const parts = [city, a.state].filter(Boolean);
+    if (parts.length) return parts.join(", ");
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve coordinates to a short human label: Google first, then OSM, then raw coords. */
+async function reverseGeocode(lat: number, lng: number): Promise<string> {
+  return (
+    (await reverseGeocodeGoogle(lat, lng)) ??
+    (await reverseGeocodeOSM(lat, lng)) ??
+    `${lat.toFixed(3)}, ${lng.toFixed(3)}`
+  );
 }
 
 /**
@@ -91,7 +148,7 @@ export function useCurrentLocation() {
           coords: null,
         });
       },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 5 * 60 * 1000 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   }, []);
 
