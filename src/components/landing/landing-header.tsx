@@ -24,8 +24,10 @@ const LOGO_URL =
   "https://imgproxy.royodispatch.com/insecure/fit/300/100/sm/0/plain/https://restocare-asset.s3.ap-south-1.amazonaws.com/assets/Clientlogo/FE4tX1iKGv1yJIk1JijoEtq11jm1yGTIdMPIUjpa.png";
 
 const NAV_LINKS = [
-  { label: "Categories", href: "#categories" },
-  { label: "Services", href: "#services" },
+  // Root-relative so they work from any route (e.g. /account, /category/[id]):
+  // they navigate home and scroll to the section, not to "/current-path#section".
+  { label: "Categories", href: "/#categories" },
+  { label: "Services", href: "/#services" },
 ];
 
 const EMOJI_BY_NAME: Record<string, string> = {
@@ -160,13 +162,13 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         {/* Primary nav */}
         <nav className="ml-1 hidden items-center gap-5 lg:flex">
           {NAV_LINKS.map((link) => (
-            <a
+            <Link
               key={link.label}
               href={link.href}
               className="text-sm font-medium text-gray-700 transition-colors hover:text-gray-900"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
