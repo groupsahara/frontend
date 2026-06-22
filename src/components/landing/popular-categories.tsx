@@ -47,6 +47,13 @@ const EMOJI_BY_NAME: Record<string, string> = {
 
 const FALLBACK_EMOJI = "🧰";
 
+/** Trust highlights shown under the category grid to fill the card nicely. */
+const HIGHLIGHTS = [
+  { icon: "✅", label: "Verified Pros", sub: "Background-checked" },
+  { icon: "⭐", label: "4.8 Rated", sub: "By happy customers" },
+  { icon: "⚡", label: "Same-day", sub: "Quick availability" },
+];
+
 function emojiFor(name: string): string {
   return EMOJI_BY_NAME[name.trim().toLowerCase()] ?? FALLBACK_EMOJI;
 }
@@ -73,7 +80,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
 
       <div className="grid items-stretch gap-6 lg:grid-cols-[1.1fr_1fr]">
         {/* LEFT — category card */}
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
           {isLoading ? (
             <div className="flex h-72 items-center justify-center text-gray-400">
               <SpinnerIcon className="h-6 w-6" />
@@ -85,12 +92,41 @@ export function PopularCategories(_props: PopularCategoriesProps) {
           ) : categories.length === 0 ? (
             <p className="py-20 text-center text-sm text-gray-500">No categories yet.</p>
           ) : (
-            <div className="grid grid-cols-3 gap-x-4 gap-y-6 sm:grid-cols-4">
+            <div className="grid grid-cols-4 gap-x-3 gap-y-5 sm:grid-cols-5">
               {categories.map((category) => (
                 <CategoryTile key={category.categoryId} category={category} />
               ))}
             </div>
           )}
+
+          {/* Bottom highlights + CTA — fills the remaining space nicely */}
+          <div className="mt-auto pt-8">
+            <div className="grid grid-cols-3 gap-3">
+              {HIGHLIGHTS.map((h) => (
+                <div
+                  key={h.label}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl bg-gray-50 px-2 py-4 text-center"
+                >
+                  <span className="text-2xl">{h.icon}</span>
+                  <span className="text-xs font-semibold text-gray-800">{h.label}</span>
+                  <span className="text-[11px] leading-tight text-gray-500">{h.sub}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex flex-col items-center justify-between gap-3 rounded-2xl bg-linear-to-r from-orange-500 to-orange-600 px-5 py-4 text-white sm:flex-row sm:text-left">
+              <div>
+                <p className="text-sm font-bold">Can’t find your service?</p>
+                <p className="text-xs text-orange-50">Browse our full catalog of trusted professionals.</p>
+              </div>
+              <Link
+                href="#services"
+                className="shrink-0 rounded-full bg-white px-5 py-2 text-sm font-bold text-orange-600 transition hover:bg-orange-50"
+              >
+                Explore all
+              </Link>
+            </div>
+          </div>
         </div>
 
         {/* RIGHT — video collage covering the space */}
@@ -109,9 +145,9 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
   return (
     <Link
       href={`/category/${category.categoryId}`}
-      className="group flex cursor-pointer flex-col items-center gap-3 text-center"
+      className="group flex cursor-pointer flex-col items-center gap-2 text-center"
     >
-      <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl border border-transparent bg-gray-50 transition group-hover:border-gray-200 group-hover:shadow-sm">
+      <div className="relative flex h-17.5 w-15 items-center justify-center overflow-hidden rounded-2xl border border-transparent bg-gray-50 transition group-hover:border-gray-200 group-hover:shadow-sm">
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external category images
           <img
@@ -120,12 +156,12 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />
         ) : (
-          <span className="text-4xl transition duration-300 group-hover:scale-110">
+          <span className="text-3xl transition duration-300 group-hover:scale-110">
             {emojiFor(category.name)}
           </span>
         )}
       </div>
-      <p className="line-clamp-2 text-sm font-medium leading-tight text-gray-800">
+      <p className="line-clamp-2 text-xs font-medium leading-tight text-gray-800">
         {category.name}
       </p>
     </Link>
