@@ -55,8 +55,8 @@ export function WhyChooseUs() {
             <div className="col-span-2 overflow-hidden rounded-2xl shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1600565193348-f74bd3c7ccdf?auto=format&fit=crop&w=900&q=80"
-                alt="Professional chef in a restaurant kitchen"
+                src="/verified-providers.png"
+                alt="Verified providers with quality checks"
                 className="h-56 w-full object-cover lg:h-64"
               />
             </div>
@@ -64,8 +64,8 @@ export function WhyChooseUs() {
             <div className="overflow-hidden rounded-2xl shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=600&q=80"
-                alt="Restaurant kitchen equipment being serviced"
+                src="/fast-reschedule.png"
+                alt="Fast reschedule and cancellation options"
                 className="h-40 w-full object-cover"
               />
             </div>
@@ -73,8 +73,8 @@ export function WhyChooseUs() {
             <div className="overflow-hidden rounded-2xl shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=600&q=80"
-                alt="Technician repairing commercial kitchen appliance"
+                src="/realtime-updates.png"
+                alt="Real-time order and booking updates"
                 className="h-40 w-full object-cover"
               />
             </div>

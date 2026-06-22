@@ -68,16 +68,13 @@ export function HowItWorks() {
 
         {/* Wide bottom card */}
         <div className="grid overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:grid-cols-[1fr_1fr]">
-          <div className="relative min-h-[250px] overflow-hidden bg-[#111827] md:min-h-[300px]">
+          <div className="relative flex min-h-62.5 items-center justify-center overflow-hidden bg-white md:min-h-75">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80"
-              alt="Professional service technician at work"
-              className="h-full w-full object-cover opacity-90"
-              style={{ position: "absolute", inset: 0 }}
+              src="/how-it-works.png"
+              alt="See how on-demand restaurant service works"
+              className="h-full w-full object-contain"
             />
-            {/* subtle dark overlay for contrast */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/20" />
           </div>
           <div className="flex flex-col justify-center p-8 md:p-12">
             <h3 className="mb-4 text-2xl font-bold text-gray-900 sm:text-3xl">
