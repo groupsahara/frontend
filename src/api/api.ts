@@ -389,6 +389,8 @@ export interface CategoryInput {
   image?: File | null;
   /** Wide banner image shown on the category page — optional. */
   banner?: File | null;
+  /** Banner video shown on the category page — optional. */
+  video?: File | null;
 }
 
 function categoryFormData(body: CategoryInput): FormData {
@@ -398,6 +400,7 @@ function categoryFormData(body: CategoryInput): FormData {
   if (body.parentId != null) fd.append("parentId", String(body.parentId));
   if (body.image) fd.append("catagoryImage", body.image);
   if (body.banner) fd.append("bannerImage", body.banner);
+  if (body.video) fd.append("bannerVideo", body.video);
   return fd;
 }
 
@@ -579,6 +582,8 @@ export interface CategoryTreeNode {
   profileImage: string;
   /** Wide banner image shown on the category page (optional). */
   bannerImage?: string | null;
+  /** Banner video shown on the category page (optional, takes priority over the image). */
+  bannerVideo?: string | null;
   /** Services attached directly to this category (no sub-category). */
   services: CategoryTreeService[];
   groups: CategoryTreeGroup[];

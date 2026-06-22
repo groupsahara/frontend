@@ -35,6 +35,7 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
   const [parentId, setParentId] = useState<number | "">("");
   const [image, setImage] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
+  const [video, setVideo] = useState<File | null>(null);
   const [services, setServices] = useState<DraftService[]>([]);
 
   // Parent dropdown: existing top-level categories (can't be the category itself).
@@ -64,6 +65,8 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
         parentId: parentId === "" ? null : Number(parentId),
         image: icon,
         banner: bannerImg,
+        // Video is uploaded as-is (no client compression). Size is capped server-side.
+        video,
       };
 
       if (category) {
@@ -191,6 +194,21 @@ export function CategoryForm({ category, onClose }: CategoryFormProps) {
               />
               <span className="text-xs text-muted-foreground">
                 Wide image shown at the top of the category page in the app.
+              </span>
+            </Field>
+            <Field
+              label={isEdit ? "Banner video (leave empty to keep current)" : "Banner video (optional)"}
+              full
+            >
+              <input
+                type="file"
+                accept="video/*"
+                onChange={(e) => setVideo(e.target.files?.[0] ?? null)}
+                className={`${inputClass} file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1 file:text-sm file:text-foreground`}
+              />
+              <span className="text-xs text-muted-foreground">
+                Optional short video shown at the top of the category page. Plays
+                muted on loop and takes priority over the banner image (max 50 MB).
               </span>
             </Field>
           </div>
