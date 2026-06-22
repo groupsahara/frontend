@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ThemeToggle } from "@/src/components/theme-toggle";
 import { BellIcon, MenuIcon, SearchIcon } from "@/src/components/icons";
 import type { AdminUser } from "@/src/api/api";
@@ -34,6 +35,20 @@ export function Topbar({ user, onToggleSidebar, onOpenMobile }: TopbarProps) {
       >
         <MenuIcon className="h-5 w-5" />
       </button>
+
+      {/* Brand: logo + name (desktop only) */}
+      <Link
+        href="/dashboard"
+        className="hidden items-center gap-2.5 transition-opacity hover:opacity-80 lg:flex"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://restocare-asset.s3.ap-south-1.amazonaws.com/Clientlogo/6985da0674994.png"
+          alt="RestoCare Logo"
+          className="h-8 w-auto shrink-0"
+        />
+        <span className="text-lg font-semibold text-foreground">RestoCare</span>
+      </Link>
 
       {/* Search */}
       <div className="relative hidden flex-1 max-w-md sm:block">
