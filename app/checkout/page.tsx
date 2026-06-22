@@ -455,9 +455,9 @@ export default function CheckoutPage() {
     }
     const owner = ownerName.trim();
     const restaurant = restaurantName.trim();
-    const gst = gstNumber.trim();
-    if (!owner || !restaurant || !gst) {
-      setError("Please fill your owner name, restaurant name and GST number.");
+    const gst = gstNumber.trim(); // optional
+    if (!owner || !restaurant) {
+      setError("Please fill your owner name and restaurant name.");
       return;
     }
     if (!paymentMode) {
@@ -473,7 +473,7 @@ export default function CheckoutPage() {
       await userApi.updateProfile(user.id, {
         name: owner,
         restaurantName: restaurant,
-        gstNumber: gst,
+        ...(gst ? { gstNumber: gst } : {}),
       });
       const payloads = buildPayloads(paymentMode);
       if (paymentMode === "RAZORPAY") {
@@ -565,7 +565,7 @@ export default function CheckoutPage() {
             <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-sm font-bold text-gray-900">Your business details</p>
               <p className="mt-0.5 text-xs text-gray-500">
-                Required for your booking &amp; GST invoice.
+                Used for your booking &amp; GST invoice. GST number is optional.
               </p>
               <div className="mt-3 space-y-2">
                 <Input value={ownerName} onChange={setOwnerName} placeholder="Owner name *" />
@@ -574,7 +574,7 @@ export default function CheckoutPage() {
                   onChange={setRestaurantName}
                   placeholder="Restaurant name *"
                 />
-                <Input value={gstNumber} onChange={setGstNumber} placeholder="GST number *" />
+                <Input value={gstNumber} onChange={setGstNumber} placeholder="GST number (optional)" />
               </div>
             </section>
 
