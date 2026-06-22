@@ -10,12 +10,15 @@ export interface LocationState {
   coords: { lat: number; lng: number } | null;
 }
 
-const STORAGE_KEY = "rc.location";
+// Versioned: bumped when the label format changed to full street-level
+// addresses, so stale coarse "City, State" caches are ignored and re-detected.
+const STORAGE_KEY = "rc.location.v2";
 
 /**
- * Reverse-geocode lat/lng to a precise street-level label via the Google Maps
- * Geocoding API — the same source the customer app uses, so the result matches
- * what users expect. Returns null on any failure so the caller can fall back.
+ * Reverse-geocode lat/lng to a precise, full street-level address via the Google
+ * Maps Geocoding API — the same source the customer app uses, so the result
+ * matches what users expect. Returns null on any failure so the caller can fall
+ * back.
  */
 async function reverseGeocodeGoogle(lat: number, lng: number): Promise<string | null> {
   try {
@@ -24,62 +27,46 @@ async function reverseGeocodeGoogle(lat: number, lng: number): Promise<string | 
     );
     const data = (await res.json()) as {
       status?: string;
-      results?: Array<{
-        formatted_address?: string;
-        address_components?: Array<{ long_name: string; types: string[] }>;
-      }>;
+      results?: Array<{ formatted_address?: string }>;
     };
     if (data.status !== "OK" || !data.results?.length) return null;
-
-    const best = data.results[0];
-    const comps = best.address_components ?? [];
-    const pick = (type: string) =>
-      comps.find((c) => c.types.includes(type))?.long_name ?? "";
-
-    const city =
-      pick("locality") ||
-      pick("postal_town") ||
-      pick("sublocality") ||
-      pick("administrative_area_level_2");
-    const state = pick("administrative_area_level_1");
-
-    const parts = [city, state].filter(Boolean);
-    if (parts.length) return parts.join(", ");
-    if (best.formatted_address) return best.formatted_address;
-    return null;
+    return data.results[0].formatted_address || null;
   } catch {
     return null;
   }
 }
 
-/** OpenStreetMap (Nominatim) reverse geocoder — free, key-less fallback. */
+/** OpenStreetMap (Nominatim) reverse geocoder — free, key-less. Returns the full
+ *  street-level address (display_name) like Google Maps. */
 async function reverseGeocodeOSM(lat: number, lng: number): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
+      display_name?: string;
       address?: {
+        road?: string;
+        suburb?: string;
         city?: string;
         town?: string;
         village?: string;
-        suburb?: string;
         county?: string;
         state?: string;
       };
     };
+    if (data.display_name) return data.display_name;
     const a = data.address ?? {};
     const city = a.city || a.town || a.village || a.suburb || a.county || "";
-    const parts = [city, a.state].filter(Boolean);
-    if (parts.length) return parts.join(", ");
-    return null;
+    const parts = [a.road, city, a.state].filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
   } catch {
     return null;
   }
 }
 
-/** Resolve coordinates to a short human label: Google first, then OSM, then raw coords. */
+/** Resolve coordinates to a full, precise address: Google first, then OSM, then raw coords. */
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   return (
     (await reverseGeocodeGoogle(lat, lng)) ??

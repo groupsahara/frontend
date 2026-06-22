@@ -26,6 +26,7 @@ import {
   type UserAddress,
 } from "@/src/api/api";
 import { SpinnerIcon, CloseIcon, TrashIcon, PencilIcon } from "@/src/components/icons";
+import { GOOGLE_MAPS_API_KEY } from "@/src/lib/maps";
 
 function inr(n: number): string {
   return `₹${Math.round(n || 0).toLocaleString("en-IN")}`;
@@ -51,7 +52,107 @@ function loadRazorpay(): Promise<boolean> {
   });
 }
 
-async function reverseGeocode(lat: number, lng: number) {
+interface GeocodeResult {
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  zipCode: string;
+}
+
+const EMPTY_GEOCODE: GeocodeResult = {
+  address: "",
+  city: "",
+  state: "",
+  country: "India",
+  zipCode: "",
+};
+
+/** Precise reverse geocoding via the Google Maps Geocoding API (full address
+ *  components), matching the customer app. Returns null so the caller can fall
+ *  back to a key-less provider. */
+async function reverseGeocodeGoogle(lat: number, lng: number): Promise<GeocodeResult | null> {
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`,
+    );
+    const data = (await res.json()) as {
+      status?: string;
+      results?: Array<{
+        formatted_address?: string;
+        address_components?: Array<{ long_name: string; types: string[] }>;
+      }>;
+    };
+    if (data.status !== "OK" || !data.results?.length) return null;
+    const best = data.results[0];
+    const comps = best.address_components ?? [];
+    const pick = (type: string) =>
+      comps.find((c) => c.types.includes(type))?.long_name ?? "";
+    const city =
+      pick("locality") ||
+      pick("postal_town") ||
+      pick("sublocality") ||
+      pick("administrative_area_level_2");
+    return {
+      address: best.formatted_address ?? "",
+      city,
+      state: pick("administrative_area_level_1"),
+      country: pick("country") || "India",
+      zipCode: pick("postal_code"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** OpenStreetMap (Nominatim) reverse geocoder — free, key-less, returns the full
+ *  street-level address (display_name) like Google Maps. Used when the Google
+ *  Geocoding API is unavailable (e.g. the key has it disabled). */
+async function reverseGeocodeNominatim(lat: number, lng: number): Promise<GeocodeResult | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+    );
+    if (!res.ok) return null;
+    const d = (await res.json()) as {
+      display_name?: string;
+      address?: {
+        road?: string;
+        neighbourhood?: string;
+        suburb?: string;
+        city?: string;
+        town?: string;
+        village?: string;
+        county?: string;
+        state?: string;
+        country?: string;
+        postcode?: string;
+      };
+    };
+    const a = d.address ?? {};
+    const city = a.city || a.town || a.village || a.suburb || a.county || "";
+    if (!d.display_name && !city) return null;
+    return {
+      address: d.display_name || [a.road, a.suburb, city].filter(Boolean).join(", "),
+      city,
+      state: a.state || "",
+      country: a.country || "India",
+      zipCode: a.postcode || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Reverse geocode to a full, precise address. Google first (if its Geocoding
+ *  API is enabled), then OpenStreetMap, then the coarse BigDataCloud fallback. */
+async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResult> {
+  const google = await reverseGeocodeGoogle(lat, lng);
+  if (google && google.address) return google;
+
+  const osm = await reverseGeocodeNominatim(lat, lng);
+  if (osm && osm.address) return osm;
+
   try {
     const res = await fetch(
       `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
@@ -62,17 +163,17 @@ async function reverseGeocode(lat: number, lng: number) {
       principalSubdivision?: string;
       countryName?: string;
       postcode?: string;
-      localityInfo?: { administrative?: { name?: string }[] };
     };
+    const city = d.city || d.locality || "";
     return {
-      address: [d.locality, d.city].filter(Boolean).join(", ") || "",
-      city: d.city || d.locality || "",
+      address: [d.locality, city].filter(Boolean).join(", ") || "",
+      city,
       state: d.principalSubdivision || "",
       country: d.countryName || "India",
       zipCode: d.postcode || "",
     };
   } catch {
-    return { address: "", city: "", state: "", country: "India", zipCode: "" };
+    return EMPTY_GEOCODE;
   }
 }
 
@@ -226,6 +327,18 @@ export default function CheckoutPage() {
     setAddressModal(true);
     fetchAddresses(user.id);
   };
+
+  // Auto-detect the current location to prefill the delivery address when none
+  // is selected yet — runs once when the cart has items and no address is set.
+  const [autoLocated, setAutoLocated] = useState(false);
+  useEffect(() => {
+    if (autoLocated) return;
+    if (cartItems.length === 0) return;
+    if (selectedAddressId || address) return; // already have an address
+    setAutoLocated(true);
+    useCurrentLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLocated, cartItems.length, selectedAddressId, address]);
 
   const buildPayloads = (mode: PaymentMode): CreateBookingPayload[] => {
     const lat = Number(latitude);
@@ -429,7 +542,13 @@ export default function CheckoutPage() {
                       {selectedAddressId ? addressLabel : "Delivery address"}
                     </p>
                     <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">
-                      {address ? `${address}${city ? `, ${city}` : ""}` : "No address selected yet."}
+                      {address
+                        ? city && !address.toLowerCase().includes(city.toLowerCase())
+                          ? `${address}, ${city}`
+                          : address
+                        : isLocating
+                          ? "Detecting your current location…"
+                          : "No address selected yet."}
                     </p>
                   </div>
                 </div>

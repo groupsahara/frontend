@@ -175,8 +175,8 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         {/* Location picker */}
         <button
           onClick={location.detect}
-          title="Use my current location"
-          className="ml-auto hidden h-10 max-w-56 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 text-left transition hover:border-orange-300 hover:bg-orange-50/50 sm:flex"
+          title={location.label || "Use my current location"}
+          className="ml-auto hidden h-10 max-w-72 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 text-left transition hover:border-orange-300 hover:bg-orange-50/50 sm:flex"
         >
           <MapPinIcon className="h-4 w-4 shrink-0 text-gray-500" />
           <span className="truncate text-sm text-gray-700">
