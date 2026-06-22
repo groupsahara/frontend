@@ -10,51 +10,13 @@ interface Brand {
   logo: string;
 }
 
+// Only the logos that actually exist in /public/brands.
 const BRANDS: Brand[] = [
-  {
-    name: "Indian Air Force",
-    logo: "/brands/army.png",
-  },
-  {
-    name: "Burger Singh",
-    logo: "/brands/burger.png",
-  },
-  {
-    name: "McDonald's",
-    logo: "/brands/macdonal.jpg",
-  },
-  {
-    name: "Skill India",
-    logo: "/brands/skill.png",
-  },
-  {
-    name: "Tourism & Hospitality Skill Council",
-    logo: "/brands/thsc.png",
-  },
-  {
-    name: "Pyramid Cafe",
-    logo: "/brands/pyramid.jpeg",
-  },
-  {
-    name: "Domino's",
-    logo: "/brands/dominos.png",
-  },
-  {
-    name: "KFC",
-    logo: "/brands/kfc.svg",
-  },
-  {
-    name: "Subway",
-    logo: "/brands/subway.webp",
-  },
-  {
-    name: "Barbeque Nation",
-    logo: "/brands/barbeque.png",
-  },
-  {
-    name: "Taj Hotels",
-    logo: "/brands/taj.svg"
-  },
+  { name: "Brand", logo: "/brands/brand1.png" },
+  { name: "Brand", logo: "/brands/brand2.png" },
+  { name: "Brand", logo: "/brands/brand3.png" },
+  { name: "Brand", logo: "/brands/brand5.jpeg" },
+  { name: "Tourism & Hospitality Skill Council", logo: "/brands/thsc.png" },
 ];
 
 export function Brands() {
@@ -89,8 +51,8 @@ export function Brands() {
             }}
             className="!ease-linear [&_.swiper-wrapper]:!ease-linear"
           >
-            {BRANDS.map((brand) => (
-              <SwiperSlide key={brand.name}>
+            {[...BRANDS, ...BRANDS].map((brand, i) => (
+              <SwiperSlide key={`${brand.logo}-${i}`} className="flex! items-center justify-center">
                 <BrandLogo brand={brand} />
               </SwiperSlide>
             ))}
@@ -103,20 +65,16 @@ export function Brands() {
 
 function BrandLogo({ brand }: { brand: Brand }) {
   return (
-    <div className="group flex flex-col items-center gap-3 py-2 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-white p-3 shadow-sm ring-1 ring-gray-100 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+    <div className="group flex items-center justify-center py-2">
+      <div className="flex h-24 w-32 items-center justify-center rounded-xl bg-white p-4 shadow-sm ring-1 ring-gray-100 transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
         <Image
           src={brand.logo}
           alt={brand.name}
-          width={60}
-          height={60}
-          className="object-contain"
+          width={96}
+          height={64}
+          className="max-h-full w-auto object-contain"
         />
       </div>
-
-      <p className="max-w-[9rem] text-sm font-medium leading-tight text-gray-700">
-        {brand.name}
-      </p>
     </div>
   );
 }
