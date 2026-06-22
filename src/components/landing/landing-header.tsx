@@ -148,10 +148,13 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        {/* Logo */}
-        <Link href="/" className="flex shrink-0 items-center">
+        {/* Logo + brand name (always visible) */}
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- external CDN logo */}
           <img src={LOGO_URL} alt="RestoCare" className="h-9 w-auto object-contain" />
+          <span className="text-lg font-semibold tracking-tight text-gray-900">
+            RestoCare
+          </span>
         </Link>
 
         {/* Primary nav */}
