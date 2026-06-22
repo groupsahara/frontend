@@ -146,8 +146,8 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   const close = () => setOpen(false);
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-gray-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
+    <header className="sticky top-0 z-30 w-full border-b border-gray-100 bg-white/90 shadow-sm backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-3 sm:px-4">
         {/* Logo + brand name (always visible) */}
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- external CDN logo */}
@@ -158,7 +158,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         </Link>
 
         {/* Primary nav */}
-        <nav className="ml-2 hidden items-center gap-6 lg:flex">
+        <nav className="ml-1 hidden items-center gap-5 lg:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link.label}
@@ -174,7 +174,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         <button
           onClick={location.detect}
           title="Use my current location"
-          className="ml-auto hidden max-w-[14rem] items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-left transition hover:border-gray-300 sm:flex"
+          className="ml-auto hidden h-10 max-w-56 items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 text-left transition hover:border-orange-300 hover:bg-orange-50/50 sm:flex"
         >
           <MapPinIcon className="h-4 w-4 shrink-0 text-gray-500" />
           <span className="truncate text-sm text-gray-700">
@@ -201,7 +201,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
             }}
             onFocus={() => setOpen(true)}
             placeholder="Search for services or categories"
-            className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+            className="h-10 w-full rounded-xl border border-gray-200 bg-gray-50/60 pl-10 pr-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition focus:border-orange-500 focus:bg-white focus:ring-2 focus:ring-orange-500/20"
           />
 
           {showDropdown && (
