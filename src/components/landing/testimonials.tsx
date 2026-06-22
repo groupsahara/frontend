@@ -1,18 +1,35 @@
 export function PartnerCTA() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="flex flex-col items-center justify-between gap-6 rounded-2xl bg-[#2C3440] px-8 py-10 shadow-xl md:flex-row md:px-12 md:py-12">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-[38px]">
-            BECOME A SERVICE PARTNER
+      <div className="relative overflow-hidden rounded-3xl bg-[#070b16] px-6 py-16 shadow-2xl sm:px-10 sm:py-20 md:py-24">
+        {/* Base gradient */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0c1326] via-[#0a1020] to-[#070b16]" />
+
+        {/* Glowing top arc */}
+        <div className="pointer-events-none absolute left-1/2 top-0 h-[560px] w-[1200px] max-w-[150%] -translate-x-1/2 -translate-y-[86%] rounded-[50%] border border-blue-400/30 [box-shadow:0_40px_140px_rgba(59,130,246,0.25)]" />
+
+        {/* Perspective grid floor */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 opacity-40 [background-image:linear-gradient(to_right,rgba(255,255,255,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.07)_1px,transparent_1px)] [background-size:44px_44px] [transform:perspective(320px)_rotateX(62deg)] [transform-origin:bottom]" />
+
+        {/* Ambient center glow */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl" />
+
+        {/* Content */}
+        <div className="relative mx-auto flex max-w-2xl flex-col items-center text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-[44px] sm:leading-[1.1]">
+            Become a Service Partner
           </h2>
-          <p className="mt-2 text-sm text-gray-300 sm:text-base">
+          <p className="mt-4 max-w-xl text-sm text-gray-400 sm:text-base">
             Grow your business by listing your services and receiving quality bookings daily.
           </p>
+          <button className="group mt-8 inline-flex items-center gap-2 rounded-full bg-orange-500 px-8 py-3.5 text-sm font-bold text-white transition hover:bg-orange-400 [box-shadow:0_0_45px_rgba(249,115,22,0.55)]">
+            Get Started
+            <span className="transition-transform group-hover:translate-x-0.5">→</span>
+          </button>
+          <p className="mt-5 text-xs text-gray-500">
+            Free to join. No hidden fees. Start receiving bookings today.
+          </p>
         </div>
-        <button className="shrink-0 rounded-lg bg-[#FA5C7C] px-8 py-3.5 text-sm font-bold text-white transition hover:bg-[#FF4A6D]">
-          Get Started
-        </button>
       </div>
     </div>
   );
