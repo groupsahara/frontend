@@ -78,14 +78,6 @@ export function WhyChooseUs() {
                 className="h-40 w-full object-cover"
               />
             </div>
-            {/* Floating trust badge */}
-            <div className="absolute -bottom-4 -left-4 flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-lg">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-xl">✅</span>
-              <div>
-                <p className="text-sm font-bold text-gray-900">10,000+ Services</p>
-                <p className="text-xs text-gray-500">Completed this month</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
