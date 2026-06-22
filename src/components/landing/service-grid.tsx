@@ -76,7 +76,12 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
   });
 
   const services = useMemo(() => {
-    const flat = flattenServices(data ?? [], categoryId);
+    let flat = flattenServices(data ?? [], categoryId);
+    // On the home "Popular services" row (no category selected) only show the
+    // services an admin has marked as featured. The category page shows all.
+    if (!categoryId) {
+      flat = flat.filter((s) => s.isFeatured);
+    }
     const q = search.trim().toLowerCase();
     if (!q) return flat;
     return flat.filter(

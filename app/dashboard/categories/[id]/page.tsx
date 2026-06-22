@@ -61,6 +61,17 @@ export default function CategoryProfilePage() {
     },
   });
 
+  // Toggle whether a service is featured — featured services are the ones shown
+  // in the landing page's "Popular services" row.
+  const toggleFeatured = useMutation({
+    mutationFn: (s: CatalogService) =>
+      serviceApi.update(s.serviceId, { isFeatured: !s.isFeatured }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["services"] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
+    },
+  });
+
   const importMutation = useMutation({
     mutationFn: (file: File) => serviceApi.import(file, { categoryId }),
     onSuccess: (result) => {
@@ -303,7 +314,32 @@ export default function CategoryProfilePage() {
                         {s.isActive ? "Published" : "Draft"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-foreground">{s.isFeatured ? "Yes" : "No"}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={s.isFeatured}
+                        disabled={
+                          toggleFeatured.isPending &&
+                          toggleFeatured.variables?.serviceId === s.serviceId
+                        }
+                        onClick={() => toggleFeatured.mutate(s)}
+                        title={
+                          s.isFeatured
+                            ? "Featured — shown in Popular services"
+                            : "Not featured — toggle to show in Popular services"
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                          s.isFeatured ? "bg-primary" : "bg-muted"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                            s.isFeatured ? "translate-x-5" : "translate-x-0.5"
+                          }`}
+                        />
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setVariantsService(s)}

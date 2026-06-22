@@ -560,6 +560,8 @@ export interface CategoryTreeService {
   price: number | null;
   durationMinutes: number | null;
   profileImage: string | null;
+  /** When true, the service appears in the landing "Popular services" row. */
+  isFeatured?: boolean;
   variants: CategoryTreeVariant[];
 }
 
