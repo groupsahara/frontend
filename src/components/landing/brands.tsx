@@ -61,7 +61,7 @@ export function Brands() {
   return (
     <section className="bg-gradient-to-b from-white to-gray-50 py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
           Our Associated Brands
         </h2>
 

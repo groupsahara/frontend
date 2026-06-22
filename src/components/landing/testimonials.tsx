@@ -3,7 +3,7 @@ export function PartnerCTA() {
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
       <div className="flex flex-col items-center justify-between gap-6 rounded-2xl bg-[#2C3440] px-8 py-10 shadow-xl md:flex-row md:px-12 md:py-12">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-[38px]">
             BECOME A SERVICE PARTNER
           </h2>
           <p className="mt-2 text-sm text-gray-300 sm:text-base">
@@ -50,7 +50,7 @@ export function Testimonials() {
     <section className="bg-white pb-20 pt-4">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-10">
-          <h2 className="text-2xl font-bold tracking-tight text-[#0A192F] sm:text-3xl uppercase">
+          <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">
             WHAT OUR CUSTOMERS SAY
           </h2>
           <p className="mt-2 text-sm text-gray-500 sm:text-base">

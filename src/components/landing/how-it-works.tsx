@@ -23,7 +23,7 @@ export function HowItWorks() {
     <section className="bg-gray-50 py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-12">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
             HOW IT WORKS
           </h2>
           <p className="mt-2 text-sm text-gray-500 sm:text-base">

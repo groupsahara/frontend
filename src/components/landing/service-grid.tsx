@@ -91,7 +91,7 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
     <section id="services" className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
             {categoryId ? "Services in this category" : "Popular services"}
           </h2>
           <p className="mt-1 text-sm text-gray-500">

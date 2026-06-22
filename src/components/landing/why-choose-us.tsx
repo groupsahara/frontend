@@ -30,7 +30,7 @@ export function WhyChooseUs() {
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-24">
           {/* Left content */}
           <div>
-            <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px]">
               WHY CUSTOMERS CHOOSE US
             </h2>
             <p className="mt-4 text-base leading-relaxed text-gray-500 max-w-lg">

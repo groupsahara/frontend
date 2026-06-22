@@ -64,7 +64,7 @@ export function RestaurantRepair() {
     <section className="bg-white py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-8">
-          <h2 className="text-2xl font-bold tracking-tight text-[#0A192F] sm:text-3xl">
+          <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px]">
             Restaurant Maintenance, Repair &amp; Installation Services
           </h2>
         </div>
