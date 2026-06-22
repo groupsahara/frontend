@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,6 +33,14 @@ export default function CategoryProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Auto-dismiss the toast after a short delay.
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
   const [editCategory, setEditCategory] = useState(false);
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<CatalogService | null>(null);
@@ -66,10 +74,16 @@ export default function CategoryProfilePage() {
   const toggleFeatured = useMutation({
     mutationFn: (s: CatalogService) =>
       serviceApi.update(s.serviceId, { isFeatured: !s.isFeatured }),
-    onSuccess: () => {
+    onSuccess: (_data, s) => {
+      setToast(
+        s.isFeatured
+          ? `"${s.name}" removed from Popular services`
+          : `"${s.name}" successfully added to Popular services`,
+      );
       queryClient.invalidateQueries({ queryKey: ["services"] });
       queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree });
     },
+    onError: () => setToast("Couldn't update. Please try again."),
   });
 
   const importMutation = useMutation({
@@ -138,6 +152,14 @@ export default function CategoryProfilePage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-foreground px-4 py-3 text-sm font-medium text-background shadow-lg">
+          <span className="text-success">✓</span>
+          {toast}
+        </div>
+      )}
+
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/dashboard/categories" className="hover:text-foreground">
@@ -315,30 +337,39 @@ export default function CategoryProfilePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={s.isFeatured}
-                        disabled={
+                      {(() => {
+                        const loading =
                           toggleFeatured.isPending &&
-                          toggleFeatured.variables?.serviceId === s.serviceId
-                        }
-                        onClick={() => toggleFeatured.mutate(s)}
-                        title={
-                          s.isFeatured
-                            ? "Featured — shown in Popular services"
-                            : "Not featured — toggle to show in Popular services"
-                        }
-                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
-                          s.isFeatured ? "bg-primary" : "bg-muted"
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
-                            s.isFeatured ? "translate-x-5" : "translate-x-0.5"
-                          }`}
-                        />
-                      </button>
+                          toggleFeatured.variables?.serviceId === s.serviceId;
+                        return (
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={s.isFeatured}
+                            aria-busy={loading}
+                            disabled={loading}
+                            onClick={() => toggleFeatured.mutate(s)}
+                            title={
+                              s.isFeatured
+                                ? "Featured — shown in Popular services"
+                                : "Not featured — toggle to show in Popular services"
+                            }
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-wait ${
+                              s.isFeatured ? "bg-primary" : "bg-muted"
+                            }`}
+                          >
+                            <span
+                              className={`flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow transition-transform ${
+                                s.isFeatured ? "translate-x-5" : "translate-x-0.5"
+                              }`}
+                            >
+                              {loading && (
+                                <SpinnerIcon className="h-3 w-3 text-muted-foreground" />
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <button
