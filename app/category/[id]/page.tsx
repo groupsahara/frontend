@@ -119,14 +119,26 @@ function CategoryPageContent() {
         ) : category ? (
           <>
             {/* ===== Category banner ===== */}
-            <section className="relative h-64 w-full overflow-hidden sm:h-80">
-              {/* eslint-disable-next-line @next/next/no-img-element -- external category image */}
-              <img
-                src={category.bannerImage || category.profileImage}
-                alt={category.name}
-                className="absolute inset-0 h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/55 to-black/30" />
+            <section className="relative h-80 w-full overflow-hidden sm:h-112 lg:h-128">
+              {category.bannerVideo ? (
+                <video
+                  src={category.bannerVideo}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  poster={category.bannerImage || category.profileImage}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element -- external category image
+                <img
+                  src={category.bannerImage || category.profileImage}
+                  alt={category.name}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              )}
+              <div className="absolute inset-0 bg-linear-to-t from-black/85 via-black/55 to-black/30" />
 
               <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-8 sm:px-6">
                 {/* breadcrumb */}
