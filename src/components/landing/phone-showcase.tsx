@@ -55,7 +55,7 @@ export function PhoneShowcase() {
       <div className="pointer-events-none absolute -left-24 top-10 h-72 w-72 rounded-full bg-orange-200/30 blur-3xl" />
       <div className="pointer-events-none absolute -right-24 bottom-0 h-72 w-72 rounded-full bg-blue-200/30 blur-3xl" />
 
-      <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-14 sm:px-6 lg:grid-cols-2 lg:py-20">
+      <div className="mx-auto grid max-w-7xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2 lg:py-14">
         {/* Copy */}
         <div className="text-center lg:order-2 lg:text-left">
           <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">

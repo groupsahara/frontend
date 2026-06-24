@@ -31,7 +31,7 @@ export function TopProviders() {
   ];
 
   return (
-    <section className="bg-gray-50 py-16 sm:py-24">
+    <section className="bg-gray-50 py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-10">
           <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px]">

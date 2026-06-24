@@ -68,7 +68,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
   const categories = data ?? [];
 
   return (
-    <section id="categories" className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+    <section id="categories" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-8 text-center">
         <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
           POPULAR CATEGORIES

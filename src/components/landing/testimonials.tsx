@@ -1,7 +1,7 @@
 export function PartnerCTA() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="relative overflow-hidden rounded-3xl bg-[#070b16] px-6 py-16 shadow-2xl sm:px-10 sm:py-20 md:py-24">
+    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <div className="relative overflow-hidden rounded-3xl bg-[#070b16] px-6 py-12 shadow-2xl sm:px-10 sm:py-16">
         {/* Base gradient */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0c1326] via-[#0a1020] to-[#070b16]" />
 
@@ -80,7 +80,7 @@ export function Testimonials() {
       .toUpperCase();
 
   return (
-    <section className="bg-white pb-20 pt-4">
+    <section className="bg-white pb-12 pt-2">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-10">
           <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">

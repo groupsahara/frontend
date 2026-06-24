@@ -93,7 +93,7 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
   }, [data, categoryId, search]);
 
   return (
-    <section id="services" className="mx-auto max-w-7xl px-4 pb-20 sm:px-6">
+    <section id="services" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6">
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">

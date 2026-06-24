@@ -55,9 +55,9 @@ export function FAQs() {
   const [openIndex, setOpenIndex] = useState<number | null>(1); // Index 1 (02) is open by default
 
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="bg-white py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="mb-12 text-center">
+        <div className="mb-8 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">
             FREQUENTLY ASKED <span className="text-[#FA5C7C]">QUESTIONS</span>
           </h2>
