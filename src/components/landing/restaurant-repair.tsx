@@ -20,7 +20,7 @@ export function RestaurantRepair() {
       reviews: "1.2k",
       hasInstant: true,
       price: "₹149",
-      image: "https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80",
+      image: "/Kitchen Equipment Repair.png",
     },
     {
       id: 2,
@@ -29,7 +29,7 @@ export function RestaurantRepair() {
       reviews: "850",
       hasInstant: false,
       price: "₹99",
-      image: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=600&q=80",
+      image: "/Exhaust Fan Repair.png",
     },
     {
       id: 3,
@@ -38,7 +38,7 @@ export function RestaurantRepair() {
       reviews: "2.1k",
       hasInstant: false,
       price: "₹199",
-      image: "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80",
+      image: "/Commercial Plumbing.png",
     },
     {
       id: 4,
@@ -47,7 +47,7 @@ export function RestaurantRepair() {
       reviews: "3.4k",
       hasInstant: true,
       price: "₹99",
-      image: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=600&q=80",
+      image: "/Switchboard Repair & Replacement.png",
     },
     {
       id: 5,
@@ -56,7 +56,7 @@ export function RestaurantRepair() {
       reviews: "1.1k",
       hasInstant: true,
       price: "₹249",
-      image: "https://images.unsplash.com/photo-1581092334651-ddf26d9a09d0?auto=format&fit=crop&w=600&q=80",
+      image: "/HVAC Maintenance.png",
     },
   ];
 
@@ -99,12 +99,12 @@ export function RestaurantRepair() {
                 className="w-[280px] shrink-0 snap-start sm:w-[300px]"
               >
                 <article className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white transition hover:-translate-y-1 hover:shadow-lg">
-                  <div className="relative h-44 w-full shrink-0 overflow-hidden bg-gray-100">
+                  <div className="relative w-full shrink-0 overflow-hidden bg-gray-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={service.image}
                       alt={service.name}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      className="h-auto w-full object-contain transition duration-300 group-hover:scale-105"
                     />
                   </div>
                   
