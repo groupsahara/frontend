@@ -28,6 +28,8 @@ const NAV_LINKS = [
   // they navigate home and scroll to the section, not to "/current-path#section".
   { label: "Categories", href: "/#categories" },
   { label: "Services", href: "/#services" },
+  { label: "Products", href: "/products" },
+  { label: "Careers", href: "/careers" },
 ];
 
 const EMOJI_BY_NAME: Record<string, string> = {

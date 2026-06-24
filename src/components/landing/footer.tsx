@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Chatbot } from "./chatbot";
 
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -58,7 +59,9 @@ export function Footer() {
               <li><Link href="#" className="hover:text-white transition">Become Our Partner</Link></li>
               <li><Link href="#" className="hover:text-white transition">Refund & Cancellation Policy</Link></li>
               <li><Link href="#" className="hover:text-white transition">Terms And Conditions</Link></li>
+              <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link></li>
+              <li><Link href="/careers" className="hover:text-white transition">Careers</Link></li>
               <li><Link href="#" className="hover:text-white transition">Freelancer Registration</Link></li>
             </ul>
           </div>
@@ -136,6 +139,9 @@ export function Footer() {
         </div>
       </div>
 
+      {/* Support chatbot (floating, bottom-right) */}
+      <Chatbot />
+
       {/* Floating WhatsApp Button */}
       <a
         href="https://wa.me/919899300646"
@@ -150,7 +156,7 @@ export function Footer() {
       {/* Floating Scroll to Top Button */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFD13B] text-white shadow-xl transition-all duration-300 hover:bg-[#FFC107] ${
+        className={`fixed bottom-24 left-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFD13B] text-white shadow-xl transition-all duration-300 hover:bg-[#FFC107] ${
           showTopBtn ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
         }`}
         aria-label="Scroll to top"

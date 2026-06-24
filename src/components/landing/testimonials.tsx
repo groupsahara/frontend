@@ -41,27 +41,43 @@ export function Testimonials() {
       id: 1,
       title: '"Excellent Experience"',
       content: "Booking was smooth and the professional arrived on time. Highly recommended for busy families.",
-      avatar: "https://randomuser.me/api/portraits/women/44.jpg",
+      name: "Priya Sharma",
+      role: "Restaurant Owner",
+      color: "from-orange-500 to-amber-500",
     },
     {
       id: 2,
       title: '"Very Convenient"',
       content: "I found and booked an electrician in under five minutes. The app flow is fast and very clear.",
-      avatar: "https://randomuser.me/api/portraits/men/32.jpg",
+      name: "Rahul Verma",
+      role: "Cafe Manager",
+      color: "from-blue-500 to-indigo-500",
     },
     {
       id: 3,
       title: '"Best Service Quality"',
       content: "The quality of work was top-notch and support team was quick to respond throughout the process.",
-      avatar: "https://randomuser.me/api/portraits/women/68.jpg",
+      name: "Anita Desai",
+      role: "Cloud Kitchen",
+      color: "from-emerald-500 to-teal-500",
     },
     {
       id: 4,
       title: '"Will Book Again"',
       content: "Transparent pricing, clean UI, and reliable providers. I already booked my second service.",
-      avatar: "https://randomuser.me/api/portraits/men/46.jpg",
+      name: "Vikram Singh",
+      role: "Hotel F&B Head",
+      color: "from-rose-500 to-pink-500",
     },
   ];
+
+  const initials = (name: string) =>
+    name
+      .split(" ")
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
 
   return (
     <section className="bg-white pb-20 pt-4">
@@ -79,22 +95,36 @@ export function Testimonials() {
           {reviews.map((review) => (
             <div
               key={review.id}
-              className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+              className="flex flex-col rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition hover:shadow-md"
             >
-              <div className="mb-4 h-12 w-12 overflow-hidden rounded-full bg-gray-100">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={review.avatar}
-                  alt="Customer avatar"
-                  className="h-full w-full object-cover"
-                />
+              {/* 5-star rating */}
+              <div className="mb-3 flex gap-0.5 text-amber-400" aria-label="5 out of 5 stars">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span key={i}>★</span>
+                ))}
               </div>
+
               <h3 className="mb-2 text-base font-bold text-gray-900">
                 {review.title}
               </h3>
-              <p className="text-sm leading-relaxed text-gray-500">
+              <p className="flex-1 text-sm leading-relaxed text-gray-500">
                 {review.content}
               </p>
+
+              {/* Author — initials monogram instead of a photo */}
+              <div className="mt-5 flex items-center gap-3 border-t border-gray-100 pt-4">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br ${review.color} text-sm font-bold text-white`}
+                >
+                  {initials(review.name)}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    {review.name}
+                  </p>
+                  <p className="truncate text-xs text-gray-400">{review.role}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>

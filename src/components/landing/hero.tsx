@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { bannerApi, queryKeys } from "@/src/api/api";
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -17,6 +18,14 @@ const FALLBACK_IMAGES = [
   "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1920&q=80",
 ];
 
+// Service highlights surfaced on the banner (Pronto-style trust strip).
+const HIGHLIGHTS = [
+  { icon: "⚡", label: "Instant Service" },
+  { icon: "✅", label: "Verified Staff" },
+  { icon: "⭐", label: "Certified Staff" },
+  { icon: "🛡️", label: "Quality Assured" },
+];
+
 export function Hero() {
   const { data: banners } = useQuery({
     queryKey: [...queryKeys.bannersActive, "WEB"],
@@ -28,28 +37,91 @@ export function Hero() {
 
   return (
     <section className="mx-auto w-full max-w-8xl px-4 py-4 sm:py-4 sm:px-4">
-      <Swiper
-        modules={[Autoplay, EffectFade]}
-        effect="fade"
-        autoplay={{ delay: 3000, disableOnInteraction: false }}
-        loop={true}
-        className="w-full"
-      >
-        {images.map((src, index) => (
-          <SwiperSlide key={index}>
-            <div className="relative w-full aspect-[1720/650] overflow-hidden rounded-2xl">
-              <Image
-                src={src}
-                fill
-                alt="banner"
-                sizes="(max-width: 1280px) 100vw, 1280px"
-                className="object-cover object-center"
-                priority={index === 0}
-              />
+      <div className="relative overflow-hidden rounded-2xl">
+        {/* Background slider */}
+        <Swiper
+          modules={[Autoplay, EffectFade]}
+          effect="fade"
+          autoplay={{ delay: 3000, disableOnInteraction: false }}
+          loop={true}
+          className="w-full"
+        >
+          {images.map((src, index) => (
+            <SwiperSlide key={index}>
+              <div className="relative w-full aspect-1720/650">
+                <Image
+                  src={src}
+                  fill
+                  alt="banner"
+                  sizes="(max-width: 1280px) 100vw, 1280px"
+                  className="object-cover object-center"
+                  priority={index === 0}
+                />
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
+
+        {/* Overlay content (sits above the slider, constant across slides) */}
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-center bg-linear-to-r from-black/70 via-black/40 to-transparent px-6 sm:px-10 lg:px-16">
+          <div className="max-w-xl">
+            <p className="mb-2 inline-flex rounded-full bg-orange-500/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white sm:text-xs">
+              Trusted restaurant services
+            </p>
+            <h1 className="text-2xl font-bold leading-tight text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
+              Skilled staff &amp; repairs,
+              <br className="hidden sm:block" /> delivered instantly
+            </h1>
+            <p className="mt-3 max-w-md text-sm text-gray-100 sm:text-base">
+              Book verified chefs, helpers, technicians and maintenance pros for your
+              restaurant — on demand, near you.
+            </p>
+
+            <div className="pointer-events-auto mt-5 flex flex-wrap gap-3">
+              <Link
+                href="#categories"
+                className="rounded-full bg-orange-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-orange-700"
+              >
+                Explore Categories
+              </Link>
+              <Link
+                href="#services"
+                className="rounded-full bg-white/95 px-6 py-3 text-sm font-bold text-gray-900 shadow-lg transition hover:bg-white"
+              >
+                Browse Services
+              </Link>
             </div>
-          </SwiperSlide>
+          </div>
+        </div>
+
+        {/* Service highlights strip */}
+        <div className="absolute inset-x-0 bottom-0 z-10 hidden bg-linear-to-t from-black/70 to-transparent px-6 pb-4 pt-10 sm:block sm:px-10 lg:px-16">
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {HIGHLIGHTS.map((h) => (
+              <span
+                key={h.label}
+                className="flex items-center gap-1.5 text-sm font-semibold text-white"
+              >
+                <span className="text-base">{h.icon}</span>
+                {h.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile highlights (below banner) */}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:hidden">
+        {HIGHLIGHTS.map((h) => (
+          <span
+            key={h.label}
+            className="flex items-center gap-1.5 rounded-xl bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-800"
+          >
+            <span className="text-sm">{h.icon}</span>
+            {h.label}
+          </span>
         ))}
-      </Swiper>
+      </div>
     </section>
   );
 }

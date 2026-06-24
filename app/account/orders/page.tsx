@@ -9,6 +9,7 @@ import { Footer } from "@/src/components/landing/footer";
 import { useCustomerAuth } from "@/src/lib/customer-auth";
 import { useCart } from "@/src/lib/cart";
 import { bookingApi, queryKeys, type BookingRecord } from "@/src/api/api";
+import { openInvoice } from "@/src/lib/invoice";
 import { SpinnerIcon } from "@/src/components/icons";
 
 function inr(n: number): string {
@@ -261,6 +262,22 @@ export default function MyBookingsPage() {
                     <span className="text-base font-bold text-indigo-700">
                       {inr(b.totalAmount || 0)}
                     </span>
+                  </div>
+
+                  {/* Invoice */}
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      onClick={() =>
+                        openInvoice(b, {
+                          name: user?.name,
+                          email: user?.email,
+                          mobile: user?.mobile,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      🧾 Download Invoice
+                    </button>
                   </div>
 
                   {/* Who accepted the booking */}
