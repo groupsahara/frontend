@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Chatbot } from "./chatbot";
 
 function WhatsAppIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -47,25 +48,27 @@ export function Footer() {
   };
 
   return (
-    <footer className="relative bg-[#0F1115] pt-16 pb-8 text-sm text-gray-400">
+    <footer className="relative bg-[#0F1115] pt-12 pb-8 text-sm text-gray-400">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4">
           
           {/* Quick Links */}
           <div>
-            <h3 className="mb-6 text-lg font-bold text-white">Quick Links</h3>
+            <h3 className="mb-4 text-lg font-bold text-white">Quick Links</h3>
             <ul className="space-y-3">
               <li><Link href="#" className="hover:text-white transition">Become Our Partner</Link></li>
               <li><Link href="#" className="hover:text-white transition">Refund & Cancellation Policy</Link></li>
               <li><Link href="#" className="hover:text-white transition">Terms And Conditions</Link></li>
+              <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link></li>
+              <li><Link href="/careers" className="hover:text-white transition">Careers</Link></li>
               <li><Link href="#" className="hover:text-white transition">Freelancer Registration</Link></li>
             </ul>
           </div>
 
           {/* Contact Us */}
           <div>
-            <h3 className="mb-6 text-lg font-bold text-white">Contact Us</h3>
+            <h3 className="mb-4 text-lg font-bold text-white">Contact Us</h3>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
                 <span className="mt-1">📍</span>
@@ -84,7 +87,7 @@ export function Footer() {
 
           {/* Payment Methods & Socials */}
           <div>
-            <h3 className="mb-6 text-lg font-bold text-white">Payment Methods</h3>
+            <h3 className="mb-4 text-lg font-bold text-white">Payment Methods</h3>
             <div className="flex flex-wrap gap-2 mb-8">
               {/* Dummy payment icons */}
               <div className="h-8 w-12 rounded bg-blue-600 flex items-center justify-center text-white text-[10px] font-bold">VISA</div>
@@ -108,7 +111,7 @@ export function Footer() {
 
           {/* Find Our App */}
           <div>
-            <h3 className="mb-6 text-lg font-bold text-white">Find Our App On Mobile</h3>
+            <h3 className="mb-4 text-lg font-bold text-white">Find Our App On Mobile</h3>
             <div className="flex gap-4">
               <div className="space-y-2">
                 <div className="h-20 w-20 bg-white p-1 rounded-sm flex items-center justify-center">
@@ -131,10 +134,13 @@ export function Footer() {
 
         </div>
 
-        <div className="mt-16 border-t border-gray-800 pt-8 text-center">
+        <div className="mt-10 border-t border-gray-800 pt-6 text-center">
           <p>Restocare is a brand operated by Restroedge Private Limited.</p>
         </div>
       </div>
+
+      {/* Support chatbot (floating, bottom-right) */}
+      <Chatbot />
 
       {/* Floating WhatsApp Button */}
       <a
@@ -150,7 +156,7 @@ export function Footer() {
       {/* Floating Scroll to Top Button */}
       <button
         onClick={scrollToTop}
-        className={`fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFD13B] text-white shadow-xl transition-all duration-300 hover:bg-[#FFC107] ${
+        className={`fixed bottom-24 left-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-[#FFD13B] text-white shadow-xl transition-all duration-300 hover:bg-[#FFC107] ${
           showTopBtn ? "translate-y-0 opacity-100" : "translate-y-10 opacity-0 pointer-events-none"
         }`}
         aria-label="Scroll to top"

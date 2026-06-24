@@ -25,7 +25,7 @@ export function WhyChooseUs() {
   ];
 
   return (
-    <section className="bg-white py-16 sm:py-24">
+    <section className="bg-white py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-24">
           {/* Left content */}

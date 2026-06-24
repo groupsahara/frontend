@@ -49,9 +49,9 @@ const FALLBACK_EMOJI = "🧰";
 
 /** Trust highlights shown under the category grid to fill the card nicely. */
 const HIGHLIGHTS = [
-  { icon: "✅", label: "Verified Pros", sub: "Background-checked" },
-  { icon: "⭐", label: "4.8 Rated", sub: "By happy customers" },
-  { icon: "⚡", label: "Same-day", sub: "Quick availability" },
+  { icon: "✅", label: "Verified Staff", sub: "Background-checked" },
+  { icon: "⭐", label: "Certified Staff", sub: "Trained & certified" },
+  { icon: "⚡", label: "Instant Service", sub: "Quick availability" },
 ];
 
 function emojiFor(name: string): string {
@@ -68,7 +68,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
   const categories = data ?? [];
 
   return (
-    <section id="categories" className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+    <section id="categories" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-8 text-center">
         <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
           POPULAR CATEGORIES
@@ -92,7 +92,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
           ) : categories.length === 0 ? (
             <p className="py-20 text-center text-sm text-gray-500">No categories yet.</p>
           ) : (
-            <div className="grid grid-cols-4 gap-x-3 gap-y-5 sm:grid-cols-5">
+            <div className="grid grid-cols-4 gap-x-3 gap-y-5">
               {categories.map((category) => (
                 <CategoryTile key={category.categoryId} category={category} />
               ))}
