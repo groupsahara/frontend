@@ -130,7 +130,7 @@ export default function MyBookingsPage() {
           <Link href="/account" className="text-2xl leading-none text-gray-900" aria-label="Back">
             ←
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">My Orders</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">My Orders</h1>
         </div>
 
         {/* Tabs */}

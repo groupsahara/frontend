@@ -226,7 +226,7 @@ export default function PrivacyPolicyPage() {
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80 ring-1 ring-white/20">
             🔒 Legal
           </span>
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl">
+          <h1 className="mt-4 text-xl font-extrabold tracking-tight sm:text-4xl">
             Privacy Policy
           </h1>
           <p className="mt-3 text-base text-white/70">

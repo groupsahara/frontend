@@ -68,14 +68,14 @@ export function Hero() {
         {/* Overlay content (sits above the slider, constant across slides) */}
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-center  to-transparent px-6 sm:px-10 lg:px-16">
           <div className="max-w-xl">
-            <p className="mb-2 inline-flex rounded-full bg-orange-500/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white sm:text-xs">
+            <p className="mb-2 hidden rounded-full bg-orange-500/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white sm:text-xs md:inline-flex">
               Trusted restaurant services
             </p>
-            <h1 className="text-2xl font-bold leading-tight text-black drop-shadow-sm sm:text-4xl lg:text-5xl">
+            <h1 className="hidden text-sm font-bold leading-tight text-black drop-shadow-sm sm:text-4xl lg:text-5xl md:block">
               Skilled staff &amp; repairs,
               <br className="hidden sm:block" /> delivered instantly
             </h1>
-            <p className="mt-3 max-w-md text-sm text-black sm:text-base">
+            <p className="mt-3 hidden max-w-md text-xs text-black sm:text-base md:block">
               Book verified chefs, helpers, technicians and maintenance pros for
               your restaurant — on demand, near you.
             </p>

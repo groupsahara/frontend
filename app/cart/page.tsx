@@ -23,7 +23,7 @@ export default function CartPage() {
       <LandingHeader search={search} onSearchChange={setSearch} />
 
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+        <h1 className="text-xl font-bold tracking-tight text-gray-900 sm:text-3xl">
           Your cart
         </h1>
 

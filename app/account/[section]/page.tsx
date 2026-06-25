@@ -65,7 +65,7 @@ export default function AccountSectionPage({
           <Link href="/account" className="text-2xl leading-none text-gray-900" aria-label="Back">
             ←
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
             {config?.title ?? "Account"}
           </h1>
         </div>

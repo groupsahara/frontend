@@ -73,7 +73,7 @@ export default function CareersPage() {
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-orange-600">
             Careers at RestoCare
           </p>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">
+          <h1 className="text-xl font-bold tracking-tight sm:text-5xl">
             Build the future of restaurant services
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm text-gray-600 sm:text-base">
@@ -108,7 +108,7 @@ export default function CareersPage() {
       {/* Openings */}
       <section id="openings" className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
         <div className="mb-8 text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+          <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-3xl">
             Open Positions
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">

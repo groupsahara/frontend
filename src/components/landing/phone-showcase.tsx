@@ -61,7 +61,7 @@ export function PhoneShowcase() {
           <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
             See it in action
           </span>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
+          <h2 className="mt-4 text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
             From booking to your doorstep — in real time
           </h2>
           <p className="mx-auto mt-3 max-w-md text-base text-gray-600 lg:mx-0">

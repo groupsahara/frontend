@@ -110,7 +110,7 @@ export default function ProductDetailPage({
             <p className="text-sm font-medium uppercase tracking-wide text-emerald-600">
               {product.category}
             </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl">
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-gray-900 sm:text-3xl">
               {product.name}
             </h1>
             <p className="mt-1 text-sm text-gray-500">{product.tagline}</p>

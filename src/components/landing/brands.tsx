@@ -23,7 +23,7 @@ export function Brands() {
   return (
     <section className="bg-linear-to-b from-white to-gray-50 py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <h2 className="text-center text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
+        <h2 className="text-center text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
           Our Associated Brands
         </h2>
 

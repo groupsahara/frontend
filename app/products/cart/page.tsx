@@ -39,7 +39,7 @@ export default function ProductCartPage() {
           <Link href="/products" className="text-2xl leading-none text-gray-900" aria-label="Back">
             ←
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Product Cart</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">Product Cart</h1>
         </div>
 
         {items.length === 0 ? (

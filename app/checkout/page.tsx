@@ -514,7 +514,7 @@ export default function CheckoutPage() {
           >
             ←
           </button>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
             Review Booking
           </h1>
         </div>
