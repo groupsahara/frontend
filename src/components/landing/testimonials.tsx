@@ -16,7 +16,7 @@ export function PartnerCTA() {
 
         {/* Content */}
         <div className="relative mx-auto flex max-w-2xl flex-col items-center text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-[44px] sm:leading-[1.1]">
+          <h2 className="text-3xl font-bold sm:pt-4 tracking-tight text-white sm:text-[44px] sm:leading-[1.1]">
             Become a Service Partner
           </h2>
           <p className="mt-4 max-w-xl text-sm text-gray-400 sm:text-base">

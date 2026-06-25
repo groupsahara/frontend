@@ -45,15 +45,15 @@ export default function ProductsPage() {
       <LandingHeader search={search} onSearchChange={setSearch} />
 
       {/* Hero */}
-      <section className="bg-linear-to-br from-emerald-600 to-teal-600 px-4 py-14 text-white sm:px-6">
+      <section className="border-b border-gray-100 bg-white px-4 py-14 text-gray-900 sm:px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-emerald-100">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-wide ">
             Restaurant Supplies
           </p>
           <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
             Chemical &amp; Cleaning Products
           </h1>
-          <p className="mt-3 max-w-xl text-sm text-emerald-50 sm:text-base">
+          <p className="mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
             Commercial-grade cleaning, sanitizing and degreasing products for your
             kitchen — delivered to your door.
           </p>

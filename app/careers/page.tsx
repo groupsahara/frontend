@@ -68,21 +68,21 @@ export default function CareersPage() {
       <LandingHeader search={search} onSearchChange={setSearch} />
 
       {/* Hero */}
-      <section className="bg-linear-to-br from-orange-500 to-orange-600 px-4 py-16 text-white sm:px-6 sm:py-20">
+      <section className="border-b border-gray-100 bg-white px-4 py-16 text-gray-900 sm:px-6 sm:py-20">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-orange-100">
+          <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-orange-600">
             Careers at RestoCare
           </p>
           <h1 className="text-3xl font-bold tracking-tight sm:text-5xl">
             Build the future of restaurant services
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-sm text-orange-50 sm:text-base">
+          <p className="mx-auto mt-4 max-w-xl text-sm text-gray-600 sm:text-base">
             Join a team that connects restaurants with trusted professionals every day.
             We&apos;re hiring across operations, field service and support.
           </p>
           <a
             href="#openings"
-            className="mt-8 inline-flex rounded-full bg-white px-6 py-3 text-sm font-bold text-orange-600 shadow-sm transition hover:bg-orange-50"
+            className="mt-8 inline-flex rounded-full bg-orange-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700"
           >
             View open roles
           </a>
