@@ -71,11 +71,11 @@ export function Hero() {
             <p className="mb-2 inline-flex rounded-full bg-orange-500/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white sm:text-xs">
               Trusted restaurant services
             </p>
-            <h1 className="text-2xl font-bold leading-tight text-white drop-shadow-sm sm:text-4xl lg:text-5xl">
+            <h1 className="text-2xl font-bold leading-tight text-black drop-shadow-sm sm:text-4xl lg:text-5xl">
               Skilled staff &amp; repairs,
               <br className="hidden sm:block" /> delivered instantly
             </h1>
-            <p className="mt-3 max-w-md text-sm text-gray-100 sm:text-base">
+            <p className="mt-3 max-w-md text-sm text-black sm:text-base">
               Book verified chefs, helpers, technicians and maintenance pros for
               your restaurant — on demand, near you.
             </p>
