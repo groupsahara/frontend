@@ -70,7 +70,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
   return (
     <section id="categories" className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
+        <h2 className="text-xl font-bold tracking-tight text-gray-900 sm:text-[38px]">
           POPULAR CATEGORIES
         </h2>
         <p className="mx-auto mt-2 max-w-2xl text-sm text-gray-500 sm:text-base">

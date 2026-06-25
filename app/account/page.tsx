@@ -71,7 +71,7 @@ export default function AccountPage() {
           >
             ←
           </button>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">My Account</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">My Account</h1>
         </div>
 
         {/* Profile card */}

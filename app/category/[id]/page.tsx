@@ -101,7 +101,7 @@ function CategoryPageContent() {
         ) : isError || (data && !category) ? (
           <div className="mx-auto flex h-[60vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
             <p className="text-5xl">🔍</p>
-            <h1 className="mt-4 text-2xl font-bold text-gray-900">
+            <h1 className="mt-4 text-xl sm:text-2xl font-bold text-gray-900">
               {isError ? "Something went wrong" : "Category not found"}
             </h1>
             <p className="mt-2 text-gray-500">
@@ -150,7 +150,7 @@ function CategoryPageContent() {
                   <span className="font-medium text-white">{category.name}</span>
                 </nav>
 
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                <h1 className="text-xl font-bold tracking-tight text-white sm:text-4xl">
                   {category.name}
                 </h1>
                 {category.description ? (

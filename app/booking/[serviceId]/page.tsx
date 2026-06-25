@@ -158,7 +158,7 @@ function BookingScheduleContent() {
               ‹
             </button>
             <div className="text-center">
-              <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-gray-900">
                 Date &amp; Time
               </h1>
               <p className="mt-0.5 text-xs font-bold tracking-widest text-gray-400">

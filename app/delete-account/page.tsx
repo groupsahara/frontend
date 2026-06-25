@@ -115,7 +115,7 @@ export default function DeleteAccountPage() {
                 <TrashIcon className="h-5 w-5" />
               </span>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
                   Delete your account
                 </h1>
                 <p className="mt-1 text-sm text-gray-500">
@@ -168,7 +168,7 @@ export default function DeleteAccountPage() {
         {step === "otp" && (
           <form onSubmit={handleDelete} className="space-y-5">
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
                 Verify it&apos;s you
               </h1>
               <p className="mt-1 text-sm text-gray-500">
@@ -243,7 +243,7 @@ export default function DeleteAccountPage() {
                 />
               </svg>
             </span>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900">
               Account deleted
             </h1>
             <p className="text-sm text-gray-500">

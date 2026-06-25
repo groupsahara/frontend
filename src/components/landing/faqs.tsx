@@ -58,7 +58,7 @@ export function FAQs() {
     <section className="bg-white py-10 sm:py-14">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">
+          <h2 className="text-xl font-bold tracking-tight text-[#0A192F] sm:text-[38px] uppercase">
             FREQUENTLY ASKED <span className="text-[#FA5C7C]">QUESTIONS</span>
           </h2>
           <p className="mt-4 text-sm text-gray-500 sm:text-base">
@@ -77,7 +77,7 @@ export function FAQs() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0A192F]/90 to-transparent"></div>
             <div className="relative z-10 p-8 text-center sm:p-12">
-              <h3 className="mb-2 text-2xl font-bold text-white sm:text-3xl">Need Help Fast?</h3>
+              <h3 className="mb-2 text-xl font-bold text-white sm:text-3xl">Need Help Fast?</h3>
               <p className="text-sm font-medium text-gray-300 sm:text-base">
                 Watch on-demand booking flow and quick support guide.
               </p>

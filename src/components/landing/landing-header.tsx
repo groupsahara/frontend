@@ -14,7 +14,9 @@ import { useCustomerAuth } from "@/src/lib/customer-auth";
 import {
   CartIcon,
   ChevronDownIcon,
+  CloseIcon,
   MapPinIcon,
+  MenuIcon,
   SearchIcon,
   SpinnerIcon,
   UserCircleIcon,
@@ -81,6 +83,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   const { count, openMini } = useCart();
   const { isLoggedIn, user } = useCustomerAuth();
   const [open, setOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
   const { data } = useQuery({
@@ -156,7 +159,7 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
         <Link href="/" className="flex shrink-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- external CDN logo */}
           <img src={LOGO_URL} alt="RestoCare" className="h-9 w-auto object-contain" />
-          <span className="text-lg font-semibold tracking-tight text-gray-900">
+          <span className="hidden text-lg font-semibold tracking-tight text-gray-900 sm:inline">
             RestoCare
           </span>
         </Link>
@@ -313,8 +316,54 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
               <UserCircleIcon className="h-5 w-5" />
             </Link>
           )}
+
+          {/* Mobile menu toggle (nav links are hidden below lg) */}
+          <button
+            type="button"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 lg:hidden"
+          >
+            {menuOpen ? (
+              <CloseIcon className="h-5 w-5" />
+            ) : (
+              <MenuIcon className="h-5 w-5" />
+            )}
+          </button>
         </div>
       </div>
+
+      {/* Mobile nav dropdown */}
+      {menuOpen && (
+        <div className="border-t border-gray-100 bg-white lg:hidden">
+          <nav className="mx-auto max-w-7xl px-3 py-2 sm:px-4">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 hover:text-gray-900"
+              >
+                {link.label}
+              </Link>
+            ))}
+            {/* Detect location too — the picker button is hidden on small screens */}
+            <button
+              onClick={() => {
+                location.detect();
+                setMenuOpen(false);
+              }}
+              className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50 sm:hidden"
+            >
+              <MapPinIcon className="h-4 w-4 shrink-0 text-gray-500" />
+              <span className="truncate">
+                {location.loading ? "Detecting…" : location.label || "Use my location"}
+              </span>
+            </button>
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

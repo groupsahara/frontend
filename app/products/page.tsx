@@ -50,7 +50,7 @@ export default function ProductsPage() {
           <p className="mb-2 text-sm font-semibold uppercase tracking-wide ">
             Restaurant Supplies
           </p>
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="text-xl font-bold tracking-tight sm:text-4xl">
             Chemical &amp; Cleaning Products
           </h1>
           <p className="mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
