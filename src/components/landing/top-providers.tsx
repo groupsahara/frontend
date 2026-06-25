@@ -2,31 +2,27 @@ export function TopProviders() {
   const reels = [
     {
       id: 1,
-      handle: "@powerpro.electric",
-      caption: "Certified electricians at work ⚡",
-      video:
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+      handle: "🟢",
+      caption: "Our live professionals",
+      video: "/videos/serviceprovider1.mp4",
     },
     {
       id: 2,
-      handle: "@cleanhub.pro",
-      caption: "Deep cleaning, done right ✨",
-      video:
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+      handle: "🟢",
+      caption: "Our live professionals",
+      video: "/videos/serviceprovider2.mp4",
     },
     {
       id: 3,
-      handle: "@fixpro.tech",
-      caption: "Precision repairs every time 🔧",
-      video:
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+      handle: "🟢",
+      caption: "Our live professionals",
+      video: "/videos/serviceprovider3.mp4",
     },
     {
       id: 4,
-      handle: "@prime.plumbers",
-      caption: "Leak-free guarantee 💧",
-      video:
-        "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+      handle: "🟢",
+      caption: "Our live professionals",
+      video: "/videos/serviceprovider4.mp4",
     },
   ];
 
