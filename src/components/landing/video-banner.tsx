@@ -2,7 +2,7 @@
 
 export function VideoBanner() {
   return (
-    <section className="relative w-full overflow-hidden bg-black">
+    <section className="relative w-full overflow-hidden bg-white">
       <video
         autoPlay
         loop

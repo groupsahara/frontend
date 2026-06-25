@@ -33,7 +33,10 @@ export function Hero() {
   });
 
   // Managed banners take precedence; fall back to the built-in imagery.
-  const images = banners && banners.length > 0 ? banners.map((b) => b.imageUrl) : FALLBACK_IMAGES;
+  const images =
+    banners && banners.length > 0
+      ? banners.map((b) => b.imageUrl)
+      : FALLBACK_IMAGES;
 
   return (
     <section className="mx-auto w-full max-w-8xl px-4 py-4 sm:py-4 sm:px-4">
@@ -63,7 +66,7 @@ export function Hero() {
         </Swiper>
 
         {/* Overlay content (sits above the slider, constant across slides) */}
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-center bg-linear-to-r from-black/70 via-black/40 to-transparent px-6 sm:px-10 lg:px-16">
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-center  to-transparent px-6 sm:px-10 lg:px-16">
           <div className="max-w-xl">
             <p className="mb-2 inline-flex rounded-full bg-orange-500/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white sm:text-xs">
               Trusted restaurant services
@@ -73,11 +76,11 @@ export function Hero() {
               <br className="hidden sm:block" /> delivered instantly
             </h1>
             <p className="mt-3 max-w-md text-sm text-gray-100 sm:text-base">
-              Book verified chefs, helpers, technicians and maintenance pros for your
-              restaurant — on demand, near you.
+              Book verified chefs, helpers, technicians and maintenance pros for
+              your restaurant — on demand, near you.
             </p>
 
-            <div className="pointer-events-auto mt-5 flex flex-wrap gap-3">
+            {/* <div className="pointer-events-auto mt-5 flex flex-wrap gap-3">
               <Link
                 href="#categories"
                 className="rounded-full bg-orange-600 px-6 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-orange-700"
@@ -90,7 +93,7 @@ export function Hero() {
               >
                 Browse Services
               </Link>
-            </div>
+            </div> */}
           </div>
         </div>
 

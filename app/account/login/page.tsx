@@ -99,8 +99,15 @@ function CustomerLoginContent() {
   return (
     <div
       data-theme="light"
-      className="flex min-h-dvh flex-col items-center justify-center bg-gray-50 px-4 py-10"
+      className="relative flex min-h-dvh flex-col items-center justify-center bg-gray-50 px-4 py-10"
     >
+      <Link
+        href="/"
+        className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:text-gray-900 sm:left-6 sm:top-6"
+      >
+        ← Back to home
+      </Link>
+
       <Link href="/" className="mb-8">
         {/* eslint-disable-next-line @next/next/no-img-element -- external CDN logo */}
         <img src={LOGO_URL} alt="RestoCare" className="h-10 w-auto object-contain" />
