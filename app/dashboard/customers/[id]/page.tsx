@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi, queryKeys, type CustomerDetail } from "@/src/api/api";
 import { SpinnerIcon } from "@/src/components/icons";
 
@@ -14,6 +15,12 @@ const statusStyles: Record<string, string> = {
   Completed: "bg-success/10 text-success",
   Pending: "bg-warning/10 text-warning",
   Cancelled: "bg-danger/10 text-danger",
+};
+
+const couponStatusStyles: Record<string, string> = {
+  ACTIVE: "bg-success/10 text-success",
+  USED: "bg-muted text-muted-foreground",
+  EXPIRED: "bg-danger/10 text-danger",
 };
 
 export default function CustomerDetailPage() {
@@ -137,6 +144,9 @@ function CustomerView({ customer }: { customer: CustomerDetail }) {
         </div>
       </div>
 
+      {/* Coupons */}
+      <CouponsCard userId={customer.userId} />
+
       {/* Bookings */}
       <div className="overflow-hidden rounded-2xl border border-border bg-card">
         <div className="border-b border-border px-5 py-4">
@@ -200,6 +210,99 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-border bg-card p-4">
       <p className="text-xl font-semibold tracking-tight text-foreground">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+// 🎟️ Lists a customer's coupons and lets an admin grant more one-time 50%-off
+// coupons (each granted coupon is single-use and never reusable).
+function CouponsCard({ userId }: { userId: number }) {
+  const queryClient = useQueryClient();
+  const [count, setCount] = useState(5);
+
+  const { data: coupons, isLoading } = useQuery({
+    queryKey: queryKeys.customerCoupons(userId),
+    queryFn: () => customersApi.coupons(userId),
+    enabled: Number.isFinite(userId),
+  });
+
+  const grant = useMutation({
+    mutationFn: (n: number) => customersApi.grantCoupons(userId, n),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.customerCoupons(userId) });
+    },
+  });
+
+  const activeCount = coupons?.filter((c) => c.status === "ACTIVE").length ?? 0;
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-foreground">
+          Coupons{" "}
+          <span className="font-normal text-muted-foreground">
+            ({activeCount} active{coupons ? ` · ${coupons.length} total` : ""})
+          </span>
+        </h2>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min={1}
+            max={50}
+            value={count}
+            onChange={(e) => setCount(Math.max(1, Math.min(50, Number(e.target.value) || 1)))}
+            className="w-16 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+            aria-label="Number of coupons to grant"
+          />
+          <button
+            onClick={() => grant.mutate(count)}
+            disabled={grant.isPending}
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            {grant.isPending ? "Granting…" : `Grant ${count} × 50% off`}
+          </button>
+        </div>
+      </div>
+
+      {grant.isError ? (
+        <p className="text-sm text-danger">Couldn’t grant coupons. Please try again.</p>
+      ) : null}
+      {grant.isSuccess ? (
+        <p className="text-sm text-success">Granted {grant.data?.issued ?? count} coupon(s).</p>
+      ) : null}
+
+      {isLoading ? (
+        <div className="flex h-20 items-center justify-center text-muted-foreground">
+          <SpinnerIcon className="h-5 w-5" />
+        </div>
+      ) : !coupons || coupons.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No coupons yet.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {coupons.map((c) => (
+            <div
+              key={c.couponId}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background p-3"
+            >
+              <div className="min-w-0">
+                <p className="font-mono text-sm font-medium text-foreground">{c.code}</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.discountPercent}% off · {c.source === "ADMIN" ? "Admin grant" : "Signup"} · exp{" "}
+                  {new Date(c.expiresAt).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                  })}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${couponStatusStyles[c.status]}`}
+              >
+                {c.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

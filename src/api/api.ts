@@ -267,6 +267,20 @@ export interface CustomerDetail {
   bookings: CustomerBooking[];
 }
 
+export interface AdminCoupon {
+  couponId: number;
+  code: string;
+  description: string;
+  discountPercent: number;
+  source: "SIGNUP" | "ADMIN";
+  isApplied: boolean;
+  isUsed: boolean;
+  usedAt: string | null;
+  expiresAt: string;
+  createdAt: string;
+  status: "ACTIVE" | "USED" | "EXPIRED";
+}
+
 export const customersApi = {
   /** GET /v1/admin/customers — all customers (USER accounts). */
   list: (search?: string) =>
@@ -274,6 +288,17 @@ export const customersApi = {
 
   /** GET /v1/admin/customers/:id — a single customer's full profile. */
   get: (userId: number) => apiClient.get<CustomerDetail>(`/v1/admin/customers/${userId}`),
+
+  /** GET /v1/admin/customers/:id/coupons — every coupon the customer holds. */
+  coupons: (userId: number) =>
+    apiClient.get<AdminCoupon[]>(`/v1/admin/customers/${userId}/coupons`),
+
+  /** POST /v1/admin/customers/:id/coupons — grant N one-time 50%-off coupons. */
+  grantCoupons: (userId: number, count: number) =>
+    apiClient.post<{ issued: number; coupons: AdminCoupon[] }>(
+      `/v1/admin/customers/${userId}/coupons`,
+      { count },
+    ),
 };
 
 export const dashboardApi = {
@@ -1140,6 +1165,7 @@ export const queryKeys = {
   partnerWallets: (search: string) => ["dispatcher", "wallets", search] as const,
   customers: (search: string) => ["customers", search] as const,
   customer: (id: number) => ["customer", id] as const,
+  customerCoupons: (id: number) => ["customer", id, "coupons"] as const,
   vendors: (params: VendorListParams) => ["vendors", params] as const,
   vendor: (id: number) => ["vendor", id] as const,
   categories: ["categories"] as const,

@@ -320,7 +320,12 @@ export default function CategoryProfilePage() {
               <tbody>
                 {services.map((s) => (
                   <tr key={s.serviceId} className="border-t border-border hover:bg-muted/40">
-                    <td className="px-4 py-3 font-medium text-foreground">{s.name}</td>
+                    <td className="px-4 py-3 font-medium text-foreground">
+                      <div className="flex items-center gap-3">
+                        <ServiceAvatar service={s} />
+                        <span>{s.name}</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{s.category?.name ?? "—"}</td>
                     <td className="px-4 py-3 text-foreground">
                       {s.basePrice != null ? s.basePrice.toFixed(2) : "—"}
@@ -421,6 +426,30 @@ export default function CategoryProfilePage() {
       {variantsService && (
         <VariantsModal service={variantsService} onClose={() => setVariantsService(null)} />
       )}
+    </div>
+  );
+}
+
+function ServiceAvatar({ service }: { service: CatalogService }) {
+  if (service.profileImage) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- service images are external URLs
+      <img
+        src={service.profileImage}
+        alt={service.name}
+        className="h-9 w-9 shrink-0 rounded-lg object-cover"
+      />
+    );
+  }
+  const initials = service.name
+    .split(" ")
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-semibold text-white">
+      {initials}
     </div>
   );
 }
