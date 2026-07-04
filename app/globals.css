@@ -17,7 +17,9 @@
   --card-foreground: #0f172a;
 
   --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  /* #5b6b81 (was #64748b): the lightest slate that clears WCAG AA (4.5:1)
+   * for small text on both the page background and white cards. */
+  --muted-foreground: #5b6b81;
 
   --border: #e2e8f0;
   --input: #e2e8f0;
@@ -38,9 +40,12 @@
   --danger: #dc2626;
   --warning: #d97706;
 
+  /* Chart series palette. Slot ORDER is the colorblind-safety mechanism —
+   * adjacent slots were validated for CVD separation (blue↔cyan ↔violet ↔green);
+   * blue next to violet collapses under deuteranopia, so never reorder. */
   --chart-1: #2563eb;
-  --chart-2: #7c3aed;
-  --chart-3: #0891b2;
+  --chart-2: #0891b2;
+  --chart-3: #7c3aed;
   --chart-4: #16a34a;
   --chart-grid: #e2e8f0;
 }
@@ -77,10 +82,12 @@
   --danger: #ef4444;
   --warning: #f59e0b;
 
-  --chart-1: #60a5fa;
-  --chart-2: #a78bfa;
-  --chart-3: #22d3ee;
-  --chart-4: #34d399;
+  /* Same hue order as light, stepped into the dark-surface lightness band
+   * (the previous pastel steps glowed on the navy card and failed validation). */
+  --chart-1: #3b82f6;
+  --chart-2: #0891b2;
+  --chart-3: #8b5cf6;
+  --chart-4: #059669;
   --chart-grid: #1d2b4d;
 }
 

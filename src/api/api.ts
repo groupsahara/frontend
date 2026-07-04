@@ -51,12 +51,6 @@ export const GOOGLE_AUTH_URL =
   process.env.NEXT_PUBLIC_GOOGLE_AUTH_URL ?? `${API_BASE_URL}/v1/auth/google`;
 
 /* ============================ Dashboard ================================= */
-/*
- * The analytics endpoints are not implemented on the backend yet, so these
- * functions return shaped sample data. They are still fully query-driven:
- * swap each body for the commented `apiClient.get(...)` call once the
- * backend routes exist — the components don't change.
- */
 
 export interface StatCardData {
   key: string;
@@ -401,9 +395,103 @@ export const customersApi = {
     ),
 };
 
+/* ----------------------------- Analytics -------------------------------- */
+
+/** Time-range presets accepted by GET /v1/admin/analytics. */
+export type AnalyticsRange = "7d" | "30d" | "90d" | "12m";
+
+export interface AnalyticsKpi {
+  value: number;
+  /** % change vs the previous period of equal length (percentage POINTS for rates). */
+  delta: number;
+}
+
+export interface AnalyticsSeriesPoint {
+  label: string;
+  date: string;
+  revenue: number;
+  bookings: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface AnalyticsStatusSlice {
+  status: AdminBookingStatus;
+  count: number;
+}
+
+export interface AnalyticsPaymentMode {
+  mode: string;
+  bookings: number;
+  amount: number;
+}
+
+export interface AnalyticsTopService {
+  serviceId: number;
+  name: string;
+  bookings: number;
+  revenue: number;
+}
+
+export interface AnalyticsTopCategory {
+  categoryId: number;
+  name: string;
+  bookings: number;
+  revenue: number;
+}
+
+export interface AnalyticsTopPartner {
+  professionalId: number;
+  name: string;
+  jobs: number;
+  revenue: number;
+  rating: number | null;
+}
+
+export interface AnalyticsTopCity {
+  city: string;
+  bookings: number;
+  revenue: number;
+}
+
+export interface AnalyticsRatings {
+  average: number;
+  count: number;
+  distribution: { stars: number; count: number }[];
+}
+
+export interface AnalyticsResponse {
+  range: AnalyticsRange;
+  start: string;
+  end: string;
+  bucket: "day" | "week" | "month";
+  kpis: {
+    revenue: AnalyticsKpi;
+    bookings: AnalyticsKpi;
+    avgOrderValue: AnalyticsKpi;
+    completionRate: AnalyticsKpi;
+    cancellationRate: AnalyticsKpi;
+    newCustomers: AnalyticsKpi;
+    newPartners: AnalyticsKpi;
+    payoutsPaid: AnalyticsKpi;
+  };
+  series: AnalyticsSeriesPoint[];
+  statusBreakdown: AnalyticsStatusSlice[];
+  paymentModes: AnalyticsPaymentMode[];
+  topServices: AnalyticsTopService[];
+  topCategories: AnalyticsTopCategory[];
+  topPartners: AnalyticsTopPartner[];
+  topCities: AnalyticsTopCity[];
+  ratings: AnalyticsRatings;
+}
+
 export const dashboardApi = {
   /** GET /v1/admin/dashboard/overview — real metrics aggregated by the backend. */
   getOverview: () => apiClient.get<DashboardOverview>("/v1/admin/dashboard/overview"),
+
+  /** GET /v1/admin/analytics — KPIs, series and breakdowns for a time range. */
+  getAnalytics: (range: AnalyticsRange) =>
+    apiClient.get<AnalyticsResponse>(`/v1/admin/analytics${toQueryString({ range })}`),
 
   /** GET /v1/admin/bookings — full, paginated booking history (admin). */
   listBookings: (params: AdminBookingListParams = {}) =>
@@ -1259,6 +1347,7 @@ export const paymentsApi = {
 export const queryKeys = {
   me: ["auth", "me"] as const,
   dashboardOverview: ["dashboard", "overview"] as const,
+  analytics: (range: string) => ["dashboard", "analytics", range] as const,
   adminBookings: (params: AdminBookingListParams) => ["admin-bookings", params] as const,
   partners: (search: string, status: string) =>
     ["dispatcher", "partners", status, search] as const,
