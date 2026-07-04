@@ -285,3 +285,36 @@ export const GoogleIcon = (p: IconProps) => (
     />
   </svg>
 );
+
+export const PolygonIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M7 4.5 19 7l-1.5 10.5L4 18l3-13.5Z" />
+    <circle cx="7" cy="4.5" r="1.6" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="7" r="1.6" fill="currentColor" stroke="none" />
+    <circle cx="17.5" cy="17.5" r="1.6" fill="currentColor" stroke="none" />
+    <circle cx="4" cy="18" r="1.6" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+export const WarehouseIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M3 21V9l9-5 9 5v12" />
+    <path d="M7 21v-8h10v8" />
+    <path d="M7 17h10" />
+  </svg>
+);
+
+export const RouteIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="6" cy="19" r="2.5" />
+    <circle cx="18" cy="5" r="2.5" />
+    <path d="M8.5 19H15a3.5 3.5 0 0 0 0-7H9a3.5 3.5 0 0 1 0-7h6.5" />
+  </svg>
+);
+
+export const TagIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M20.59 13.41 13.41 20.59a2 2 0 0 1-2.83 0L3 13V3h10l7.59 7.59a2 2 0 0 1 0 2.82Z" />
+    <circle cx="7.5" cy="7.5" r="1.6" fill="currentColor" stroke="none" />
+  </svg>
+);

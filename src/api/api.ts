@@ -146,6 +146,8 @@ export interface PartnerRow {
   onboardingStatus: PartnerOnboardingStatus;
   walletBalance: number;
   profileImage: string | null;
+  /** Dispatch team the partner belongs to (null = unassigned). */
+  teamId: number | null;
 }
 
 export interface PartnerDocuments {
@@ -1342,6 +1344,243 @@ export const paymentsApi = {
     apiClient.post<VerifyRazorpayResult>("/v1/payments/verify", payload),
 };
 
+/* ==================== Dispatcher: dispatch domain ======================= */
+/* Teams, geofences (polygon zones), warehouses, auto-allocation settings
+   and delivery pricing rules — all under /v1/admin/dispatch. */
+
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
+/** Lightweight partner row shared by team + geofence pickers. */
+export interface DispatchPartnerRow {
+  professionalId: number;
+  name: string;
+  mobile: string | null;
+  city: string | null;
+  isOnline: boolean;
+  profileImage: string | null;
+  teamId: number | null;
+}
+
+export interface DispatchTeamRow {
+  teamId: number;
+  name: string;
+  description: string | null;
+  memberCount: number;
+  geofenceCount: number;
+  createdAt: string;
+}
+
+export interface DispatchTeamDetail {
+  teamId: number;
+  name: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  members: DispatchPartnerRow[];
+  geofences: { geofenceId: number; name: string; color: string; isActive: boolean }[];
+}
+
+export interface GeofenceRow {
+  geofenceId: number;
+  name: string;
+  description: string | null;
+  color: string;
+  polygon: LatLng[];
+  isActive: boolean;
+  team: { teamId: number; name: string } | null;
+  partnerCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GeofenceDetail {
+  geofenceId: number;
+  name: string;
+  description: string | null;
+  color: string;
+  polygon: LatLng[];
+  isActive: boolean;
+  teamId: number | null;
+  team: { teamId: number; name: string } | null;
+  partners: DispatchPartnerRow[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GeofenceInput {
+  name: string;
+  description?: string;
+  color?: string;
+  polygon: LatLng[];
+  /** null clears the team assignment; omit to leave it unchanged. */
+  teamId?: number | null;
+  /** Full assignment list — replaces the current partners when sent. */
+  partnerIds?: number[];
+  isActive?: boolean;
+}
+
+export interface WarehouseRow {
+  warehouseId: number;
+  name: string;
+  address: string;
+  city: string | null;
+  latitude: number;
+  longitude: number;
+  contactName: string | null;
+  contactPhone: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarehouseInput {
+  name: string;
+  address: string;
+  city?: string;
+  latitude: number;
+  longitude: number;
+  contactName?: string;
+  contactPhone?: string;
+  isActive?: boolean;
+}
+
+/** How auto-allocation pushes leads to eligible partners. */
+export type AllocationMethod = "BROADCAST" | "NEAREST" | "ROUND_ROBIN";
+
+export interface AllocationSettings {
+  settingId: number;
+  /** Master switch — when false, new bookings are not broadcast at all. */
+  enabled: boolean;
+  method: AllocationMethod;
+  radiusKm: number;
+  /** Partner cap per lead for NEAREST / ROUND_ROBIN; 0 = no cap. */
+  maxAgents: number;
+  /** Restrict leads to partners of the geofence covering the booking point. */
+  restrictToGeofence: boolean;
+  updatedAt: string;
+}
+
+export interface PricingRuleRow {
+  ruleId: number;
+  name: string;
+  baseFare: number;
+  baseDistanceKm: number;
+  perKmFare: number;
+  perMinuteFare: number;
+  waitingFarePerMin: number;
+  minFare: number | null;
+  teamId: number | null;
+  geofenceId: number | null;
+  team: { teamId: number; name: string } | null;
+  geofence: { geofenceId: number; name: string } | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PricingRuleInput {
+  name: string;
+  baseFare: number;
+  baseDistanceKm?: number;
+  perKmFare?: number;
+  perMinuteFare?: number;
+  waitingFarePerMin?: number;
+  minFare?: number;
+  teamId?: number | null;
+  geofenceId?: number | null;
+  isActive?: boolean;
+}
+
+export const dispatchApi = {
+  /** GET /v1/admin/dispatch/teams — teams with member/geofence counts. */
+  listTeams: (search?: string) =>
+    apiClient.get<DispatchTeamRow[]>(`/v1/admin/dispatch/teams${toQueryString({ search })}`),
+
+  /** GET /v1/admin/dispatch/teams/:id — a team with members and geofences. */
+  getTeam: (teamId: number) =>
+    apiClient.get<DispatchTeamDetail>(`/v1/admin/dispatch/teams/${teamId}`),
+
+  /** POST /v1/admin/dispatch/teams — create a team. */
+  createTeam: (body: { name: string; description?: string }) =>
+    apiClient.post<DispatchTeamRow>(`/v1/admin/dispatch/teams`, body),
+
+  /** PATCH /v1/admin/dispatch/teams/:id — rename / redescribe a team. */
+  updateTeam: (teamId: number, body: { name?: string; description?: string }) =>
+    apiClient.patch<DispatchTeamRow>(`/v1/admin/dispatch/teams/${teamId}`, body),
+
+  /** DELETE /v1/admin/dispatch/teams/:id — members/zones are unassigned, not deleted. */
+  deleteTeam: (teamId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/teams/${teamId}`),
+
+  /** PUT /v1/admin/dispatch/teams/:id/members — replace the full member list. */
+  setTeamMembers: (teamId: number, professionalIds: number[]) =>
+    apiClient.put<DispatchTeamDetail>(`/v1/admin/dispatch/teams/${teamId}/members`, {
+      professionalIds,
+    }),
+
+  /** GET /v1/admin/dispatch/geofences — zones with team + partner counts. */
+  listGeofences: (search?: string) =>
+    apiClient.get<GeofenceRow[]>(`/v1/admin/dispatch/geofences${toQueryString({ search })}`),
+
+  /** GET /v1/admin/dispatch/geofences/:id — polygon, team and partners. */
+  getGeofence: (geofenceId: number) =>
+    apiClient.get<GeofenceDetail>(`/v1/admin/dispatch/geofences/${geofenceId}`),
+
+  /** POST /v1/admin/dispatch/geofences — create a zone. */
+  createGeofence: (body: GeofenceInput) =>
+    apiClient.post<GeofenceDetail>(`/v1/admin/dispatch/geofences`, body),
+
+  /** PATCH /v1/admin/dispatch/geofences/:id — partnerIds (when sent) replaces assignments. */
+  updateGeofence: (geofenceId: number, body: Partial<GeofenceInput>) =>
+    apiClient.patch<GeofenceDetail>(`/v1/admin/dispatch/geofences/${geofenceId}`, body),
+
+  /** DELETE /v1/admin/dispatch/geofences/:id */
+  deleteGeofence: (geofenceId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/geofences/${geofenceId}`),
+
+  /** GET /v1/admin/dispatch/warehouses */
+  listWarehouses: (search?: string) =>
+    apiClient.get<WarehouseRow[]>(`/v1/admin/dispatch/warehouses${toQueryString({ search })}`),
+
+  /** POST /v1/admin/dispatch/warehouses */
+  createWarehouse: (body: WarehouseInput) =>
+    apiClient.post<WarehouseRow>(`/v1/admin/dispatch/warehouses`, body),
+
+  /** PATCH /v1/admin/dispatch/warehouses/:id */
+  updateWarehouse: (warehouseId: number, body: Partial<WarehouseInput>) =>
+    apiClient.patch<WarehouseRow>(`/v1/admin/dispatch/warehouses/${warehouseId}`, body),
+
+  /** DELETE /v1/admin/dispatch/warehouses/:id */
+  deleteWarehouse: (warehouseId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/warehouses/${warehouseId}`),
+
+  /** GET /v1/admin/dispatch/allocation — the auto-allocation settings singleton. */
+  getAllocationSettings: () =>
+    apiClient.get<AllocationSettings>(`/v1/admin/dispatch/allocation`),
+
+  /** PUT /v1/admin/dispatch/allocation — update the auto-allocation settings. */
+  updateAllocationSettings: (body: Partial<Omit<AllocationSettings, "settingId" | "updatedAt">>) =>
+    apiClient.put<AllocationSettings>(`/v1/admin/dispatch/allocation`, body),
+
+  /** GET /v1/admin/dispatch/pricing-rules */
+  listPricingRules: () => apiClient.get<PricingRuleRow[]>(`/v1/admin/dispatch/pricing-rules`),
+
+  /** POST /v1/admin/dispatch/pricing-rules */
+  createPricingRule: (body: PricingRuleInput) =>
+    apiClient.post<PricingRuleRow>(`/v1/admin/dispatch/pricing-rules`, body),
+
+  /** PATCH /v1/admin/dispatch/pricing-rules/:id */
+  updatePricingRule: (ruleId: number, body: Partial<PricingRuleInput>) =>
+    apiClient.patch<PricingRuleRow>(`/v1/admin/dispatch/pricing-rules/${ruleId}`, body),
+
+  /** DELETE /v1/admin/dispatch/pricing-rules/:id */
+  deletePricingRule: (ruleId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/pricing-rules/${ruleId}`),
+};
+
 /* ============================ Query keys ================================ */
 
 export const queryKeys = {
@@ -1357,6 +1596,13 @@ export const queryKeys = {
   payouts: (search: string, status: string) =>
     ["dispatcher", "payouts", status, search] as const,
   payoutStatusCounts: ["dispatcher", "payouts", "status-counts"] as const,
+  dispatchTeams: (search: string) => ["dispatcher", "teams", search] as const,
+  dispatchTeam: (id: number) => ["dispatcher", "team", id] as const,
+  geofences: (search: string) => ["dispatcher", "geofences", search] as const,
+  geofence: (id: number) => ["dispatcher", "geofence", id] as const,
+  warehouses: (search: string) => ["dispatcher", "warehouses", search] as const,
+  allocationSettings: ["dispatcher", "allocation"] as const,
+  pricingRules: ["dispatcher", "pricing-rules"] as const,
   customers: (search: string) => ["customers", search] as const,
   customer: (id: number) => ["customer", id] as const,
   customerCoupons: (id: number) => ["customer", id, "coupons"] as const,

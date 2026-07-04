@@ -13,11 +13,15 @@ import {
   MapPinIcon,
   MonitorIcon,
   PaletteIcon,
+  PolygonIcon,
+  RouteIcon,
   SettingsIcon,
   SmartphoneIcon,
   StoreIcon,
+  TagIcon,
   UsersIcon,
   WalletIcon,
+  WarehouseIcon,
 } from "@/src/components/icons";
 import type { ComponentType, SVGProps } from "react";
 
@@ -40,6 +44,11 @@ const NAV: NavEntry[] = [
     icon: MapPinIcon,
     children: [
       { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon },
+      { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon },
+      { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon },
+      { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon },
+      { label: "Auto Allocation", href: "/dashboard/dispatcher/allocation", icon: RouteIcon },
+      { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon },
       { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon },
       { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon },
     ],
