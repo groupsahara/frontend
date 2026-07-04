@@ -3,9 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { dispatcherApi, queryKeys, type PartnerRow } from "@/src/api/api";
+import {
+  dispatcherApi,
+  queryKeys,
+  type PartnerOnboardingStatus,
+  type PartnerRow,
+} from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
+import { PartnerStatusBadge } from "@/src/components/dashboard/partner-status";
 import {
   PencilIcon,
   SearchIcon,
@@ -19,16 +25,33 @@ function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
 
+type StatusTab = PartnerOnboardingStatus | "ALL";
+
+const STATUS_TABS: { key: StatusTab; label: string }[] = [
+  { key: "PENDING", label: "Pending" },
+  { key: "VERIFIED", label: "Verified" },
+  { key: "ACTIVE", label: "Active" },
+  { key: "REJECTED", label: "Rejected" },
+  { key: "ALL", label: "All" },
+];
+
 export default function ServicePartnersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  // Default to the pending queue — the applications awaiting admin review.
+  const [statusTab, setStatusTab] = useState<StatusTab>("PENDING");
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartnerRow | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: queryKeys.partners(search.trim()),
-    queryFn: () => dispatcherApi.listPartners(search.trim() || undefined),
+    queryKey: queryKeys.partners(search.trim(), statusTab),
+    queryFn: () => dispatcherApi.listPartners(search.trim() || undefined, statusTab),
     placeholderData: keepPreviousData,
+  });
+
+  const { data: counts } = useQuery({
+    queryKey: queryKeys.partnerStatusCounts,
+    queryFn: () => dispatcherApi.partnerStatusCounts(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["dispatcher", "partners"] });
@@ -88,6 +111,40 @@ export default function ServicePartnersPage() {
         )}
       </div>
 
+      {/* Onboarding tabs — Pending is the review queue admins act on first. */}
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border">
+        {STATUS_TABS.map((tab) => {
+          const active = statusTab === tab.key;
+          const count = counts?.[tab.key];
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setStatusTab(tab.key)}
+              className={`relative -mb-px flex items-center gap-1.5 rounded-t-lg px-3.5 py-2 text-sm font-medium transition ${
+                active
+                  ? "border-b-2 border-primary text-primary"
+                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tab.label}
+              {count != null && count > 0 && (
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                    tab.key === "PENDING" && !active
+                      ? "bg-warning/15 text-warning"
+                      : active
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
       {notice ? (
         <div className="flex items-center justify-between gap-3 rounded-xl bg-accent px-4 py-2.5 text-sm text-foreground">
           <span>{notice}</span>
@@ -117,7 +174,13 @@ export default function ServicePartnersPage() {
           <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
             <UsersIcon className="h-10 w-10 text-muted-foreground" />
             <p className="text-muted-foreground">
-              {search ? "No partners match your search." : "No service partners yet."}
+              {search
+                ? "No partners match your search."
+                : statusTab === "PENDING"
+                  ? "No partners awaiting review."
+                  : statusTab === "ALL"
+                    ? "No service partners yet."
+                    : `No ${statusTab.toLowerCase()} partners.`}
             </p>
           </div>
         ) : (
@@ -171,29 +234,16 @@ export default function ServicePartnersPage() {
                     <td className="px-5 py-3 font-medium text-foreground">{inr(p.walletBalance)}</td>
                     <td className="px-5 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {p.isBlocked ? (
+                        <PartnerStatusBadge status={p.onboardingStatus} />
+                        {p.isBlocked && (
                           <span className="inline-flex rounded-full bg-danger/10 px-2.5 py-1 text-xs font-medium text-danger">
                             Blocked
                           </span>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                              p.isOnline
-                                ? "bg-success/10 text-success"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                p.isOnline ? "bg-success" : "bg-muted-foreground"
-                              }`}
-                            />
-                            {p.isOnline ? "Online" : "Offline"}
-                          </span>
                         )}
-                        {p.isVerified && (
-                          <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                            Verified
+                        {p.onboardingStatus === "ACTIVE" && !p.isBlocked && p.isOnline && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                            Online
                           </span>
                         )}
                       </div>

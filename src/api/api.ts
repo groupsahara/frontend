@@ -132,6 +132,8 @@ export interface AdminBookingListResponse {
 
 /* ----------------------------- Dispatcher ------------------------------- */
 
+export type PartnerOnboardingStatus = "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+
 export interface PartnerRow {
   professionalId: number;
   name: string;
@@ -147,13 +149,38 @@ export interface PartnerRow {
   isOnline: boolean;
   isVerified: boolean;
   isBlocked: boolean;
+  onboardingStatus: PartnerOnboardingStatus;
   walletBalance: number;
   profileImage: string | null;
+}
+
+export interface PartnerDocuments {
+  aadharFront: string | null;
+  aadharBack: string | null;
+  licenseDoc: string | null;
+  panCard: string | null;
+  bankPassbook: string | null;
 }
 
 export interface PartnerDetail extends PartnerRow {
   categoryId: number | null;
   joinedAt: string;
+  verifiedAt: string | null;
+  activatedAt: string | null;
+  rejectionReason: string | null;
+  aadharNo: string | null;
+  licenseNo: string | null;
+  vehicleType: string | null;
+  vehicleColor: string | null;
+  documents: PartnerDocuments;
+}
+
+export interface PartnerStatusCounts {
+  PENDING: number;
+  VERIFIED: number;
+  ACTIVE: number;
+  REJECTED: number;
+  ALL: number;
 }
 
 export interface UpdatePartnerInput {
@@ -181,9 +208,15 @@ export interface WalletListResponse {
 }
 
 export const dispatcherApi = {
-  /** GET /v1/admin/partners — service partners (professionals). */
-  listPartners: (search?: string) =>
-    apiClient.get<PartnerRow[]>(`/v1/admin/partners${toQueryString({ search })}`),
+  /** GET /v1/admin/partners — service partners (professionals), filterable by onboarding status. */
+  listPartners: (search?: string, status?: PartnerOnboardingStatus | "ALL") =>
+    apiClient.get<PartnerRow[]>(
+      `/v1/admin/partners${toQueryString({ search, status: status && status !== "ALL" ? status : undefined })}`,
+    ),
+
+  /** GET /v1/admin/partners/status-counts — partner counts per onboarding bucket. */
+  partnerStatusCounts: () =>
+    apiClient.get<PartnerStatusCounts>(`/v1/admin/partners/status-counts`),
 
   /** GET /v1/admin/wallets — partner wallet balances. */
   listWallets: (search?: string) =>
@@ -202,6 +235,17 @@ export const dispatcherApi = {
     apiClient.patch<{ message: string; isBlocked: boolean }>(
       `/v1/admin/partners/${professionalId}/block`,
       { isBlocked },
+    ),
+
+  /** PATCH /v1/admin/partners/:id/onboarding — verify / activate / reject a partner. */
+  setPartnerOnboarding: (
+    professionalId: number,
+    status: PartnerOnboardingStatus,
+    reason?: string,
+  ) =>
+    apiClient.patch<{ message: string; onboardingStatus: PartnerOnboardingStatus }>(
+      `/v1/admin/partners/${professionalId}/onboarding`,
+      { status, reason },
     ),
 
   /** DELETE /v1/admin/partners/:id — remove a partner. */
@@ -1160,7 +1204,9 @@ export const queryKeys = {
   me: ["auth", "me"] as const,
   dashboardOverview: ["dashboard", "overview"] as const,
   adminBookings: (params: AdminBookingListParams) => ["admin-bookings", params] as const,
-  partners: (search: string) => ["dispatcher", "partners", search] as const,
+  partners: (search: string, status: string) =>
+    ["dispatcher", "partners", status, search] as const,
+  partnerStatusCounts: ["dispatcher", "partners", "status-counts"] as const,
   partner: (id: number) => ["dispatcher", "partner", id] as const,
   partnerWallets: (search: string) => ["dispatcher", "wallets", search] as const,
   customers: (search: string) => ["customers", search] as const,

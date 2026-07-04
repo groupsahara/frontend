@@ -9,10 +9,15 @@ import {
   dispatcherApi,
   queryKeys,
   type PartnerDetail,
+  type PartnerOnboardingStatus,
   type UpdatePartnerInput,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
+import {
+  ONBOARDING_STATUS_META,
+  PartnerStatusBadge,
+} from "@/src/components/dashboard/partner-status";
 import { SpinnerIcon, StarIcon } from "@/src/components/icons";
 
 export default function PartnerDetailPage() {
@@ -69,6 +74,8 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
   // Top-level categories the partner can be reassigned to.
   const { data: tree } = useQuery({
@@ -100,6 +107,19 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
       invalidate();
     },
     onError: (e) => setError(e instanceof ApiError ? e.message : "Action failed."),
+  });
+
+  const onboardingMutation = useMutation({
+    mutationFn: ({ status, reason }: { status: PartnerOnboardingStatus; reason?: string }) =>
+      dispatcherApi.setPartnerOnboarding(partner.professionalId, status, reason),
+    onSuccess: (res) => {
+      setError(null);
+      setNotice(res.message);
+      setRejectOpen(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.partnerStatusCounts });
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Could not update onboarding status."),
   });
 
   const deleteMutation = useMutation({
@@ -145,9 +165,12 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
         <div className="flex items-center gap-4">
           <Avatar partner={partner} />
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              {partner.name}
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+                {partner.name}
+              </h1>
+              <PartnerStatusBadge status={partner.onboardingStatus} />
+            </div>
             <p className="text-sm text-muted-foreground">
               {partner.service ?? partner.category ?? "Service partner"} · Joined{" "}
               {new Date(partner.joinedAt).toLocaleDateString("en-IN", {
@@ -193,6 +216,16 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
       {error ? (
         <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
       ) : null}
+
+      <OnboardingReview
+        partner={partner}
+        busy={onboardingMutation.isPending}
+        onTransition={(status, reason) => onboardingMutation.mutate({ status, reason })}
+        onReject={() => {
+          setRejectReason(partner.rejectionReason ?? "");
+          setRejectOpen(true);
+        }}
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Editable form */}
@@ -269,7 +302,10 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
             />
             <Info label="Total jobs" value={String(partner.totalJobs)} />
             <Info label="Wallet balance" value={`₹${Math.round(partner.walletBalance).toLocaleString("en-IN")}`} />
-            <Info label="Verified" value={partner.isVerified ? "Yes" : "No"} />
+            <Info
+              label="Onboarding"
+              value={ONBOARDING_STATUS_META[partner.onboardingStatus].label}
+            />
           </div>
 
           <div className="space-y-3 rounded-2xl border border-danger/30 bg-card p-5">
@@ -305,7 +341,267 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           }
         />
       )}
+
+      {rejectOpen && (
+        <RejectDialog
+          busy={onboardingMutation.isPending}
+          reason={rejectReason}
+          onReasonChange={setRejectReason}
+          onCancel={() => setRejectOpen(false)}
+          onConfirm={() =>
+            onboardingMutation.mutate({ status: "REJECTED", reason: rejectReason.trim() || undefined })
+          }
+        />
+      )}
     </>
+  );
+}
+
+// Onboarding review — the KYC documents plus the verify → activate / reject
+// controls. This is where the admin walks a pending partner through approval.
+function OnboardingReview({
+  partner,
+  busy,
+  onTransition,
+  onReject,
+}: {
+  partner: PartnerDetail;
+  busy: boolean;
+  onTransition: (status: PartnerOnboardingStatus, reason?: string) => void;
+  onReject: () => void;
+}) {
+  const status = partner.onboardingStatus;
+  const meta = ONBOARDING_STATUS_META[status];
+
+  const docs: { label: string; url: string | null }[] = [
+    { label: "Aadhaar front", url: partner.documents.aadharFront },
+    { label: "Aadhaar back", url: partner.documents.aadharBack },
+    { label: "Driving licence", url: partner.documents.licenseDoc },
+    { label: "PAN card", url: partner.documents.panCard },
+    { label: "Bank passbook", url: partner.documents.bankPassbook },
+  ];
+  const uploaded = docs.filter((d) => d.url);
+
+  const identity: { label: string; value: string | null }[] = [
+    { label: "Aadhaar no.", value: partner.aadharNo },
+    { label: "Licence no.", value: partner.licenseNo },
+    { label: "Vehicle type", value: partner.vehicleType },
+    { label: "Vehicle colour", value: partner.vehicleColor },
+  ];
+  const identityShown = identity.filter((i) => i.value);
+
+  const fmt = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
+
+  return (
+    <section className={`space-y-5 rounded-2xl border bg-card p-5 ${meta.border}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-foreground">Onboarding review</h2>
+          <p className="text-sm text-muted-foreground">
+            {status === "PENDING"
+              ? "Review the documents below, then verify and activate this partner."
+              : status === "VERIFIED"
+                ? "Documents verified. Activate the partner so they can log in."
+                : status === "ACTIVE"
+                  ? "This partner is active and can log in."
+                  : "This application was rejected."}
+          </p>
+        </div>
+        <PartnerStatusBadge status={status} />
+      </div>
+
+      {/* Progress timeline */}
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+        <span>
+          Applied ·{" "}
+          <span className="font-medium text-foreground">
+            {new Date(partner.joinedAt).toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        </span>
+        {fmt(partner.verifiedAt) && (
+          <span>
+            Verified · <span className="font-medium text-foreground">{fmt(partner.verifiedAt)}</span>
+          </span>
+        )}
+        {fmt(partner.activatedAt) && (
+          <span>
+            Activated ·{" "}
+            <span className="font-medium text-foreground">{fmt(partner.activatedAt)}</span>
+          </span>
+        )}
+      </div>
+
+      {status === "REJECTED" && partner.rejectionReason && (
+        <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
+          <span className="font-medium">Rejection reason:</span> {partner.rejectionReason}
+        </div>
+      )}
+
+      {/* Identity details */}
+      {identityShown.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {identityShown.map((i) => (
+            <div key={i.label} className="rounded-xl border border-border bg-background px-3 py-2">
+              <p className="text-xs text-muted-foreground">{i.label}</p>
+              <p className="truncate text-sm font-medium text-foreground">{i.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* KYC documents */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">
+          KYC documents{" "}
+          <span className="font-normal text-muted-foreground">
+            ({uploaded.length}/{docs.length} uploaded)
+          </span>
+        </p>
+        {uploaded.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+            This partner hasn’t uploaded any documents.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {docs.map((d) => (
+              <DocumentTile key={d.label} label={d.label} url={d.url} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
+        {(status === "PENDING" || status === "REJECTED") && (
+          <button
+            onClick={() => onTransition("VERIFIED")}
+            disabled={busy}
+            className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
+          >
+            Verify documents
+          </button>
+        )}
+        {status === "VERIFIED" && (
+          <button
+            onClick={() => onTransition("ACTIVE")}
+            disabled={busy}
+            className="rounded-xl bg-success px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          >
+            Activate partner
+          </button>
+        )}
+        {status === "ACTIVE" && (
+          <button
+            onClick={() => onTransition("PENDING")}
+            disabled={busy}
+            className="rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent disabled:opacity-60"
+          >
+            Move back to review
+          </button>
+        )}
+        {status !== "REJECTED" && (
+          <button
+            onClick={onReject}
+            disabled={busy}
+            className="rounded-xl border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger transition hover:bg-danger/10 disabled:opacity-60"
+          >
+            Reject application
+          </button>
+        )}
+        {busy && <SpinnerIcon className="h-4 w-4 text-muted-foreground" />}
+      </div>
+    </section>
+  );
+}
+
+function DocumentTile({ label, url }: { label: string; url: string | null }) {
+  if (!url) {
+    return (
+      <div className="flex flex-col overflow-hidden rounded-xl border border-dashed border-border">
+        <div className="flex h-28 items-center justify-center bg-muted/40 text-xs text-muted-foreground">
+          Not uploaded
+        </div>
+        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{label}</div>
+      </div>
+    );
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group flex flex-col overflow-hidden rounded-xl border border-border transition hover:border-primary"
+      title={`Open ${label}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- external KYC document */}
+      <img src={url} alt={label} className="h-28 w-full object-cover" />
+      <div className="px-2 py-1.5 text-xs font-medium text-foreground group-hover:text-primary">
+        {label}
+      </div>
+    </a>
+  );
+}
+
+function RejectDialog({
+  busy,
+  reason,
+  onReasonChange,
+  onCancel,
+  onConfirm,
+}: {
+  busy: boolean;
+  reason: string;
+  onReasonChange: (v: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-6 shadow-xl">
+        <h3 className="text-lg font-semibold text-foreground">Reject this application?</h3>
+        <p className="text-sm text-muted-foreground">
+          The partner won’t be able to log in. The reason below is shown to them so they can fix and
+          re-apply.
+        </p>
+        <textarea
+          value={reason}
+          onChange={(e) => onReasonChange(e.target.value)}
+          rows={3}
+          placeholder="e.g. Aadhaar photo is blurred, please re-upload."
+          className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-danger focus:ring-2 focus:ring-danger/30"
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex items-center gap-2 rounded-xl bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          >
+            {busy && <SpinnerIcon className="h-4 w-4" />}
+            Reject partner
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
