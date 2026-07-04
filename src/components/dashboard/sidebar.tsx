@@ -41,6 +41,7 @@ const NAV: NavEntry[] = [
     children: [
       { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon },
       { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon },
+      { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon },
     ],
   },
   { label: "Customers", href: "/dashboard/customers", icon: UsersIcon },
