@@ -6,6 +6,7 @@ import {
   MAX_IMPORT_BYTES,
   extractResumeText,
   normalizeImportedDoc,
+  templateForLayout,
 } from "@/src/lib/resume-import";
 import type { ResumeDocument } from "@/src/lib/resume";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
@@ -51,15 +52,15 @@ export function ImportResumeModal({
 
     try {
       setStep("extracting");
-      const text = await extractResumeText(file);
-      if (text.length < 80) {
+      const extracted = await extractResumeText(file);
+      if (extracted.text.length < 80) {
         throw new Error(
           "Couldn't find readable text in this file — scanned/image PDFs are not supported yet.",
         );
       }
 
       setStep("structuring");
-      const structured = await resumeApi.import({ text: text.slice(0, 40000) });
+      const structured = await resumeApi.import({ text: extracted.text.slice(0, 40000) });
       const doc: ResumeDocument = normalizeImportedDoc(structured);
 
       setStep("creating");
@@ -67,7 +68,11 @@ export function ImportResumeModal({
         doc.basics.fullName && doc.basics.fullName !== "Your Name"
           ? `${doc.basics.fullName} — imported`
           : file.name.replace(/\.(pdf|txt)$/i, "");
-      const created = await resumeApi.create({ title, data: doc });
+      const created = await resumeApi.create({
+        title,
+        template: templateForLayout(extracted),
+        data: doc,
+      });
       onCreated(created.resumeId);
     } catch (err) {
       setStep("idle");
