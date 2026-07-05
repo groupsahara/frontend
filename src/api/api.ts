@@ -2004,3 +2004,54 @@ export const crmQueryKeys = {
   appraisals: (p: object) => ["hr", "appraisals", p] as const,
   myAppraisals: ["hr", "appraisals", "me"] as const,
 };
+
+/* ============================ Resume builder ============================ */
+// Tools → Resume Builder. Resumes are scoped server-side to the session user;
+// `data` is the full editor document (see src/lib/resume.ts for the shape).
+
+export interface ResumeSummaryRow {
+  resumeId: number;
+  title: string;
+  template: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResumeDetail extends ResumeSummaryRow {
+  userId: number;
+  data: unknown;
+}
+
+export type ResumeAiMode = "improve" | "shorten" | "expand" | "grammar" | "keywords";
+
+export interface AtsReport {
+  score: number;
+  wordCount: number;
+  checks: { id: string; label: string; passed: boolean; tip: string; weight: number }[];
+  aiSuggestions: string[];
+  missingKeywords: string[];
+  aiAvailable: boolean;
+  targetRole: string | null;
+}
+
+export const resumeApi = {
+  list: () => apiClient.get<ResumeSummaryRow[]>("/v1/resume"),
+  get: (id: number) => apiClient.get<ResumeDetail>(`/v1/resume/${id}`),
+  create: (body: { title?: string; template?: string; data?: unknown }) =>
+    apiClient.post<ResumeDetail>("/v1/resume", body),
+  update: (id: number, body: { title?: string; template?: string; data?: unknown }) =>
+    apiClient.patch<ResumeDetail>(`/v1/resume/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/resume/${id}`),
+  duplicate: (id: number) => apiClient.post<ResumeDetail>(`/v1/resume/${id}/duplicate`),
+  enhance: (body: { text: string; mode?: ResumeAiMode; context?: string }) =>
+    apiClient.post<{ text: string; mode: ResumeAiMode }>("/v1/resume/ai/enhance", body),
+  /** POST /v1/resume/ai/import — AI-structure an uploaded resume's plain text. */
+  import: (body: { text: string }) => apiClient.post<unknown>("/v1/resume/ai/import", body),
+  ats: (id: number, targetRole?: string) =>
+    apiClient.post<AtsReport>(`/v1/resume/${id}/ats`, { targetRole: targetRole || undefined }),
+};
+
+export const resumeQueryKeys = {
+  resumes: ["resumes"] as const,
+  resume: (id: number) => ["resume", id] as const,
+};

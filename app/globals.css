@@ -209,3 +209,54 @@ body {
     animation: none !important;
   }
 }
+
+/* ---------------------------------------------------------------- *
+ *  Resume builder                                                   *
+ * ---------------------------------------------------------------- */
+
+/* Inline-editable text runs on the resume canvas */
+.rz-editable {
+  min-width: 1ch;
+  display: inline-block;
+  border-radius: 2px;
+}
+.rz-editable:empty::before {
+  content: attr(data-ph);
+  opacity: 0.38;
+}
+.rz-editable:hover {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35);
+}
+.rz-editable:focus {
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.6);
+}
+
+/* Print only the resume page (Download PDF uses the browser's print-to-PDF) */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  #resume-canvas,
+  #resume-canvas * {
+    visibility: visible;
+  }
+  #resume-canvas {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .rz-editable:hover,
+  .rz-editable:focus {
+    box-shadow: none;
+    background: transparent;
+  }
+}

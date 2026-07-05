@@ -80,6 +80,7 @@ const ADMIN_NAV: NavEntry[] = [
     icon: WrenchIcon,
     children: [
       { label: "PDF Editor", href: "/dashboard/tools/pdf-editor", icon: FileTextIcon },
+      { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon },
     ],
   },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
