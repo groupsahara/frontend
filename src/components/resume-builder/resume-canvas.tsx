@@ -25,6 +25,7 @@ import {
   type TemplatePreset,
 } from "@/src/lib/resume-templates";
 import { Editable } from "@/src/components/resume-builder/editable";
+import { imageFileToDataUrl } from "@/src/lib/resume-import";
 
 export type AiTarget = {
   sectionId: string;
@@ -54,6 +55,9 @@ const PAPER = "#ffffff";
 
 export const RESUME_PAGE_WIDTH = 794; // A4 @ 96dpi
 export const RESUME_PAGE_HEIGHT = 1123; // A4 @ 96dpi — matches print pagination
+/** Whitespace kept above/below every page boundary — the visible page gap. */
+const PAGE_PAD_TOP = 36;
+const PAGE_PAD_BOTTOM = 28;
 
 export function ResumeCanvas({
   doc,
@@ -77,11 +81,16 @@ export function ResumeCanvas({
     color: template.sidebarDark ? "#e5e9f0" : INK,
   };
 
-  /* -------- A4 pagination: measure content, grow in whole pages -------- *
-   * The measured refs wrap CONTENT only (the columns themselves stretch to
-   * the paginated height, so measuring them would feed back into itself).
-   * The browser's print pagination uses the same 794×1123 geometry, so the
-   * on-screen page-break lines match the exported PDF.                    */
+  /* -------- A4 pagination with real page gaps -------------------------- *
+   * Every pushable block on the canvas carries the `rz-block` class. After
+   * layout, any block that would straddle a page boundary gets an extra
+   * marginTop pushing it to the top of the next page — so a whitespace band
+   * exists at every boundary, rendered as a full-width gap (like separate
+   * page cards). The pushes are plain inline margins, so the browser's
+   * print pagination produces the same breaks with real page margins.
+   * Margins are written directly to the DOM (no state) — the ResizeObserver
+   * settles because re-running the pass produces identical margins.        */
+  const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const sideRef = useRef<HTMLDivElement>(null);
@@ -92,25 +101,76 @@ export function ResumeCanvas({
   }, [onPageCount]);
 
   useEffect(() => {
-    const compute = () => {
-      const header = headerRef.current?.offsetHeight ?? 0;
-      const mainH = mainRef.current?.offsetHeight ?? 0;
-      const sideH = sideRef.current?.offsetHeight ?? 0;
-      const content = header + Math.max(mainH, sideH);
-      const pages = Math.max(1, Math.ceil(content / RESUME_PAGE_HEIGHT));
+    const root = rootRef.current;
+    if (!root) return;
+    let raf = 0;
+
+    const recompute = () => {
+      const columns = Array.from(root.querySelectorAll<HTMLElement>("[data-col]"));
+      columns
+        .flatMap((col) => Array.from(col.querySelectorAll<HTMLElement>(".rz-block")))
+        .forEach((b) => {
+          b.style.marginTop = "";
+        });
+
+      const rootTop = root.getBoundingClientRect().top;
+      const capacity = RESUME_PAGE_HEIGHT - PAGE_PAD_TOP - PAGE_PAD_BOTTOM;
+
+      for (const col of columns) {
+        const blocks = Array.from(col.querySelectorAll<HTMLElement>(".rz-block"));
+        const rects = blocks.map((b) => b.getBoundingClientRect());
+        let cum = 0; // pushes applied above shift everything below by this much
+        for (let i = 0; i < blocks.length; i++) {
+          const top = rects[i].top - rootTop + cum;
+          const height = rects[i].height;
+          if (height >= capacity) continue; // taller than a page — let it flow
+          const boundary = (Math.floor(top / RESUME_PAGE_HEIGHT) + 1) * RESUME_PAGE_HEIGHT;
+          let breaks = top + height > boundary - PAGE_PAD_BOTTOM;
+          // don't leave a section heading orphaned at the bottom of a page
+          if (!breaks && blocks[i].tagName === "H2" && i + 1 < blocks.length) {
+            const nTop = rects[i + 1].top - rootTop + cum;
+            const nHeight = rects[i + 1].height;
+            breaks = nHeight < capacity && nTop + nHeight > boundary - PAGE_PAD_BOTTOM;
+          }
+          if (breaks) {
+            const delta = boundary + PAGE_PAD_TOP - top;
+            const base = parseFloat(getComputedStyle(blocks[i]).marginTop) || 0;
+            blocks[i].style.marginTop = `${base + delta}px`;
+            cum += delta;
+          }
+        }
+      }
+
+      // Page count from the final laid-out content.
+      let bottom = headerRef.current?.offsetHeight ?? 0;
+      const rootTopAfter = root.getBoundingClientRect().top;
+      for (const col of columns) {
+        const blocks = col.querySelectorAll<HTMLElement>(".rz-block");
+        const last = blocks[blocks.length - 1];
+        if (last) bottom = Math.max(bottom, last.getBoundingClientRect().bottom - rootTopAfter);
+      }
+      const pages = Math.max(1, Math.ceil((bottom + PAGE_PAD_BOTTOM) / RESUME_PAGE_HEIGHT));
       setPageCount((prev) => {
         if (prev !== pages) onPageCountRef.current?.(pages);
         return pages;
       });
     };
-    compute();
-    const observer = new ResizeObserver(compute);
+
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(recompute);
+    };
+    schedule();
+    const observer = new ResizeObserver(schedule);
     [headerRef.current, mainRef.current, sideRef.current].forEach((el) => el && observer.observe(el));
-    return () => observer.disconnect();
-  }, [template.layout]);
+    return () => {
+      cancelAnimationFrame(raf);
+      observer.disconnect();
+    };
+  }, [doc, template]);
 
   const sideContent = (
-    <div ref={sideRef} className="px-6 py-6">
+    <div ref={sideRef} data-col className="px-6 py-6">
       {side.map((s) => (
         <SectionView key={s.id} section={s} ctx={sectionCtx} inSidebar />
       ))}
@@ -123,6 +183,7 @@ export function ResumeCanvas({
   return (
     <div
       id="resume-canvas"
+      ref={rootRef}
       className="relative mx-auto flex flex-col shadow-xl print:shadow-none"
       style={{
         width: RESUME_PAGE_WIDTH,
@@ -146,7 +207,7 @@ export function ResumeCanvas({
             </aside>
           )}
           <main className="min-w-0 flex-1">
-            <div ref={mainRef} className="px-8 py-6">
+            <div ref={mainRef} data-col className="px-8 py-6">
               {main.map((s) => (
                 <SectionView key={s.id} section={s} ctx={sectionCtx} />
               ))}
@@ -160,7 +221,7 @@ export function ResumeCanvas({
         </div>
       ) : (
         <main>
-          <div ref={mainRef} className="px-10 py-6">
+          <div ref={mainRef} data-col className="px-10 py-6">
             {doc.sections.map((s) => (
               <SectionView key={s.id} section={s} ctx={sectionCtx} />
             ))}
@@ -168,19 +229,23 @@ export function ResumeCanvas({
         </main>
       )}
 
-      {/* On-screen page-break guides (hidden in print — the browser actually
-          paginates there at the same heights) */}
+      {/* Page gaps: blocks are pushed clear of every boundary, so this band
+          only ever covers whitespace. Hidden in print — the browser breaks
+          pages at the same heights with the pad as real page margins. */}
       {Array.from({ length: pageCount - 1 }, (_, i) => (
         <div
           key={i}
           aria-hidden
-          className="pointer-events-none absolute left-0 right-0 z-20 print:hidden"
-          style={{ top: (i + 1) * RESUME_PAGE_HEIGHT }}
+          className="pointer-events-none absolute left-0 right-0 z-10 flex items-center justify-center print:hidden"
+          style={{
+            top: (i + 1) * RESUME_PAGE_HEIGHT - PAGE_PAD_BOTTOM,
+            height: PAGE_PAD_BOTTOM + PAGE_PAD_TOP,
+            background: "var(--background)",
+            boxShadow:
+              "inset 0 12px 12px -12px rgba(0,0,0,0.5), inset 0 -12px 12px -12px rgba(0,0,0,0.5)",
+          }}
         >
-          <div className="border-t-2 border-dashed border-sky-400/70" />
-          <span className="absolute -top-2.5 right-2 rounded bg-sky-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow">
-            Page {i + 2}
-          </span>
+          <span className="text-xs font-medium text-muted-foreground">Page {i + 1}</span>
         </div>
       ))}
     </div>
@@ -230,38 +295,137 @@ function Header({
         borderBottom: !isBanner ? `1px solid #e5e7eb` : undefined,
       }}
     >
-      <Editable
-        as="h1"
-        editable={editable}
-        value={basics.fullName}
-        onCommit={setBasic("fullName")}
-        placeholder="Your Name"
-        className="block text-[2.3em] font-bold leading-tight tracking-tight"
-        style={{ color: ink, fontFamily: fonts.heading }}
-      />
-      <Editable
-        as="p"
-        editable={editable}
-        value={basics.headline}
-        onCommit={setBasic("headline")}
-        placeholder="Professional headline"
-        className="mt-0.5 block text-[1.15em] font-medium"
-        style={{ color: headlineColor }}
-      />
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-[0.85em]" style={{ color: sub }}>
-        {contacts.map(({ key, ph }) =>
-          editable || basics[key] ? (
-            <Editable
-              key={key}
-              editable={editable}
-              value={basics[key]}
-              onCommit={setBasic(key)}
-              placeholder={ph}
-            />
-          ) : null,
-        )}
+      <div className="flex items-start justify-between gap-6">
+        <div className="min-w-0 flex-1">
+          <Editable
+            as="h1"
+            editable={editable}
+            value={basics.fullName}
+            onCommit={setBasic("fullName")}
+            placeholder="Your Name"
+            className="block text-[2.3em] font-bold leading-tight tracking-tight"
+            style={{ color: ink, fontFamily: fonts.heading }}
+          />
+          <Editable
+            as="p"
+            editable={editable}
+            value={basics.headline}
+            onCommit={setBasic("headline")}
+            placeholder="Professional headline"
+            className="mt-0.5 block text-[1.15em] font-medium"
+            style={{ color: headlineColor }}
+          />
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-0.5 text-[0.85em]" style={{ color: sub }}>
+            {contacts.map(({ key, ph }) =>
+              editable || basics[key] ? (
+                <Editable
+                  key={key}
+                  editable={editable}
+                  value={basics[key] ?? ""}
+                  onCommit={setBasic(key)}
+                  placeholder={ph}
+                />
+              ) : null,
+            )}
+          </div>
+        </div>
+        <HeaderPhoto
+          photo={basics.photo}
+          editable={editable}
+          accent={template.accent}
+          dark={!!dark}
+          onChange={(photo) => update((d) => ({ ...d, basics: { ...d.basics, photo } }))}
+        />
       </div>
     </header>
+  );
+}
+
+/** Profile photo: shown when present; in edit mode it can be added, replaced or removed. */
+function HeaderPhoto({
+  photo,
+  editable,
+  accent,
+  dark,
+  onChange,
+}: {
+  photo?: string;
+  editable: boolean;
+  accent: string;
+  dark: boolean;
+  onChange: (photo: string | undefined) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState(false);
+  if (!photo && !editable) return null;
+
+  const pick = async (file: File) => {
+    setError(false);
+    try {
+      onChange(await imageFileToDataUrl(file));
+    } catch {
+      setError(true);
+    }
+  };
+
+  return (
+    <div className="group/photo relative shrink-0">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void pick(file);
+          e.target.value = "";
+        }}
+      />
+      {photo ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- small data URL, next/image not applicable */}
+          <img
+            src={photo}
+            alt="Profile"
+            className="h-24 w-24 rounded-full object-cover"
+            style={{ border: `3px solid ${dark ? "rgba(255,255,255,0.85)" : accent}` }}
+          />
+          {editable && (
+            <div className="absolute inset-0 hidden items-center justify-center gap-1.5 rounded-full bg-black/50 group-hover/photo:flex print:!hidden">
+              <button
+                type="button"
+                title="Change photo"
+                onClick={() => inputRef.current?.click()}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm"
+              >
+                📷
+              </button>
+              <button
+                type="button"
+                title="Remove photo"
+                onClick={() => onChange(undefined)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm text-red-600"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          title={error ? "Could not read that image — try another" : "Add profile photo"}
+          className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed text-2xl opacity-40 transition hover:opacity-80 print:hidden"
+          style={{
+            borderColor: error ? "#dc2626" : dark ? "#ffffff" : accent,
+            color: error ? "#dc2626" : dark ? "#ffffff" : accent,
+          }}
+        >
+          +
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -334,7 +498,7 @@ function SectionView({
   };
 
   return (
-    <section className="group/section relative mb-5 break-inside-avoid">
+    <section className="group/section relative mb-5">
       {editable && (
         <div className="pointer-events-none absolute -right-1 -top-2 z-10 flex gap-0.5 opacity-0 transition group-hover/section:pointer-events-auto group-hover/section:opacity-100 print:hidden">
           <ToolBtn label="Move up" onClick={() => move(-1)}>↑</ToolBtn>
@@ -369,7 +533,7 @@ function SectionView({
         value={section.title}
         onCommit={(title) => mutateSection(update, section.id, (s) => ({ ...s, title }))}
         placeholder={def.defaultTitle}
-        className="mb-2 block text-[1.15em] font-bold"
+        className="rz-block mb-2 block text-[1.15em] font-bold"
         style={{ color: ink, fontFamily: fonts.heading, ...headingStyles[template.headingStyle] }}
       />
 
@@ -459,7 +623,7 @@ function SectionBody({
       const item = section.items[0] ?? { id: "none" };
       const isQuote = def.kind === "quote";
       return (
-        <div className="group/item relative">
+        <div className="rz-block group/item relative">
           {aiButton(item, `${section.title} paragraph`)}
           <Editable
             as="p"
@@ -498,7 +662,7 @@ function SectionBody({
             ? { background: dark ? "rgba(255,255,255,0.14)" : `${ctx.template.accent}1a`, color: ink }
             : { border: `1px solid ${dark ? "rgba(255,255,255,0.5)" : accent}`, color: ink };
       return (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="rz-block flex flex-wrap gap-1.5">
           {section.items.map((item) => (
             <span
               key={item.id}
@@ -529,9 +693,9 @@ function SectionBody({
 
     case "levels":
       return (
-        <div className="grid grid-cols-2 gap-x-5 gap-y-2">
+        <div className="rz-block grid grid-cols-2 gap-x-5 gap-y-2">
           {section.items.map((item) => (
-            <div key={item.id} className="group/item relative">
+            <div key={item.id} className="rz-block group/item relative">
               {editable && <RemoveItemBtn onClick={() => removeItem(item.id)} />}
               <Editable
                 editable={editable}
@@ -593,7 +757,7 @@ function SectionBody({
       return (
         <div className="space-y-1.5">
           {section.items.map((item) => (
-            <div key={item.id} className="group/item relative flex items-baseline gap-2">
+            <div key={item.id} className="rz-block group/item relative flex items-baseline gap-2">
               {editable && <RemoveItemBtn onClick={() => removeItem(item.id)} />}
               <span
                 className="inline-flex h-4 w-4 shrink-0 translate-y-0.5 items-center justify-center rounded-sm text-[9px] font-bold text-white"
@@ -634,7 +798,7 @@ function SectionBody({
             section.items.length ? setItem(item.id, { title: v }) : setItems([{ id: uid(), title: v }])
           }
           placeholder="Your Name"
-          className="block text-[2em]"
+          className="rz-block block text-[2em]"
           style={{
             color: ink,
             fontFamily: "'Snell Roundhand', 'Segoe Script', 'Brush Script MT', cursive",
@@ -648,7 +812,7 @@ function SectionBody({
       return (
         <div className="space-y-3">
           {section.items.map((item) => (
-            <div key={item.id} className="group/item relative">
+            <div key={item.id} className="rz-block group/item relative">
               {editable && <RemoveItemBtn onClick={() => removeItem(item.id)} />}
               {aiButton(item, `${section.title} entry${item.title ? ` “${item.title}”` : ""}`)}
               <EntryItem
@@ -858,7 +1022,7 @@ function TimeDonut({
   const badgeInk = dark ? "#0b1220" : "#ffffff";
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="rz-block flex items-center gap-4">
       <svg width={120} height={120} viewBox="0 0 120 120" role="img" aria-label="Time allocation chart">
         {paths.map((s) => (
           <Fragment key={s.letter}>

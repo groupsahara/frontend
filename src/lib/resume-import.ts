@@ -31,6 +31,8 @@ export type ExtractedResume = {
   twoColumn: boolean;
   /** which side the narrow (sidebar) column sits on, when two-column */
   sidebarSide: "left" | "right" | null;
+  /** profile photo found in the PDF, as a JPEG data URL */
+  photo: string | null;
 };
 
 /* ------------------------------------------------------------------ *
@@ -132,11 +134,148 @@ export function layoutPageText(
   return { text: parts.join("\n"), sidebarSide };
 }
 
+/* ------------------------------------------------------------------ *
+ *  Profile photo extraction                                           *
+ * ------------------------------------------------------------------ */
+
+export type RawPdfImage = {
+  width: number;
+  height: number;
+  data?: Uint8ClampedArray | Uint8Array;
+  bitmap?: ImageBitmap;
+};
+
+/**
+ * Largest plausibly-a-portrait image painted on the page: roughly square-ish
+ * aspect and at least `minSide` px. Requires getOperatorList() so pdf.js has
+ * decoded the page's image XObjects.
+ */
+export async function findProfileImage(
+  page: {
+    getOperatorList: () => Promise<{ fnArray: number[]; argsArray: unknown[][] }>;
+    objs: { get: (name: string, cb: (v: unknown) => void) => void };
+    commonObjs: { get: (name: string, cb: (v: unknown) => void) => void };
+  },
+  OPS: { paintImageXObject: number; paintImageXObjectRepeat: number },
+  minSide = 80,
+): Promise<RawPdfImage | null> {
+  const ops = await page.getOperatorList();
+  const names: string[] = [];
+  for (let i = 0; i < ops.fnArray.length; i++) {
+    if (ops.fnArray[i] === OPS.paintImageXObject || ops.fnArray[i] === OPS.paintImageXObjectRepeat) {
+      const name = ops.argsArray[i]?.[0];
+      if (typeof name === "string" && !names.includes(name)) names.push(name);
+    }
+  }
+
+  let best: RawPdfImage | null = null;
+  for (const name of names) {
+    const img = await new Promise<RawPdfImage | null>((resolve) => {
+      const timer = setTimeout(() => resolve(null), 3000);
+      try {
+        const store = name.startsWith("g_") ? page.commonObjs : page.objs;
+        store.get(name, (value) => {
+          clearTimeout(timer);
+          resolve((value ?? null) as RawPdfImage | null);
+        });
+      } catch {
+        clearTimeout(timer);
+        resolve(null);
+      }
+    });
+    if (!img?.width || !img.height) continue;
+    const aspect = img.width / img.height;
+    if (img.width < minSide || img.height < minSide) continue;
+    if (aspect < 0.4 || aspect > 2.5) continue; // banners / rules aren't portraits
+    if (!best || img.width * img.height > best.width * best.height) best = img;
+  }
+  return best;
+}
+
+/** Convert a decoded pdf.js image object into a small JPEG data URL (browser only). */
+export function pdfImageToDataUrl(img: RawPdfImage, maxDim = 384): string | null {
+  try {
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (img.bitmap) {
+      ctx.drawImage(img.bitmap, 0, 0, canvas.width, canvas.height);
+    } else if (img.data) {
+      const n = img.width * img.height;
+      const d = img.data;
+      const rgba = new Uint8ClampedArray(n * 4);
+      if (d.length === n * 4) {
+        rgba.set(d);
+      } else if (d.length === n * 3) {
+        for (let i = 0; i < n; i++) {
+          rgba[i * 4] = d[i * 3];
+          rgba[i * 4 + 1] = d[i * 3 + 1];
+          rgba[i * 4 + 2] = d[i * 3 + 2];
+          rgba[i * 4 + 3] = 255;
+        }
+      } else if (d.length === n) {
+        for (let i = 0; i < n; i++) {
+          const v = d[i];
+          rgba[i * 4] = v;
+          rgba[i * 4 + 1] = v;
+          rgba[i * 4 + 2] = v;
+          rgba[i * 4 + 3] = 255;
+        }
+      } else {
+        return null;
+      }
+      const full = document.createElement("canvas");
+      full.width = img.width;
+      full.height = img.height;
+      const fctx = full.getContext("2d");
+      if (!fctx) return null;
+      fctx.putImageData(new ImageData(rgba, img.width, img.height), 0, 0);
+      ctx.drawImage(full, 0, 0, canvas.width, canvas.height);
+    } else {
+      return null;
+    }
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } catch {
+    return null;
+  }
+}
+
+/** Downscale a user-picked image file to a small JPEG data URL. */
+export async function imageFileToDataUrl(file: File, maxDim = 384): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Could not read this image"));
+      img.src = url;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not process this image");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.85);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 
 export async function extractResumeText(file: File): Promise<ExtractedResume> {
   if (/\.txt$/i.test(file.name) || file.type === "text/plain") {
-    return { text: (await file.text()).trim(), twoColumn: false, sidebarSide: null };
+    return { text: (await file.text()).trim(), twoColumn: false, sidebarSide: null, photo: null };
   }
 
   const pdfjs = await getPdfJs();
@@ -145,6 +284,7 @@ export async function extractResumeText(file: File): Promise<ExtractedResume> {
   try {
     const pages: string[] = [];
     let sidebarSide: "left" | "right" | null = null;
+    let photo: string | null = null;
     for (let p = 1; p <= doc.numPages; p++) {
       const page = await doc.getPage(p);
       const { width } = page.getViewport({ scale: 1 });
@@ -162,11 +302,22 @@ export async function extractResumeText(file: File): Promise<ExtractedResume> {
       const result = layoutPageText(items, width);
       pages.push(result.text);
       sidebarSide ??= result.sidebarSide;
+
+      // Profile photos live on page 1 — best-effort, never blocks the import.
+      if (p === 1) {
+        try {
+          const raw = await findProfileImage(page, pdfjs.OPS);
+          if (raw) photo = pdfImageToDataUrl(raw);
+        } catch {
+          photo = null;
+        }
+      }
     }
     return {
       text: pages.join("\n\n").trim(),
       twoColumn: sidebarSide !== null,
       sidebarSide,
+      photo,
     };
   } finally {
     void doc.loadingTask.destroy().catch(() => {});

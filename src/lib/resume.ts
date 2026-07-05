@@ -74,6 +74,8 @@ export type ResumeBasics = {
   phone: string;
   location: string;
   website: string;
+  /** Profile photo as a small JPEG data URL (stored inside the document). */
+  photo?: string;
 };
 
 export type ResumeDocument = {
