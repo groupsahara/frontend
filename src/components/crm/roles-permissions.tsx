@@ -11,7 +11,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
 import { crmQueryKeys, rbacApi, type RbacRoleRow } from "@/src/api/api";
 import { Btn, Field, Modal, Notice, inputCls } from "@/src/components/crm/ui";
-import { hasPermission } from "@/src/lib/auth";
+import { hasPermission, isSuperAdmin } from "@/src/lib/auth";
 import {
   BagIcon,
   BriefcaseIcon,
@@ -316,7 +316,11 @@ export function RolesPermissionsPanel() {
     queryFn: rbacApi.permissionCatalog,
   });
 
-  const roles = rolesQuery.data ?? [];
+  // The backend already omits super_admin for non-super-admin callers; this
+  // client-side filter is belt-and-braces for cached/stale query data.
+  const roles = (rolesQuery.data ?? []).filter(
+    (r) => r.name !== "super_admin" || isSuperAdmin(),
+  );
   const catalog = useMemo(() => catalogQuery.data ?? [], [catalogQuery.data]);
 
   // Fall back to the first role until the user explicitly picks one.

@@ -18,7 +18,7 @@ import {
   inputCls,
 } from "@/src/components/crm/ui";
 import { PlusIcon } from "@/src/components/icons";
-import { hasPermission } from "@/src/lib/auth";
+import { hasPermission, isSuperAdmin } from "@/src/lib/auth";
 
 export default function CrmStaffPage() {
   return (
@@ -141,7 +141,10 @@ function StaffForm({ row, onClose }: { row?: StaffRow; onClose: () => void }) {
   const [password, setPassword] = useState("");
   const [roleIds, setRoleIds] = useState<number[]>(row?.roles.map((r) => r.roleId) ?? []);
 
-  const { data: roles } = useQuery({ queryKey: crmQueryKeys.rbacRoles, queryFn: rbacApi.roles });
+  const { data: allRoles } = useQuery({ queryKey: crmQueryKeys.rbacRoles, queryFn: rbacApi.roles });
+  // super_admin is only assignable (or even visible) to the super admin; the
+  // backend filters it too — this guards cached query data.
+  const roles = allRoles?.filter((r) => r.name !== "super_admin" || isSuperAdmin());
 
   const toggleRole = (id: number) =>
     setRoleIds((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
