@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
 import { crmQueryKeys, rbacApi, type StaffRow } from "@/src/api/api";
-import { RolesPermissionsPanel } from "@/src/components/crm/roles-permissions";
 import {
   Badge,
   Btn,
@@ -15,7 +14,6 @@ import {
   Notice,
   PageHeader,
   TableShell,
-  Tabs,
   fmtDate,
   inputCls,
 } from "@/src/components/crm/ui";
@@ -23,22 +21,13 @@ import { PlusIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
 
 export default function CrmStaffPage() {
-  const [tab, setTab] = useState("staff");
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
-        title="Staff & Roles"
-        subtitle="Staff logins and the RBAC roles that control what they can access."
+        title="Staff"
+        subtitle="Staff logins and the roles assigned to each member."
       />
-      <Tabs
-        tabs={[
-          { key: "staff", label: "Staff members" },
-          { key: "roles", label: "Roles & permissions" },
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
-      {tab === "staff" ? <StaffTab /> : <RolesPermissionsPanel />}
+      <StaffTab />
     </div>
   );
 }

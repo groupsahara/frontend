@@ -21,14 +21,17 @@ import {
   ClockIcon,
   EyeIcon,
   GridIcon,
+  ImageIcon,
   LockIcon,
   MapPinIcon,
   PencilIcon,
   PlusIcon,
+  RouteIcon,
   SettingsIcon,
   ShieldIcon,
   SpinnerIcon,
   StarIcon,
+  StoreIcon,
   TrashIcon,
   UserCircleIcon,
   UsersIcon,
@@ -41,6 +44,11 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
    Falls back gracefully for any module/action the backend adds later. */
 
 const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc: string }> = {
+  crm: { icon: GridIcon, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", desc: "CRM overview access" },
+  analytics: { icon: ChartIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "KPIs, trends & breakdowns" },
+  categories: { icon: StoreIcon, color: "#ffc845", bg: "rgba(255,200,69,0.12)", desc: "Service categories" },
+  banners: { icon: ImageIcon, color: "#e879f9", bg: "rgba(232,121,249,0.12)", desc: "Landing page banners" },
+  dispatcher: { icon: RouteIcon, color: "#10b981", bg: "rgba(16,185,129,0.12)", desc: "Teams, zones & allocation" },
   customers: { icon: UsersIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "Customer accounts" },
   partners: { icon: BriefcaseIcon, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", desc: "Service partners" },
   bookings: { icon: BagIcon, color: "#3dd68c", bg: "rgba(61,214,140,0.12)", desc: "Bookings & jobs" },
@@ -53,6 +61,7 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
   departments: { icon: ClipboardIcon, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", desc: "Departments & designations" },
   offices: { icon: MapPinIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Office locations" },
   payments: { icon: WalletIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "Payments & payouts" },
+  settings: { icon: SettingsIcon, color: "#94a3b8", bg: "rgba(148,163,184,0.12)", desc: "Panel settings & password" },
 };
 
 const ACTION_META: Record<string, { icon: Icon; cls: string }> = {
@@ -105,14 +114,14 @@ function Switch({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex shrink-0 items-center rounded-full transition disabled:opacity-50 ${
-        small ? "h-[18px] w-[34px]" : "h-[22px] w-10"
+        small ? "h-4.5 w-8.5" : "h-5.5 w-10"
       } ${checked ? "bg-success" : "bg-muted"}`}
     >
       <span
         className={`inline-block transform rounded-full bg-white shadow transition ${
           small
-            ? `h-3.5 w-3.5 ${checked ? "translate-x-[18px]" : "translate-x-0.5"}`
-            : `h-[18px] w-[18px] ${checked ? "translate-x-[20px]" : "translate-x-0.5"}`
+            ? `h-3.5 w-3.5 ${checked ? "translate-x-4.5" : "translate-x-0.5"}`
+            : `h-4.5 w-4.5 ${checked ? "translate-x-5" : "translate-x-0.5"}`
         }`}
       />
     </button>
@@ -149,7 +158,7 @@ function ModuleCard({
       }`}
     >
       <div
-        className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent transition-opacity ${
+        className={`absolute inset-x-0 top-0 h-0.5 bg-linear-to-r from-transparent via-primary to-transparent transition-opacity ${
           enabled ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -192,7 +201,7 @@ function ModuleCard({
             >
               <span className="flex items-center gap-2.5">
                 <span
-                  className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-md border bg-muted/50 ${am.cls}`}
+                  className={`grid h-6.5 w-6.5 shrink-0 place-items-center rounded-md border bg-muted/50 ${am.cls}`}
                 >
                   <ActionIcon className="h-3.5 w-3.5" />
                 </span>
@@ -415,7 +424,7 @@ export function RolesPermissionsPanel() {
                   : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground"
               }`}
             >
-              <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-current opacity-70" />
+              <span className="h-1.75 w-1.75 shrink-0 rounded-full bg-current opacity-70" />
               {titleCase(r.name)}
               {r.isSystem && (
                 <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">

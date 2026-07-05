@@ -45,20 +45,20 @@ const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
 // Sections of the classic admin panel — hidden entirely from STAFF logins.
 const ADMIN_NAV: NavEntry[] = [
   { label: "Overview", href: "/dashboard", icon: GridIcon },
-  { label: "Analytics", href: "/dashboard/analytics", icon: ChartIcon },
-  { label: "Categories", href: "/dashboard/categories", icon: StoreIcon },
-  { label: "Banner", href: "/dashboard/banners", icon: ImageIcon },
-  { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon },
+  { label: "Analytics", href: "/dashboard/analytics", icon: ChartIcon, permission: "analytics.view" },
+  { label: "Categories", href: "/dashboard/categories", icon: StoreIcon, permission: "categories.view" },
+  { label: "Banner", href: "/dashboard/banners", icon: ImageIcon, permission: "banners.view" },
+  { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon, permission: "bookings.view" },
   {
     label: "Dispatcher",
     icon: MapPinIcon,
     children: [
-      { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon },
-      { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon },
-      { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon },
-      { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon },
-      { label: "Auto Allocation", href: "/dashboard/dispatcher/allocation", icon: RouteIcon },
-      { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon },
+      { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon, permission: "partners.view" },
+      { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon, permission: "dispatcher.view" },
+      { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon, permission: "dispatcher.view" },
+      { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon, permission: "dispatcher.view" },
+      { label: "Auto Allocation", href: "/dashboard/dispatcher/allocation", icon: RouteIcon, permission: "dispatcher.view" },
+      { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon, permission: "dispatcher.view" },
       { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon },
       { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon },
     ],
@@ -73,14 +73,14 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon },
     ],
   },
-  { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon },
+  { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
 ];
 
 const CRM_NAV: NavGroup = {
   label: "CRM",
   icon: BriefcaseIcon,
   children: [
-    { label: "CRM Overview", href: "/dashboard/crm", icon: GridIcon },
+    { label: "CRM Overview", href: "/dashboard/crm", icon: GridIcon, permission: "crm.view" },
     { label: "Customers", href: "/dashboard/crm/customers", icon: UsersIcon, permission: "customers.view" },
     { label: "Partners", href: "/dashboard/crm/partners", icon: UsersIcon, permission: "partners.view" },
     { label: "Bookings", href: "/dashboard/crm/bookings", icon: BagIcon, permission: "bookings.view" },
@@ -95,22 +95,40 @@ const HR_NAV: NavGroup = {
     { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon },
     { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon },
     { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon },
-    { label: "Staff & Roles", href: "/dashboard/crm/staff", icon: ShieldIcon, permission: "staff.view" },
     { label: "HR Settings", href: "/dashboard/crm/hr-settings", icon: ClipboardIcon, permission: "departments.view" },
   ],
 };
 
-// STAFF members get only the CRM/HR sections, filtered to their permissions.
-// Admins get the classic panel plus the full CRM and HR groups.
+const ACCESS_NAV: NavGroup = {
+  label: "Roles & Permissions",
+  icon: ShieldIcon,
+  children: [
+    { label: "Roles & Permissions", href: "/dashboard/crm/roles", icon: ShieldIcon, permission: "roles.view" },
+    { label: "Staff", href: "/dashboard/crm/staff", icon: UsersIcon, permission: "staff.view" },
+  ],
+};
+
+// Admins get the classic panel plus the full CRM and HR groups. STAFF members
+// get the CRM/HR sections plus any admin modules their roles grant — admin
+// entries WITHOUT a permission (Overview, Payments, Styling, …) stay
+// admin-only and never appear for staff.
 function buildNav(): NavEntry[] {
   const user = getStoredUser();
   const perms = getPermissions();
   const allowed = (leaf: NavLeaf) =>
     !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
-  const groups = [CRM_NAV, HR_NAV]
+  const groups = [CRM_NAV, HR_NAV, ACCESS_NAV]
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
-  if (user?.role === "STAFF") return groups;
+  if (user?.role === "STAFF") {
+    const staffAllowed = (leaf: NavLeaf) => !!leaf.permission && allowed(leaf);
+    const adminEntries = ADMIN_NAV.map((entry) =>
+      "children" in entry ? { ...entry, children: entry.children.filter(staffAllowed) } : entry,
+    ).filter((entry) =>
+      "children" in entry ? entry.children.length > 0 : staffAllowed(entry),
+    );
+    return [...adminEntries, ...groups];
+  }
   return [...ADMIN_NAV.slice(0, 1), ...groups, ...ADMIN_NAV.slice(1)];
 }
 
