@@ -6,7 +6,7 @@ import { apiClient, API_BASE_URL, downloadFile, uploadFile } from "./apiClient";
 
 /* ============================== Auth ==================================== */
 
-export type Role = "USER" | "SERVICE_PROFESSIONAL" | "ADMIN" | "SUPER_ADMIN";
+export type Role = "USER" | "SERVICE_PROFESSIONAL" | "ADMIN" | "SUPER_ADMIN" | "STAFF";
 
 export interface LoginRequest {
   email: string;
@@ -27,6 +27,8 @@ export interface LoginResponse {
   refreshTokenExpireTime: number;
   sessionId: string;
   user: AdminUser;
+  /** CRM permissions: "*" for admins, "module.action" list for STAFF. */
+  permissions?: string[];
 }
 
 export const authApi = {
@@ -1616,4 +1618,387 @@ export const queryKeys = {
   cart: (sessionId: string) => ["cart", sessionId] as const,
   userAddresses: (userId: string | number) => ["addresses", userId] as const,
   userBookings: (userId: string | number) => ["bookings", "user", userId] as const,
+};
+
+/* ============================== CRM / HR ================================ */
+// Backed by the RBAC-gated /v1/crm, /v1/hr and /v1/rbac endpoints. Admins
+// bypass every permission check; STAFF users only see what their roles grant
+// (the login response carries `permissions`, "*" = everything).
+
+export interface CrmSummary {
+  customers: number;
+  partners: number;
+  bookingsToday: number;
+  pendingLeaves: number;
+  employees: number;
+}
+
+export interface CrmCustomerRow {
+  userId: number;
+  name: string | null;
+  email: string | null;
+  mobile: string | null;
+  createdAt: string;
+  bookingCount: number;
+}
+
+export interface CrmPartnerRow {
+  professionalId: number;
+  name: string | null;
+  mobile: string | null;
+  email: string | null;
+  service: string | null;
+  city: string | null;
+  rating: number;
+  totalJobs: number;
+  isOnline: boolean;
+  isBlocked: boolean;
+  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+  bookingCount: number;
+  createdAt: string;
+}
+
+export interface CrmPage {
+  total: number;
+  page: number;
+  limit: number;
+}
+export type CrmCustomerList = CrmPage & { customers: CrmCustomerRow[] };
+export type CrmPartnerList = CrmPage & { partners: CrmPartnerRow[] };
+
+export interface CrmBookingRow {
+  bookingId: number;
+  status: string;
+  totalAmount: number;
+  bookingDate: string;
+  startTime: string;
+  serviceCity: string;
+  serviceAddress: string;
+  paymentMode: string;
+  createdAt: string;
+  user: { userId: number; name: string | null; mobile: string | null } | null;
+  service: { name: string } | null;
+  variant: { name: string } | null;
+  professional: { professionalId: number; user: { name: string | null } | null } | null;
+}
+export type CrmBookingList = CrmPage & { bookings: CrmBookingRow[] };
+
+export const crmApi = {
+  summary: () => apiClient.get<CrmSummary>("/v1/crm/summary"),
+  customers: (params: { search?: string; page?: number; limit?: number }) =>
+    apiClient.get<CrmCustomerList>(`/v1/crm/customers${toQueryString(params)}`),
+  updateCustomer: (id: number, body: { name?: string; mobile?: string }) =>
+    apiClient.patch(`/v1/crm/customers/${id}`, body),
+  partners: (params: { search?: string; status?: string; page?: number; limit?: number }) =>
+    apiClient.get<CrmPartnerList>(`/v1/crm/partners${toQueryString(params)}`),
+  updatePartner: (id: number, body: { isBlocked?: boolean; onboardingStatus?: string }) =>
+    apiClient.patch(`/v1/crm/partners/${id}`, body),
+  bookings: (params: {
+    search?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+  }) => apiClient.get<CrmBookingList>(`/v1/crm/bookings${toQueryString(params)}`),
+  updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED") =>
+    apiClient.patch(`/v1/crm/bookings/${id}/status`, { status }),
+};
+
+/* ------------------------------- RBAC ---------------------------------- */
+
+export interface RbacRoleRow {
+  roleId: number;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  userCount?: number;
+  permissions: string[];
+  createdAt: string;
+}
+
+export interface PermissionCatalogEntry {
+  module: string;
+  actions: string[];
+  keys: string[];
+}
+
+export interface StaffRow {
+  userId: number;
+  name: string | null;
+  email: string | null;
+  mobile: string | null;
+  createdAt: string;
+  roles: { roleId: number; name: string }[];
+  employee: { employeeId: number; employeeCode: string; designation: string | null } | null;
+}
+
+export const rbacApi = {
+  permissionCatalog: () => apiClient.get<PermissionCatalogEntry[]>("/v1/rbac/permissions"),
+  myPermissions: () => apiClient.get<string[]>("/v1/rbac/me/permissions"),
+  roles: () => apiClient.get<RbacRoleRow[]>("/v1/rbac/roles"),
+  createRole: (body: { name: string; description?: string; permissions?: string[] }) =>
+    apiClient.post<RbacRoleRow>("/v1/rbac/roles", body),
+  updateRole: (id: number, body: { name?: string; description?: string; permissions?: string[] }) =>
+    apiClient.patch<RbacRoleRow>(`/v1/rbac/roles/${id}`, body),
+  deleteRole: (id: number) => apiClient.delete<{ message: string }>(`/v1/rbac/roles/${id}`),
+  staff: () => apiClient.get<StaffRow[]>("/v1/rbac/staff"),
+  createStaff: (body: {
+    name: string;
+    email: string;
+    mobile?: string;
+    password: string;
+    roleIds?: number[];
+  }) => apiClient.post<{ userId: number; message: string }>("/v1/rbac/staff", body),
+  updateStaff: (
+    userId: number,
+    body: { name?: string; mobile?: string; password?: string; roleIds?: number[] },
+  ) => apiClient.patch<{ message: string }>(`/v1/rbac/staff/${userId}`, body),
+  deleteStaff: (userId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/rbac/staff/${userId}`),
+};
+
+/* -------------------------------- HR ----------------------------------- */
+
+export interface DepartmentRow {
+  departmentId: number;
+  name: string;
+  description: string | null;
+  _count?: { employees: number };
+}
+
+export interface OfficeRow {
+  officeId: number;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  isActive: boolean;
+  _count?: { employees: number };
+}
+
+export interface EmployeeRow {
+  employeeId: number;
+  userId: number | null;
+  employeeCode: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  designation: string | null;
+  employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN";
+  status: "ACTIVE" | "ON_LEAVE" | "TERMINATED" | "RESIGNED";
+  joinDate: string;
+  salary: number | null;
+  address: string | null;
+  emergencyContact: string | null;
+  department: { departmentId: number; name: string } | null;
+  office: { officeId: number; name: string; radiusMeters: number } | null;
+  manager: { employeeId: number; name: string } | null;
+  user: { userId: number; email: string | null } | null;
+}
+
+export interface AttendanceRow {
+  attendanceId: number;
+  employeeId: number;
+  date: string;
+  checkInAt: string;
+  checkInDistanceM: number;
+  checkOutAt: string | null;
+  checkOutDistanceM: number | null;
+  workedMinutes: number | null;
+  status: "PRESENT" | "LATE" | "HALF_DAY";
+  employee?: {
+    employeeId: number;
+    name: string;
+    employeeCode: string;
+    designation: string | null;
+    department: { name: string } | null;
+  };
+  office?: { name: string; radiusMeters?: number };
+}
+
+export interface MyAttendance {
+  employee: { employeeId: number; name: string; office: OfficeRow | null };
+  month: string;
+  today: AttendanceRow | null;
+  records: AttendanceRow[];
+}
+
+export interface LeaveTypeRow {
+  leaveTypeId: number;
+  name: string;
+  annualAllowance: number;
+  isPaid: boolean;
+  carryForward: boolean;
+}
+
+export interface LeaveBalanceRow {
+  balanceId: number;
+  employeeId: number;
+  leaveTypeId: number;
+  year: number;
+  allocated: number;
+  used: number;
+  leaveType: LeaveTypeRow;
+}
+
+export interface LeaveRequestRow {
+  leaveRequestId: number;
+  employeeId: number;
+  leaveTypeId: number;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  rejectionReason: string | null;
+  createdAt: string;
+  leaveType: LeaveTypeRow;
+  employee?: {
+    employeeId: number;
+    name: string;
+    employeeCode: string;
+    department: { name: string } | null;
+  };
+  approver?: { employeeId: number; name: string } | null;
+}
+
+export interface MyLeaves {
+  employee: { employeeId: number; name: string };
+  balances: LeaveBalanceRow[];
+  requests: LeaveRequestRow[];
+}
+
+export interface AppraisalRow {
+  appraisalId: number;
+  employeeId: number;
+  cycle: string;
+  periodStart: string;
+  periodEnd: string;
+  overallRating: number | null;
+  goals: string | null;
+  strengths: string | null;
+  improvements: string | null;
+  comments: string | null;
+  recommendation: "PROMOTE" | "INCREMENT" | "HOLD" | "PIP" | null;
+  incrementPct: number | null;
+  status: "DRAFT" | "SUBMITTED" | "ACKNOWLEDGED";
+  createdAt: string;
+  employee?: {
+    employeeId: number;
+    name: string;
+    employeeCode: string;
+    designation: string | null;
+    department: { name: string } | null;
+  };
+  reviewer?: { employeeId: number; name: string } | null;
+}
+
+export const hrApi = {
+  departments: () => apiClient.get<DepartmentRow[]>("/v1/hr/departments"),
+  createDepartment: (body: { name: string; description?: string }) =>
+    apiClient.post<DepartmentRow>("/v1/hr/departments", body),
+  updateDepartment: (id: number, body: { name?: string; description?: string }) =>
+    apiClient.patch<DepartmentRow>(`/v1/hr/departments/${id}`, body),
+  deleteDepartment: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/departments/${id}`),
+
+  offices: () => apiClient.get<OfficeRow[]>("/v1/hr/offices"),
+  createOffice: (body: Partial<OfficeRow> & { name: string; address: string }) =>
+    apiClient.post<OfficeRow>("/v1/hr/offices", body),
+  updateOffice: (id: number, body: Partial<OfficeRow>) =>
+    apiClient.patch<OfficeRow>(`/v1/hr/offices/${id}`, body),
+  deleteOffice: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/offices/${id}`),
+
+  employees: (params: { search?: string; departmentId?: number; status?: string }) =>
+    apiClient.get<EmployeeRow[]>(`/v1/hr/employees${toQueryString(params)}`),
+  employee: (id: number) =>
+    apiClient.get<EmployeeRow & { leaveBalances: LeaveBalanceRow[]; appraisals: AppraisalRow[] }>(
+      `/v1/hr/employees/${id}`,
+    ),
+  createEmployee: (body: Record<string, unknown>) =>
+    apiClient.post<EmployeeRow>("/v1/hr/employees", body),
+  updateEmployee: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<EmployeeRow>(`/v1/hr/employees/${id}`, body),
+  deleteEmployee: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/employees/${id}`),
+
+  checkIn: (body: { lat: number; lng: number }) =>
+    apiClient.post<AttendanceRow>("/v1/hr/attendance/check-in", body),
+  checkOut: (body: { lat: number; lng: number }) =>
+    apiClient.post<AttendanceRow>("/v1/hr/attendance/check-out", body),
+  myAttendance: (month?: string) =>
+    apiClient.get<MyAttendance>(`/v1/hr/attendance/me${month ? `?month=${month}` : ""}`),
+  attendance: (params: { date?: string; from?: string; to?: string; employeeId?: number }) =>
+    apiClient.get<AttendanceRow[]>(`/v1/hr/attendance${toQueryString(params)}`),
+
+  leaveTypes: () => apiClient.get<LeaveTypeRow[]>("/v1/hr/leave-types"),
+  createLeaveType: (body: {
+    name: string;
+    annualAllowance: number;
+    isPaid?: boolean;
+    carryForward?: boolean;
+  }) => apiClient.post<LeaveTypeRow>("/v1/hr/leave-types", body),
+  updateLeaveType: (id: number, body: Partial<LeaveTypeRow>) =>
+    apiClient.patch<LeaveTypeRow>(`/v1/hr/leave-types/${id}`, body),
+  deleteLeaveType: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/leave-types/${id}`),
+
+  leaveBalances: (employeeId: number, year?: number) =>
+    apiClient.get<LeaveBalanceRow[]>(
+      `/v1/hr/leave-balances/${employeeId}${year ? `?year=${year}` : ""}`,
+    ),
+  adjustBalance: (balanceId: number, allocated: number) =>
+    apiClient.patch<LeaveBalanceRow>(`/v1/hr/leave-balances/${balanceId}`, { allocated }),
+
+  myLeaves: () => apiClient.get<MyLeaves>("/v1/hr/leaves/me"),
+  applyLeave: (body: {
+    leaveTypeId: number;
+    startDate: string;
+    endDate: string;
+    reason?: string;
+  }) => apiClient.post<LeaveRequestRow>("/v1/hr/leaves/apply", body),
+  cancelLeave: (id: number) => apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/cancel`, {}),
+  leaves: (params: { status?: string; employeeId?: number }) =>
+    apiClient.get<LeaveRequestRow[]>(`/v1/hr/leaves${toQueryString(params)}`),
+  approveLeave: (id: number) => apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/approve`, {}),
+  rejectLeave: (id: number, reason?: string) =>
+    apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/reject`, { reason }),
+
+  appraisals: (params: { cycle?: string; employeeId?: number; status?: string }) =>
+    apiClient.get<AppraisalRow[]>(`/v1/hr/appraisals${toQueryString(params)}`),
+  myAppraisals: () => apiClient.get<AppraisalRow[]>("/v1/hr/appraisals/me"),
+  createAppraisal: (body: Record<string, unknown>) =>
+    apiClient.post<AppraisalRow>("/v1/hr/appraisals", body),
+  updateAppraisal: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<AppraisalRow>(`/v1/hr/appraisals/${id}`, body),
+  submitAppraisal: (id: number) => apiClient.post<AppraisalRow>(`/v1/hr/appraisals/${id}/submit`, {}),
+  acknowledgeAppraisal: (id: number) =>
+    apiClient.post<AppraisalRow>(`/v1/hr/appraisals/${id}/acknowledge`, {}),
+  deleteAppraisal: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/appraisals/${id}`),
+};
+
+export const crmQueryKeys = {
+  summary: ["crm", "summary"] as const,
+  crmCustomers: (p: object) => ["crm", "customers", p] as const,
+  crmPartners: (p: object) => ["crm", "partners", p] as const,
+  crmBookings: (p: object) => ["crm", "bookings", p] as const,
+  rbacRoles: ["rbac", "roles"] as const,
+  rbacCatalog: ["rbac", "catalog"] as const,
+  rbacStaff: ["rbac", "staff"] as const,
+  departments: ["hr", "departments"] as const,
+  offices: ["hr", "offices"] as const,
+  employees: (p: object) => ["hr", "employees", p] as const,
+  employee: (id: number) => ["hr", "employee", id] as const,
+  myAttendance: (month: string) => ["hr", "attendance", "me", month] as const,
+  attendance: (p: object) => ["hr", "attendance", p] as const,
+  leaveTypes: ["hr", "leave-types"] as const,
+  leaveBalances: (employeeId: number, year?: number) =>
+    ["hr", "leave-balances", employeeId, year] as const,
+  myLeaves: ["hr", "leaves", "me"] as const,
+  leaves: (p: object) => ["hr", "leaves", p] as const,
+  appraisals: (p: object) => ["hr", "appraisals", p] as const,
+  myAppraisals: ["hr", "appraisals", "me"] as const,
 };
