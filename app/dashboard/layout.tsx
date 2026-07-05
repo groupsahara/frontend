@@ -7,9 +7,13 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { Sidebar } from "@/src/components/dashboard/sidebar";
+import {
+  Sidebar,
+  firstAllowedRoute,
+  routeAllowed,
+} from "@/src/components/dashboard/sidebar";
 import { Topbar } from "@/src/components/dashboard/topbar";
 import { SpinnerIcon } from "@/src/components/icons";
 import { authApi } from "@/src/api/api";
@@ -25,6 +29,7 @@ const noopSubscribe = () => () => {};
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
 
   // `undefined` while we don't yet know (server render + hydration), then the
   // real boolean once the client reads localStorage. Using `undefined` as the
@@ -43,6 +48,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authed === false) router.replace("/login");
   }, [authed, router]);
+
+  // STAFF may only open pages their role permissions grant — bounce deep
+  // links to their first allowed page (admins are never restricted).
+  useEffect(() => {
+    if (authed && !routeAllowed(pathname)) {
+      const fallback = firstAllowedRoute();
+      if (fallback !== pathname) router.replace(fallback);
+    }
+  }, [authed, pathname, router]);
 
   const logoutMutation = useMutation({
     mutationFn: async () => {

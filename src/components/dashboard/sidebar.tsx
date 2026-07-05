@@ -132,6 +132,31 @@ function buildNav(): NavEntry[] {
   return [...ADMIN_NAV.slice(0, 1), ...groups, ...ADMIN_NAV.slice(1)];
 }
 
+/** Every page link the current session may open (STAFF: permission-gated). */
+function allowedLeaves(): NavLeaf[] {
+  return buildNav().flatMap((entry) => ("children" in entry ? entry.children : [entry]));
+}
+
+/**
+ * Where to land after login: admins get the overview; STAFF get their first
+ * granted page (e.g. Analytics for an analytics+settings role).
+ */
+export function firstAllowedRoute(): string {
+  const user = getStoredUser();
+  if (user?.role !== "STAFF") return "/dashboard";
+  return allowedLeaves()[0]?.href ?? "/dashboard";
+}
+
+/**
+ * Whether the current session may view a pathname — used by the dashboard
+ * layout to bounce STAFF off pages their roles don't grant (deep links).
+ */
+export function routeAllowed(pathname: string): boolean {
+  const user = getStoredUser();
+  if (user?.role !== "STAFF") return true;
+  return allowedLeaves().some((leaf) => leafActive(leaf.href, pathname));
+}
+
 interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
