@@ -318,8 +318,9 @@ export function RolesPermissionsPanel() {
 
   // The backend already omits super_admin for non-super-admin callers; this
   // client-side filter is belt-and-braces for cached/stale query data.
-  const roles = (rolesQuery.data ?? []).filter(
-    (r) => r.name !== "super_admin" || isSuperAdmin(),
+  const roles = useMemo(
+    () => (rolesQuery.data ?? []).filter((r) => r.name !== "super_admin" || isSuperAdmin()),
+    [rolesQuery.data],
   );
   const catalog = useMemo(() => catalogQuery.data ?? [], [catalogQuery.data]);
 
