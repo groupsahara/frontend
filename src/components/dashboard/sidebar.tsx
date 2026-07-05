@@ -11,6 +11,7 @@ import {
   ChevronDownIcon,
   ClipboardIcon,
   ClockIcon,
+  FileTextIcon,
   GridIcon,
   ImageIcon,
   LogoutIcon,
@@ -28,6 +29,7 @@ import {
   UsersIcon,
   WalletIcon,
   WarehouseIcon,
+  WrenchIcon,
 } from "@/src/components/icons";
 import { getPermissions, getStoredUser } from "@/src/lib/auth";
 import type { ComponentType, SVGProps } from "react";
@@ -71,6 +73,14 @@ const ADMIN_NAV: NavEntry[] = [
     children: [
       { label: "Web Styling", href: "/dashboard/styling/web", icon: MonitorIcon },
       { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon },
+    ],
+  },
+  {
+    label: "Tools",
+    icon: WrenchIcon,
+    children: [
+      { label: "PDF Editor", href: "/dashboard/tools/pdf-editor", icon: FileTextIcon },
+      { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon },
     ],
   },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
