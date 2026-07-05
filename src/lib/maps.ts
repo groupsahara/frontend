@@ -1,15 +1,14 @@
 /**
- * Google Maps platform config (shared with the customer app).
+ * Google Maps platform config.
  *
- * For the reverse-geocoding web service to work, in the Google Cloud console for
- * this key you must:
- *   1. Enable the "Geocoding API".
- *   2. Allow it under the key's API restrictions.
- * App-restricted keys do NOT apply to web-service calls — use an unrestricted
- * (or HTTP-referrer / IP-restricted) key for browser geocoding.
+ * This is the partner app's key (FE_partner AndroidManifest) — its Google
+ * project actually serves: Geocoding API, legacy Places API (autocomplete +
+ * details) and the Android Maps SDK (all verified live 2026-07-05). The old
+ * key shared with the customer app (AIzaSyCE-dq…) has NO Maps APIs enabled
+ * and every call with it is rejected.
  *
  * Override per-environment with NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
  */
 export const GOOGLE_MAPS_API_KEY =
   process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ??
-  "AIzaSyCE-dq7dKVVh-4rCiVxNGI2eUXdC3-pIhg";
+  "AIzaSyDSnnf9q7vfPc9ROItgYNFkWSuBoOF2x6Q";

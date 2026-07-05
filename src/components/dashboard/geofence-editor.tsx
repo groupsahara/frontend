@@ -14,7 +14,7 @@ import {
   type PartnerRow,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
-import { GeofenceMapEditor, type FenceOverlay } from "@/src/components/dashboard/dispatch-map";
+import { GeofenceMapEditor, type FenceOverlay } from "@/src/components/dashboard/google-geofence-map";
 import { SearchIcon, SpinnerIcon } from "@/src/components/icons";
 
 const ZONE_COLORS = ["#6366f1", "#ef4444", "#f59e0b", "#10b981", "#0ea5e9", "#d946ef"];
