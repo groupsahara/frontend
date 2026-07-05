@@ -63,6 +63,11 @@ export function hasPermission(key: string): boolean {
   return perms.includes("*") || perms.includes(key);
 }
 
+/** True only for the SUPER_ADMIN account role (admins/staff are below it). */
+export function isSuperAdmin(): boolean {
+  return getStoredUser()?.role === "SUPER_ADMIN";
+}
+
 export function getSessionId(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(SESSION_KEY);
