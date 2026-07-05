@@ -6,6 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { authApi, GOOGLE_AUTH_URL, type LoginResponse } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { isAuthenticated, persistSession } from "@/src/lib/auth";
+import { firstAllowedRoute } from "@/src/components/dashboard/sidebar";
 import {
   EyeIcon,
   EyeOffIcon,
@@ -31,7 +32,7 @@ export default function LoginPage() {
   );
 
   useEffect(() => {
-    if (authed === true) router.replace("/dashboard");
+    if (authed === true) router.replace(firstAllowedRoute());
   }, [authed, router]);
 
   const [email, setEmail] = useState("");
@@ -46,8 +47,11 @@ export default function LoginPage() {
         refreshToken: data.refreshToken,
         sessionId: data.sessionId,
         user: data.user,
+        // STAFF permissions scope the whole panel (sidebar + landing page).
+        permissions: data.permissions,
+        roleNames: data.roleNames,
       });
-      router.replace("/dashboard");
+      router.replace(firstAllowedRoute());
     },
   });
 

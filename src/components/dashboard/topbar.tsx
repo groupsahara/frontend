@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/src/components/theme-toggle";
 import { BellIcon, MenuIcon, SearchIcon } from "@/src/components/icons";
+import { getRoleNames } from "@/src/lib/auth";
 import type { AdminUser } from "@/src/api/api";
 
 interface TopbarProps {
@@ -11,9 +12,16 @@ interface TopbarProps {
   onOpenMobile: () => void;
 }
 
+const titleCase = (s: string) => s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 export function Topbar({ user, onToggleSidebar, onOpenMobile }: TopbarProps) {
   const name = user?.name?.trim() || user?.email || "Admin";
   const initial = name.charAt(0).toUpperCase();
+  // STAFF show their assigned RBAC role(s) ("Marketing"), admins their level.
+  const roleNames = user?.role === "STAFF" ? getRoleNames() : [];
+  const roleLabel = roleNames.length
+    ? roleNames.map(titleCase).join(" · ")
+    : (user?.role ?? "ADMIN");
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
@@ -78,7 +86,9 @@ export function Topbar({ user, onToggleSidebar, onOpenMobile }: TopbarProps) {
           </div>
           <div className="hidden leading-tight sm:block">
             <p className="max-w-[10rem] truncate text-sm font-medium text-foreground">{name}</p>
-            <p className="text-xs text-muted-foreground">{user?.role ?? "ADMIN"}</p>
+            <p className="max-w-[10rem] truncate text-xs text-muted-foreground" title={roleLabel}>
+              {roleLabel}
+            </p>
           </div>
         </div>
       </div>

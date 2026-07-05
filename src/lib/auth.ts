@@ -5,6 +5,8 @@ import type { AdminUser } from "@/src/api/api";
 
 const SESSION_KEY = "rc.sessionId";
 const USER_KEY = "rc.user";
+const PERMS_KEY = "rc.permissions";
+const ROLES_KEY = "rc.roleNames";
 
 /** Persist the auth result from a successful login. */
 export function persistSession(params: {
@@ -12,6 +14,8 @@ export function persistSession(params: {
   refreshToken: string;
   sessionId: string;
   user: AdminUser;
+  permissions?: string[];
+  roleNames?: string[];
 }) {
   setToken(params.accessToken);
   // The refresh token is required for the silent token refresh in apiClient;
@@ -20,9 +24,43 @@ export function persistSession(params: {
   try {
     window.localStorage.setItem(SESSION_KEY, params.sessionId);
     window.localStorage.setItem(USER_KEY, JSON.stringify(params.user));
+    // Older sessions predate the RBAC rollout: admins fall back to "*" below.
+    window.localStorage.setItem(PERMS_KEY, JSON.stringify(params.permissions ?? []));
+    window.localStorage.setItem(ROLES_KEY, JSON.stringify(params.roleNames ?? []));
   } catch {
     /* ignore */
   }
+}
+
+/** RBAC role names of the signed-in STAFF member (e.g. ["marketing"]). */
+export function getRoleNames(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(ROLES_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** CRM permissions of the current session ("*" = everything). */
+export function getPermissions(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(PERMS_KEY);
+    const perms = raw ? (JSON.parse(raw) as string[]) : [];
+    if (perms.length > 0) return perms;
+  } catch {
+    /* ignore */
+  }
+  // Sessions stored before the permissions field existed: admins see all.
+  const user = getStoredUser();
+  return user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN") ? ["*"] : [];
+}
+
+export function hasPermission(key: string): boolean {
+  const perms = getPermissions();
+  return perms.includes("*") || perms.includes(key);
 }
 
 export function getSessionId(): string | null {

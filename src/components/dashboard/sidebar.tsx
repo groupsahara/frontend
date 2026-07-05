@@ -5,8 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BagIcon,
+  BriefcaseIcon,
+  CalendarIcon,
   ChartIcon,
   ChevronDownIcon,
+  ClipboardIcon,
+  ClockIcon,
   GridIcon,
   ImageIcon,
   LogoutIcon,
@@ -16,39 +20,45 @@ import {
   PolygonIcon,
   RouteIcon,
   SettingsIcon,
+  ShieldIcon,
   SmartphoneIcon,
+  StarIcon,
   StoreIcon,
   TagIcon,
   UsersIcon,
   WalletIcon,
   WarehouseIcon,
 } from "@/src/components/icons";
+import { getPermissions, getStoredUser } from "@/src/lib/auth";
 import type { ComponentType, SVGProps } from "react";
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
-type NavLeaf = { label: string; href: string; icon: IconType };
+// `permission` gates visibility for STAFF users (admins hold "*"). Leaves
+// without a permission are visible to every panel session.
+type NavLeaf = { label: string; href: string; icon: IconType; permission?: string };
 type NavGroup = { label: string; icon: IconType; children: NavLeaf[] };
 type NavEntry = NavLeaf | NavGroup;
 
 const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
 
-const NAV: NavEntry[] = [
+// Sections of the classic admin panel — hidden entirely from STAFF logins.
+const ADMIN_NAV: NavEntry[] = [
   { label: "Overview", href: "/dashboard", icon: GridIcon },
-  { label: "Analytics", href: "/dashboard/analytics", icon: ChartIcon },
-  { label: "Categories", href: "/dashboard/categories", icon: StoreIcon },
-  { label: "Banner", href: "/dashboard/banners", icon: ImageIcon },
-  { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon },
+  { label: "Analytics", href: "/dashboard/analytics", icon: ChartIcon, permission: "analytics.view" },
+  { label: "Categories", href: "/dashboard/categories", icon: StoreIcon, permission: "categories.view" },
+  { label: "Banner", href: "/dashboard/banners", icon: ImageIcon, permission: "banners.view" },
+  { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon, permission: "bookings.view" },
   {
     label: "Dispatcher",
     icon: MapPinIcon,
     children: [
-      { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon },
-      { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon },
-      { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon },
-      { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon },
-      { label: "Auto Allocation", href: "/dashboard/dispatcher/allocation", icon: RouteIcon },
-      { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon },
+      { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon, permission: "partners.view" },
+      { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon, permission: "dispatcher.view" },
+      { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon, permission: "dispatcher.view" },
+      { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon, permission: "dispatcher.view" },
+      { label: "Auto Allocation", href: "/dashboard/dispatcher/allocation", icon: RouteIcon, permission: "dispatcher.view" },
+      { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon, permission: "dispatcher.view" },
       { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon },
       { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon },
     ],
@@ -63,8 +73,95 @@ const NAV: NavEntry[] = [
       { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon },
     ],
   },
-  { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon },
+  { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
 ];
+
+const CRM_NAV: NavGroup = {
+  label: "CRM",
+  icon: BriefcaseIcon,
+  children: [
+    { label: "CRM Overview", href: "/dashboard/crm", icon: GridIcon, permission: "crm.view" },
+    { label: "Customers", href: "/dashboard/crm/customers", icon: UsersIcon, permission: "customers.view" },
+    { label: "Partners", href: "/dashboard/crm/partners", icon: UsersIcon, permission: "partners.view" },
+    { label: "Bookings", href: "/dashboard/crm/bookings", icon: BagIcon, permission: "bookings.view" },
+  ],
+};
+
+const HR_NAV: NavGroup = {
+  label: "HR Management",
+  icon: UsersIcon,
+  children: [
+    { label: "Employees", href: "/dashboard/crm/employees", icon: BriefcaseIcon, permission: "employees.view" },
+    { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon, permission: "attendance.view" },
+    { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon, permission: "leaves.view" },
+    { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon, permission: "appraisals.view" },
+    { label: "HR Settings", href: "/dashboard/crm/hr-settings", icon: ClipboardIcon, permission: "departments.view" },
+  ],
+};
+
+const ACCESS_NAV: NavGroup = {
+  label: "Roles & Permissions",
+  icon: ShieldIcon,
+  children: [
+    { label: "Roles & Permissions", href: "/dashboard/crm/roles", icon: ShieldIcon, permission: "roles.view" },
+    { label: "Staff", href: "/dashboard/crm/staff", icon: UsersIcon, permission: "staff.view" },
+  ],
+};
+
+// Admins get the classic panel plus the full CRM and HR groups. STAFF members
+// get the CRM/HR sections plus any admin modules their roles grant — admin
+// entries WITHOUT a permission (Overview, Payments, Styling, …) stay
+// admin-only and never appear for staff.
+function buildNav(): NavEntry[] {
+  const user = getStoredUser();
+  const perms = getPermissions();
+  const allowed = (leaf: NavLeaf) =>
+    !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
+  const groups = [CRM_NAV, HR_NAV, ACCESS_NAV]
+    .map((g) => ({ ...g, children: g.children.filter(allowed) }))
+    .filter((g) => g.children.length > 0);
+  if (user?.role === "STAFF") {
+    const staffAllowed = (leaf: NavLeaf) => !!leaf.permission && allowed(leaf);
+    const adminEntries = ADMIN_NAV.map((entry) =>
+      "children" in entry ? { ...entry, children: entry.children.filter(staffAllowed) } : entry,
+    ).filter((entry) =>
+      "children" in entry ? entry.children.length > 0 : staffAllowed(entry),
+    );
+    const entries = [...adminEntries, ...groups];
+    // Settings always sits last, matching the admin layout.
+    const settingsIdx = entries.findIndex(
+      (e) => "href" in e && e.href === "/dashboard/settings",
+    );
+    if (settingsIdx !== -1) entries.push(...entries.splice(settingsIdx, 1));
+    return entries;
+  }
+  return [...ADMIN_NAV.slice(0, 1), ...groups, ...ADMIN_NAV.slice(1)];
+}
+
+/** Every page link the current session may open (STAFF: permission-gated). */
+function allowedLeaves(): NavLeaf[] {
+  return buildNav().flatMap((entry) => ("children" in entry ? entry.children : [entry]));
+}
+
+/**
+ * Where to land after login: admins get the overview; STAFF get their first
+ * granted page (e.g. Analytics for an analytics+settings role).
+ */
+export function firstAllowedRoute(): string {
+  const user = getStoredUser();
+  if (user?.role !== "STAFF") return "/dashboard";
+  return allowedLeaves()[0]?.href ?? "/dashboard";
+}
+
+/**
+ * Whether the current session may view a pathname — used by the dashboard
+ * layout to bounce STAFF off pages their roles don't grant (deep links).
+ */
+export function routeAllowed(pathname: string): boolean {
+  const user = getStoredUser();
+  if (user?.role !== "STAFF") return true;
+  return allowedLeaves().some((leaf) => leafActive(leaf.href, pathname));
+}
 
 interface SidebarProps {
   collapsed: boolean;
@@ -75,6 +172,9 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: SidebarProps) {
   const pathname = usePathname();
+  // Safe to read localStorage here: the dashboard layout only mounts the
+  // sidebar after the client-side auth check, so this never runs during SSR.
+  const nav = buildNav();
 
   return (
     <>
@@ -114,7 +214,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: Side
 
         {/* Nav */}
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV.map((entry) =>
+          {nav.map((entry) =>
             isGroup(entry) ? (
               <NavGroupItem
                 key={entry.label}
@@ -155,8 +255,12 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: Side
   );
 }
 
+// Section roots ("/dashboard", "/dashboard/crm") match exactly, else every
+// child page would light them (and their group) up too.
+const EXACT_HREFS = new Set(["/dashboard", "/dashboard/crm"]);
+
 function leafActive(href: string, pathname: string): boolean {
-  return href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+  return EXACT_HREFS.has(href) ? pathname === href : pathname.startsWith(href);
 }
 
 function NavLeafLink({
@@ -205,7 +309,7 @@ function NavGroupItem({
   collapsed: boolean;
   onNavigate: () => void;
 }) {
-  const childActive = group.children.some((c) => pathname.startsWith(c.href));
+  const childActive = group.children.some((c) => leafActive(c.href, pathname));
   const [open, setOpen] = useState(childActive);
   // Always show children when on one of their routes; otherwise honor the toggle.
   const expanded = open || childActive;

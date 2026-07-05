@@ -318,3 +318,40 @@ export const TagIcon = (p: IconProps) => (
     <circle cx="7.5" cy="7.5" r="1.6" fill="currentColor" stroke="none" />
   </svg>
 );
+
+export const BriefcaseIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="7" width="18" height="13" rx="2" />
+    <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M3 12h18" />
+  </svg>
+);
+
+export const ClockIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </svg>
+);
+
+export const CalendarIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M8 3v4M16 3v4M3 10h18" />
+  </svg>
+);
+
+export const ShieldIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M12 3l8 3v6c0 4.5-3.2 7.9-8 9-4.8-1.1-8-4.5-8-9V6l8-3z" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
+export const ClipboardIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <rect x="5" y="4" width="14" height="17" rx="2" />
+    <path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1H9V4z" />
+    <path d="M9 11h6M9 15h4" />
+  </svg>
+);
