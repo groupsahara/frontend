@@ -355,3 +355,17 @@ export const ClipboardIcon = (p: IconProps) => (
     <path d="M9 11h6M9 15h4" />
   </svg>
 );
+
+export const WrenchIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M14.7 6.3a4.5 4.5 0 0 0-6 5.6L3 17.6V21h3.4l5.7-5.7a4.5 4.5 0 0 0 5.6-6L14.5 12l-2.5-2.5 2.7-3.2z" />
+  </svg>
+);
+
+export const FileTextIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" />
+    <path d="M14 3v5h5" />
+    <path d="M9 13h6M9 17h4" />
+  </svg>
+);
