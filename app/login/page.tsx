@@ -49,6 +49,7 @@ export default function LoginPage() {
         user: data.user,
         // STAFF permissions scope the whole panel (sidebar + landing page).
         permissions: data.permissions,
+        roleNames: data.roleNames,
       });
       router.replace(firstAllowedRoute());
     },

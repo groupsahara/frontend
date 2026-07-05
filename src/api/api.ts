@@ -29,6 +29,8 @@ export interface LoginResponse {
   user: AdminUser;
   /** CRM permissions: "*" for admins, "module.action" list for STAFF. */
   permissions?: string[];
+  /** RBAC role names a STAFF member holds (e.g. ["marketing"]); [] for admins. */
+  roleNames?: string[];
 }
 
 export const authApi = {

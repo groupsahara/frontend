@@ -92,9 +92,9 @@ const HR_NAV: NavGroup = {
   icon: UsersIcon,
   children: [
     { label: "Employees", href: "/dashboard/crm/employees", icon: BriefcaseIcon, permission: "employees.view" },
-    { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon },
-    { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon },
-    { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon },
+    { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon, permission: "attendance.view" },
+    { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon, permission: "leaves.view" },
+    { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon, permission: "appraisals.view" },
     { label: "HR Settings", href: "/dashboard/crm/hr-settings", icon: ClipboardIcon, permission: "departments.view" },
   ],
 };
@@ -127,7 +127,13 @@ function buildNav(): NavEntry[] {
     ).filter((entry) =>
       "children" in entry ? entry.children.length > 0 : staffAllowed(entry),
     );
-    return [...adminEntries, ...groups];
+    const entries = [...adminEntries, ...groups];
+    // Settings always sits last, matching the admin layout.
+    const settingsIdx = entries.findIndex(
+      (e) => "href" in e && e.href === "/dashboard/settings",
+    );
+    if (settingsIdx !== -1) entries.push(...entries.splice(settingsIdx, 1));
+    return entries;
   }
   return [...ADMIN_NAV.slice(0, 1), ...groups, ...ADMIN_NAV.slice(1)];
 }
