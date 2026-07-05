@@ -260,3 +260,9 @@ body {
     background: transparent;
   }
 }
+
+/* Resume page-break units: pushed clear of page boundaries on screen; the
+   same blocks refuse to fragment in print, so breaks match the PDF. */
+#resume-canvas .rz-block {
+  break-inside: avoid;
+}

@@ -62,6 +62,7 @@ export function ImportResumeModal({
       setStep("structuring");
       const structured = await resumeApi.import({ text: extracted.text.slice(0, 40000) });
       const doc: ResumeDocument = normalizeImportedDoc(structured);
+      if (extracted.photo) doc.basics.photo = extracted.photo;
 
       setStep("creating");
       const title =
