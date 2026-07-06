@@ -62,13 +62,16 @@ export function Footer() {
               <li><Link href="/products" className="hover:text-white transition">Products</Link></li>
               <li><Link href="/privacy-policy" className="hover:text-white transition">Privacy Policy</Link></li>
               <li><Link href="/careers" className="hover:text-white transition">Careers</Link></li>
+              <li><Link href="/contact" className="hover:text-white transition">Contact Us</Link></li>
               <li><Link href="#" className="hover:text-white transition">Freelancer Registration</Link></li>
             </ul>
           </div>
 
           {/* Contact Us */}
           <div>
-            <h3 className="mb-4 text-lg font-bold text-white">Contact Us</h3>
+            <h3 className="mb-4 text-lg font-bold text-white">
+              <Link href="/contact" className="hover:text-yellow-500 transition">Contact Us</Link>
+            </h3>
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
                 <span className="mt-1">📍</span>
