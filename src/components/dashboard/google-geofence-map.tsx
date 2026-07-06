@@ -21,6 +21,7 @@ import {
   onGoogleMapsAuthFailure,
   type PlaceSuggestion,
 } from "@/src/lib/google-maps";
+import { fetchPlaceBoundary, type BoundaryRing } from "@/src/lib/place-boundary";
 import { MapPinIcon, SearchIcon, SpinnerIcon } from "@/src/components/icons";
 
 export type { FenceOverlay } from "@/src/components/dashboard/dispatch-map";
@@ -28,6 +29,18 @@ export type { FenceOverlay } from "@/src/components/dashboard/dispatch-map";
 /** Fallback view when there is nothing to fit yet (New Delhi). */
 const DEFAULT_CENTER = { lat: 28.6139, lng: 77.209 };
 const DEFAULT_ZOOM = 11;
+
+/** Google-Maps-style highlight for a searched area's boundary. */
+const BOUNDARY_COLOR = "#DB4437";
+/**
+ * Dash segment for the boundary outline. Polygons can't dash natively, so a
+ * zero-opacity Polyline repeats this short stroke along the ring instead.
+ */
+const BOUNDARY_DASH: google.maps.IconSequence = {
+  icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeWeight: 2, scale: 2.5 },
+  offset: "0",
+  repeat: "12px",
+};
 
 /** Ref that always holds the latest value — for handlers wired up once. */
 function useLatest<T>(value: T) {
@@ -201,8 +214,13 @@ export function GeofenceMapEditor({
   const contextShapesRef = useRef<google.maps.Polygon[]>([]);
   const infoRef = useRef<google.maps.InfoWindow | null>(null);
   const didFitRef = useRef(false);
+  const boundaryShapesRef = useRef<(google.maps.Polygon | google.maps.Polyline)[]>([]);
+  const boundarySeqRef = useRef(0); // drop boundary results from superseded picks
   const [authError, setAuthError] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [boundaryStatus, setBoundaryStatus] = useState<"idle" | "loading" | "none" | "error">(
+    "idle",
+  );
 
   // Latest state for handlers created once (map click) or per-draw (markers).
   const polygonRef = useLatest(polygon);
@@ -260,6 +278,8 @@ export function GeofenceMapEditor({
       shapeRef.current = null;
       contextShapesRef.current.forEach((s) => s.setMap(null));
       contextShapesRef.current = [];
+      boundaryShapesRef.current.forEach((s) => s.setMap(null));
+      boundaryShapesRef.current = [];
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -367,21 +387,84 @@ export function GeofenceMapEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [polygon, color, otherFences]);
 
-  // Fly to a searched place so the admin can start drawing there.
+  function clearBoundary() {
+    boundaryShapesRef.current.forEach((s) => s.setMap(null));
+    boundaryShapesRef.current = [];
+  }
+
+  /** Highlight a searched area like google.com/maps: dashed outline + tint. */
+  function drawBoundary(rings: BoundaryRing[]) {
+    const map = mapRef.current;
+    if (!map) return;
+    boundaryShapesRef.current.push(
+      new google.maps.Polygon({
+        paths: rings,
+        strokeOpacity: 0,
+        strokeWeight: 0,
+        fillColor: BOUNDARY_COLOR,
+        fillOpacity: 0.1,
+        clickable: false, // clicks must still drop vertices on the map below
+        map,
+      }),
+    );
+    for (const ring of rings) {
+      boundaryShapesRef.current.push(
+        new google.maps.Polyline({
+          path: [...ring, ring[0]], // close the ring
+          strokeColor: BOUNDARY_COLOR,
+          strokeOpacity: 0, // the repeated dash symbol draws the line instead
+          icons: [BOUNDARY_DASH],
+          clickable: false,
+          map,
+        }),
+      );
+    }
+  }
+
+  // Fly to a searched place so the admin can start drawing there, and
+  // highlight the area's boundary when one exists.
   const flyTo = async (suggestion: PlaceSuggestion) => {
     const map = mapRef.current;
     if (!map) return;
+    const seq = ++boundarySeqRef.current;
+    clearBoundary();
+    setBoundaryStatus("loading");
+    let point: { lat: number; lng: number } | null = null;
     try {
       const { lat, lng, viewport } = await suggestion.resolve();
+      if (seq !== boundarySeqRef.current) return; // superseded by a newer pick
+      point = { lat, lng };
       if (viewport) map.fitBounds(viewport);
       else {
         map.panTo({ lat, lng });
         map.setZoom(15);
       }
     } catch {
-      /* details fetch failed — keep the current view */
+      /* details fetch failed — keep the current view, still try the boundary */
+    }
+    try {
+      const rings = await fetchPlaceBoundary(suggestion.label, suggestion.address, point);
+      if (seq !== boundarySeqRef.current || !mapRef.current) return;
+      if (!rings) {
+        setBoundaryStatus("none");
+        return;
+      }
+      drawBoundary(rings);
+      const bounds = new google.maps.LatLngBounds();
+      rings.forEach((ring) => ring.forEach((p) => bounds.extend(p)));
+      mapRef.current.fitBounds(bounds, 40);
+      setBoundaryStatus("idle");
+    } catch {
+      if (seq === boundarySeqRef.current) setBoundaryStatus("error");
     }
   };
+
+  // "No boundary" / error notices dismiss themselves after a moment.
+  useEffect(() => {
+    if (boundaryStatus !== "none" && boundaryStatus !== "error") return;
+    const timer = setTimeout(() => setBoundaryStatus("idle"), 4000);
+    return () => clearTimeout(timer);
+  }, [boundaryStatus]);
 
   const showBlocker = authError || loadError;
 
@@ -392,6 +475,24 @@ export function GeofenceMapEditor({
       {!showBlocker && (
         <div className="absolute left-3 right-3 top-3 z-10 sm:right-auto sm:w-96">
           <PlaceSearchBox onSelect={flyTo} />
+          {boundaryStatus !== "idle" && (
+            <div className="mt-1.5 flex w-fit items-center gap-2 rounded-lg border border-border bg-card/95 px-3 py-1.5 text-xs shadow-md backdrop-blur">
+              {boundaryStatus === "loading" && (
+                <>
+                  <SpinnerIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Loading area boundary…</span>
+                </>
+              )}
+              {boundaryStatus === "none" && (
+                <span className="text-muted-foreground">
+                  No boundary outline is available for this place.
+                </span>
+              )}
+              {boundaryStatus === "error" && (
+                <span className="text-danger">Couldn’t load the area boundary.</span>
+              )}
+            </div>
+          )}
         </div>
       )}
       {showBlocker && (
