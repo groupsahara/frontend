@@ -15,6 +15,7 @@ import {
   routeAllowed,
 } from "@/src/components/dashboard/sidebar";
 import { Topbar } from "@/src/components/dashboard/topbar";
+import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import { SpinnerIcon } from "@/src/components/icons";
 import { authApi } from "@/src/api/api";
 import {
@@ -44,6 +45,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (authed === false) router.replace("/login");
@@ -72,6 +74,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     },
   });
 
+  const handleLogout = () => {
+    setLogoutConfirmOpen(false);
+    logoutMutation.mutate();
+  };
+
   if (!authed) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-background text-muted-foreground">
@@ -86,7 +93,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         collapsed={collapsed}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
-        onLogout={() => logoutMutation.mutate()}
+        onLogout={() => setLogoutConfirmOpen(true)}
       />
 
       <div className={`transition-all duration-300 ${collapsed ? "lg:pl-20" : "lg:pl-64"}`}>
@@ -97,6 +104,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
         <main className="px-4 py-6 sm:px-6">{children}</main>
       </div>
+
+      {logoutConfirmOpen && (
+        <ConfirmDialog
+          title="Log out"
+          message="Are you sure you want to log out?"
+          confirmLabel="Log out"
+          danger
+          busy={logoutMutation.isPending}
+          onConfirm={handleLogout}
+          onCancel={() => setLogoutConfirmOpen(false)}
+        />
+      )}
     </div>
   );
 }
