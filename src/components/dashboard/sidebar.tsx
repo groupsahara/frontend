@@ -15,6 +15,7 @@ import {
   GridIcon,
   ImageIcon,
   LogoutIcon,
+  MailIcon,
   MapPinIcon,
   MonitorIcon,
   PaletteIcon,
@@ -66,6 +67,7 @@ const ADMIN_NAV: NavEntry[] = [
     ],
   },
   { label: "Customers", href: "/dashboard/customers", icon: UsersIcon },
+  { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon },
   { label: "Payments", href: "/dashboard/payments", icon: WalletIcon },
   {
     label: "Styling",
