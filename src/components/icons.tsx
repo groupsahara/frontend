@@ -369,3 +369,18 @@ export const FileTextIcon = (p: IconProps) => (
     <path d="M9 13h6M9 17h4" />
   </svg>
 );
+
+export const BuildingIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" />
+    <path d="M16 9h2a2 2 0 0 1 2 2v10" />
+    <path d="M2 21h20" />
+    <path d="M8 7h2M8 11h2M8 15h2M13 7h0M13 11h0M13 15h0" />
+  </svg>
+);
+
+export const PhoneIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.13.96.36 1.9.7 2.8a2 2 0 0 1-.45 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.45c.9.34 1.84.57 2.8.7A2 2 0 0 1 22 16.9Z" />
+  </svg>
+);

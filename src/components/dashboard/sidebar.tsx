@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   BagIcon,
   BriefcaseIcon,
+  BuildingIcon,
   CalendarIcon,
   CartIcon,
   ChartIcon,
@@ -20,6 +21,7 @@ import {
   MapPinIcon,
   MonitorIcon,
   PaletteIcon,
+  PhoneIcon,
   PolygonIcon,
   RouteIcon,
   SettingsIcon,
@@ -122,6 +124,17 @@ const ACCESS_NAV: NavGroup = {
   ],
 };
 
+// Multi-tenant real-estate CRM — a full app-within-the-app ported verbatim
+// from the ai-sales-agent reference frontend (own shell, sidebar and pages)
+// mounted at /real-estate. One entry point here; module nav lives inside.
+const REAL_ESTATE_NAV: NavGroup = {
+  label: "Real Estate",
+  icon: BuildingIcon,
+  children: [
+    { label: "AI Sales Agent", href: "/real-estate", icon: PhoneIcon },
+  ],
+};
+
 // Admins get the classic panel plus the full CRM and HR groups. STAFF members
 // get the CRM/HR sections plus any admin modules their roles grant — admin
 // entries WITHOUT a permission (Overview, Payments, Styling, …) stay
@@ -131,7 +144,7 @@ function buildNav(): NavEntry[] {
   const perms = getPermissions();
   const allowed = (leaf: NavLeaf) =>
     !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
-  const groups = [CRM_NAV, HR_NAV, ACCESS_NAV]
+  const groups = [CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
   if (user?.role === "STAFF") {

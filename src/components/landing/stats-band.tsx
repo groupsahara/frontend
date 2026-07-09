@@ -12,7 +12,7 @@ const STATS: Stat[] = [
   { value: 150, suffix: "+", label: "Our Clients" },
   { value: 98, suffix: "%", label: "Client Satisfaction Rate" },
   { value: 20, suffix: "%", label: "Avg. Cost Saving" },
-  { value: 12, suffix: " yrs", label: "Industry Experience" },
+  { value: 12, suffix: " yrs", label: "Founder Experience" },
 ];
 
 const ACCENT = "#e2563b";
