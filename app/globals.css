@@ -266,3 +266,263 @@ body {
 #resume-canvas .rz-block {
   break-inside: avoid;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Real-estate section (ported from the ai-sales-agent reference frontend).
+   Only tokens/classes the ported components need and the panel didn't already
+   define. Reference used a `.dark` class; this app drives dark mode with
+   [data-theme="dark"], so every selector is converted.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="light"] {
+  --popover: #ffffff;
+  --popover-foreground: #131517;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #131517;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --radius: 0.5rem;
+}
+
+[data-theme="dark"] {
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+}
+
+@theme inline {
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+}
+
+/* Form page wave background */
+@keyframes wave-rise {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-14px); }
+}
+
+@keyframes wave-fall {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(14px); }
+}
+
+/* React Phone Input overrides */
+.react-tel-input {
+  width: 100% !important;
+}
+
+.react-tel-input .form-control {
+  width: 100% !important;
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  height: 36px !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  font-family: var(--font-urbanist), 'Urbanist', sans-serif !important;
+}
+
+.react-tel-input .form-control:focus {
+  border-color: var(--ring) !important;
+  box-shadow: 0 0 0 2px rgb(161 161 170 / 0.2) !important;
+  outline: none !important;
+}
+
+.react-tel-input .flag-dropdown {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-right: none !important;
+  border-radius: 6px 0 0 6px !important;
+}
+
+.react-tel-input .selected-flag {
+  background: transparent !important;
+  border-radius: 6px 0 0 6px !important;
+}
+
+.react-tel-input .selected-flag:hover,
+.react-tel-input .selected-flag:focus {
+  background: var(--accent) !important;
+}
+
+.react-tel-input .country-list {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  margin-top: 6px !important;
+  color: var(--foreground) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.react-tel-input .country-list .country:hover {
+  background: var(--accent) !important;
+}
+
+.react-tel-input .country-list .country.highlight {
+  background: #3f3f46 !important;
+}
+
+.react-tel-input .search {
+  background: var(--background) !important;
+  padding: 8px !important;
+}
+
+.react-tel-input .search-box {
+  width: 100% !important;
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  font-family: var(--font-urbanist), 'Urbanist', sans-serif !important;
+  font-size: 13px !important;
+}
+
+.react-tel-input input::placeholder {
+  color: var(--muted-foreground) !important;
+}
+
+/* ── Sidebar Capsule Active/Hover States (real-estate shell) ── */
+.sidebar-item-active {
+  background-color: #131517 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sidebar-item-active {
+  background-color: #ffffff !important;
+  color: #131517 !important;
+}
+
+.sidebar-item-hover {
+  color: #131517 !important;
+}
+
+.sidebar-item-hover .sidebar-icon {
+  color: #71717a !important;
+}
+
+.sidebar-item-hover:hover .sidebar-icon {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sidebar-item-hover {
+  color: var(--muted-foreground) !important;
+}
+
+.sidebar-item-hover:hover {
+  background-color: #131517 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .sidebar-item-hover:hover {
+  background-color: #ffffff !important;
+  color: #131517 !important;
+}
+
+/* Sidebar Icons */
+.sidebar-icon {
+  color: inherit !important;
+}
+
+.sidebar-icon-bg {
+  background-color: transparent;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-item-active .sidebar-icon-bg {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .sidebar-item-active .sidebar-icon-bg {
+  background-color: #e4e4e7 !important;
+}
+
+.sidebar-item-hover:hover .sidebar-icon-bg {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .sidebar-item-hover:hover .sidebar-icon-bg {
+  background-color: #e4e4e7 !important;
+}
+
+/* Sidebar Chevrons */
+.sidebar-chevron {
+  color: inherit !important;
+}
+
+/* Sidebar Dot Indicators */
+.sidebar-dot {
+  background-color: #52525b;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-item-active .sidebar-dot {
+  background-color: #ffffff !important;
+}
+
+[data-theme="dark"] .sidebar-item-active .sidebar-dot {
+  background-color: #131517 !important;
+}
+
+.sidebar-item-hover:hover .sidebar-dot {
+  background-color: #ffffff !important;
+}
+
+[data-theme="dark"] .sidebar-item-hover:hover .sidebar-dot {
+  background-color: #131517 !important;
+}
+
+/* ── Custom Dashboard Primary Button ── */
+.btn-dashboard-primary {
+  background-color: #131517 !important;
+  color: #ffffff !important;
+}
+
+.btn-dashboard-primary:hover:not(:disabled) {
+  background-color: #18181b !important;
+}
+
+.btn-dashboard-primary:disabled {
+  background-color: #131517 !important;
+  color: #ffffff !important;
+  opacity: 0.5 !important;
+  border-color: transparent !important;
+}
+
+[data-theme="dark"] .btn-dashboard-primary {
+  background-color: #f4f4f5 !important;
+  color: #131517 !important;
+}
+
+[data-theme="dark"] .btn-dashboard-primary:hover:not(:disabled) {
+  background-color: #e4e4e7 !important;
+}
+
+[data-theme="dark"] .btn-dashboard-primary:disabled {
+  background-color: #f4f4f5 !important;
+  color: #131517 !important;
+  opacity: 0.5 !important;
+  border-color: transparent !important;
+}
+
+/* For pagination active state (without hover scale, custom border) */
+.btn-pagination-active {
+  background-color: #131517 !important;
+  color: #ffffff !important;
+  border-color: #131517 !important;
+}
+
+[data-theme="dark"] .btn-pagination-active {
+  background-color: #f4f4f5 !important;
+  color: #131517 !important;
+  border-color: #f4f4f5 !important;
+}
