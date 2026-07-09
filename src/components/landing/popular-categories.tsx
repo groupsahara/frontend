@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
-import { SpinnerIcon } from "@/src/components/icons";
 
 interface PopularCategoriesProps {
   /** Kept for backwards-compat with the landing page; clicking a tile now
@@ -82,8 +81,13 @@ export function PopularCategories(_props: PopularCategoriesProps) {
         {/* LEFT — category card */}
         <div className="flex flex-col rounded-3xl border border-gray-200 bg-white p-6 shadow-sm sm:p-8">
           {isLoading ? (
-            <div className="flex h-72 items-center justify-center text-gray-400">
-              <SpinnerIcon className="h-6 w-6" />
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-28 animate-pulse rounded-2xl bg-gray-100"
+                />
+              ))}
             </div>
           ) : isError ? (
             <p className="py-20 text-center text-sm text-gray-500">
@@ -92,7 +96,7 @@ export function PopularCategories(_props: PopularCategoriesProps) {
           ) : categories.length === 0 ? (
             <p className="py-20 text-center text-sm text-gray-500">No categories yet.</p>
           ) : (
-            <div className="grid grid-cols-4 gap-x-3 gap-y-5">
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4">
               {categories.map((category) => (
                 <CategoryTile key={category.categoryId} category={category} />
               ))}
@@ -105,34 +109,48 @@ export function PopularCategories(_props: PopularCategoriesProps) {
               {HIGHLIGHTS.map((h) => (
                 <div
                   key={h.label}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl bg-gray-50 px-2 py-4 text-center"
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-4 text-center"
                 >
-                  <span className="text-2xl">{h.icon}</span>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow-sm ring-1 ring-gray-100">
+                    {h.icon}
+                  </span>
                   <span className="text-xs font-semibold text-gray-800">{h.label}</span>
                   <span className="text-[11px] leading-tight text-gray-500">{h.sub}</span>
                 </div>
               ))}
             </div>
 
-            <div className="mt-5 flex flex-col items-center justify-between gap-3 rounded-2xl bg-linear-to-r from-orange-500 to-orange-600 px-5 py-4 text-white sm:flex-row sm:text-left">
-              <div>
+            <div className="relative mt-5 flex flex-col items-center justify-between gap-3 overflow-hidden rounded-2xl bg-linear-to-r from-orange-500 via-orange-500 to-amber-500 px-5 py-4 text-white sm:flex-row sm:text-left">
+              {/* Decorative glow circles */}
+              <span
+                className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/15"
+                aria-hidden
+              />
+              <span
+                className="pointer-events-none absolute -bottom-12 right-24 h-24 w-24 rounded-full bg-white/10"
+                aria-hidden
+              />
+              <div className="relative">
                 <p className="text-sm font-bold">Can’t find your service?</p>
                 <p className="text-xs text-orange-50">Browse our full catalog of trusted professionals.</p>
               </div>
               <Link
                 href="#services"
-                className="shrink-0 rounded-full bg-white px-5 py-2 text-sm font-bold text-orange-600 transition hover:bg-orange-50"
+                className="relative inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-5 py-2 text-sm font-bold text-orange-600 shadow-sm transition hover:bg-orange-50"
               >
                 Explore all
+                <svg viewBox="0 0 20 20" className="h-3.5 w-3.5 fill-current" aria-hidden>
+                  <path d="M7.3 4.3a1 1 0 011.4 0l5 5a1 1 0 010 1.4l-5 5a1 1 0 01-1.4-1.4L11.6 10 7.3 5.7a1 1 0 010-1.4z" />
+                </svg>
               </Link>
             </div>
           </div>
         </div>
 
-        {/* RIGHT — video collage covering the space */}
-        <div className="hidden grid-cols-2 gap-4 lg:grid">
+        {/* RIGHT — video collage stretched to match the card height */}
+        <div className="hidden h-full grid-cols-2 grid-rows-2 gap-4 lg:grid">
           {COLLAGE_VIDEOS.map((src, i) => (
-            <CollageVideo key={i} src={src} className="aspect-square" />
+            <CollageVideo key={i} src={src} className="min-h-56" />
           ))}
         </div>
       </div>
@@ -145,23 +163,23 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
   return (
     <Link
       href={`/category/${category.categoryId}`}
-      className="group flex cursor-pointer flex-col items-center gap-2 text-center"
+      className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-md"
     >
-      <div className="relative flex h-17.5 w-15 items-center justify-center overflow-hidden rounded-2xl border border-transparent bg-gray-50 transition group-hover:border-gray-200 group-hover:shadow-sm">
+      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition group-hover:ring-amber-200">
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- external category images
           <img
             src={category.profileImage}
             alt={category.name}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
           />
         ) : (
-          <span className="text-3xl transition duration-300 group-hover:scale-110">
+          <span className="text-2xl transition duration-300 group-hover:scale-110">
             {emojiFor(category.name)}
           </span>
         )}
       </div>
-      <p className="line-clamp-2 text-xs font-medium leading-tight text-gray-800">
+      <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-700 transition group-hover:text-gray-900">
         {category.name}
       </p>
     </Link>
@@ -171,7 +189,7 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
 function CollageVideo({ src, className }: { src: string; className?: string }) {
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl bg-black ${className ?? ""}`}
+      className={`group relative overflow-hidden rounded-2xl bg-black ring-1 ring-black/5 ${className ?? ""}`}
     >
       <video
         src={src}
@@ -179,7 +197,12 @@ function CollageVideo({ src, className }: { src: string; className?: string }) {
         loop
         muted
         playsInline
-        className="absolute inset-0 h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+      />
+      {/* Soft bottom vignette so the collage reads as one polished unit */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 bg-linear-to-t from-black/25 to-transparent"
+        aria-hidden
       />
     </div>
   );
