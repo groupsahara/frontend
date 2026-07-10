@@ -121,7 +121,7 @@ export function GeofenceOverviewMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fences]);
 
-  return <div ref={containerRef} className={`w-full rounded-2xl ${className}`} />;
+  return <div ref={containerRef} className={`isolate z-0 w-full rounded-2xl ${className}`} />;
 }
 
 const escapeHtml = (s: string) =>
@@ -207,7 +207,7 @@ export function LivePartnerMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zones, partners]);
 
-  return <div ref={containerRef} className={`w-full rounded-2xl ${className}`} />;
+  return <div ref={containerRef} className={`isolate z-0 w-full rounded-2xl ${className}`} />;
 }
 
 /** Click-to-place location picker (warehouse position). */
@@ -260,5 +260,5 @@ export function LocationPickerMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
-  return <div ref={containerRef} className={`w-full rounded-2xl ${className}`} />;
+  return <div ref={containerRef} className={`isolate z-0 w-full rounded-2xl ${className}`} />;
 }
