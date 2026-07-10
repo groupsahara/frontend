@@ -114,6 +114,9 @@ export interface AdminBooking {
   amount: number;
   status: AdminBookingStatus;
   paymentMode: string;
+  /** Assigned service partner, or null when nobody has accepted the lead yet. */
+  professionalId: number | null;
+  professionalName: string | null;
   date: string;
 }
 
@@ -551,6 +554,16 @@ export const dashboardApi = {
         limit: params.limit,
       })}`,
     ),
+
+  /** PATCH /v1/admin/bookings/:id/allocate — manually assign a partner to a
+   *  booking nobody accepted. Sets the booking ACCEPTED with a fresh start-OTP. */
+  allocateBooking: (bookingId: number, professionalId: number) =>
+    apiClient.patch<{
+      message: string;
+      bookingId: number;
+      professionalId: number;
+      status: AdminBookingStatus;
+    }>(`/v1/admin/bookings/${bookingId}/allocate`, { professionalId }),
 };
 
 /* ============================== Vendors ================================= */
