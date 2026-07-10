@@ -326,6 +326,45 @@ export const dispatcherApi = {
     ),
 };
 
+/* ------------------------- Partner referrals ---------------------------- */
+
+export interface ReferralSettings {
+  settingId: number;
+  /** Master switch — when false, no referral rewards are paid. */
+  enabled: boolean;
+  /** ₹ credited to the referrer on the referee's first completed booking. */
+  rewardAmount: number;
+  updatedAt: string;
+}
+
+export interface ReferralRow {
+  /** The referred (new) partner. */
+  professionalId: number;
+  name: string;
+  mobile: string | null;
+  onboardingStatus: PartnerOnboardingStatus;
+  joinedAt: string;
+  completedBookings: number;
+  /** The partner who referred them. */
+  referrer: { professionalId: number; name: string; referralCode: string | null } | null;
+  /** PENDING until the referee completes their first booking. */
+  status: "PENDING" | "REWARDED";
+  rewardedAt: string | null;
+}
+
+export const referralApi = {
+  /** GET /v1/admin/referrals/settings — the referral program config. */
+  settings: () => apiClient.get<ReferralSettings>("/v1/admin/referrals/settings"),
+
+  /** PATCH /v1/admin/referrals/settings — enable/disable + reward amount. */
+  updateSettings: (body: { enabled?: boolean; rewardAmount?: number }) =>
+    apiClient.patch<ReferralSettings>("/v1/admin/referrals/settings", body),
+
+  /** GET /v1/admin/referrals — referred partners + reward status. */
+  list: (search?: string) =>
+    apiClient.get<ReferralRow[]>(`/v1/admin/referrals${toQueryString({ search })}`),
+};
+
 /* ------------------------------ Customers ------------------------------- */
 
 export interface CustomerRow {
@@ -1692,6 +1731,8 @@ export const queryKeys = {
   payouts: (search: string, status: string) =>
     ["dispatcher", "payouts", status, search] as const,
   payoutStatusCounts: ["dispatcher", "payouts", "status-counts"] as const,
+  referralSettings: ["dispatcher", "referrals", "settings"] as const,
+  referrals: (search: string) => ["dispatcher", "referrals", search] as const,
   dispatchTeams: (search: string) => ["dispatcher", "teams", search] as const,
   dispatchTeam: (id: number) => ["dispatcher", "team", id] as const,
   livePartners: ["dispatcher", "live-partners"] as const,

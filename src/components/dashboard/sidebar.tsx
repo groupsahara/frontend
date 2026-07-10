@@ -66,6 +66,7 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon, permission: "dispatcher.view" },
       { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon, permission: "wallets.view" },
       { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon, permission: "payouts.view" },
+      { label: "Referrals", href: "/dashboard/dispatcher/referrals", icon: TagIcon, permission: "referrals.view" },
     ],
   },
   { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
