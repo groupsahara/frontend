@@ -128,15 +128,18 @@ const ACCESS_NAV: NavGroup = {
 // are surfaced here in the panel as a SaaS dropdown so they're reachable
 // without entering the sub-app; the tenant-facing CRM modules keep their own
 // nav inside the /real-estate shell.
+// Every child is gated on "saas.view" so the whole SaaS tab is hidden unless a
+// role has been granted SaaS access (super admins hold "*"). Without the grant
+// the group has no visible children and drops out of the nav entirely.
 const REAL_ESTATE_NAV: NavGroup = {
   label: "SaaS",
   icon: BuildingIcon,
   children: [
-    { label: "Dashboard", href: "/real-estate", icon: GridIcon },
-    { label: "Add Clients", href: "/real-estate/client-management/add-clients", icon: UsersIcon },
-    { label: "Manage Clients", href: "/real-estate/client-management/manage-clients", icon: UsersIcon },
-    { label: "AI Training", href: "/real-estate/ai-training", icon: MonitorIcon },
-    { label: "Audit Logs", href: "/real-estate/audit-logs", icon: FileTextIcon },
+    { label: "Dashboard", href: "/real-estate", icon: GridIcon, permission: "saas.view" },
+    { label: "Add Clients", href: "/real-estate/client-management/add-clients", icon: UsersIcon, permission: "saas.view" },
+    { label: "Manage Clients", href: "/real-estate/client-management/manage-clients", icon: UsersIcon, permission: "saas.view" },
+    { label: "AI Training", href: "/real-estate/ai-training", icon: MonitorIcon, permission: "saas.view" },
+    { label: "Audit Logs", href: "/real-estate/audit-logs", icon: FileTextIcon, permission: "saas.view" },
   ],
 };
 
