@@ -160,6 +160,7 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
     employmentType: row?.employmentType ?? "FULL_TIME",
     status: row?.status ?? "ACTIVE",
     joinDate: row?.joinDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    dob: row?.dob?.slice(0, 10) ?? "",
     salary: row?.salary?.toString() ?? "",
     address: row?.address ?? "",
     emergencyContact: row?.emergencyContact ?? "",
@@ -182,6 +183,7 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
         departmentId: f.departmentId ? Number(f.departmentId) : null,
         officeId: f.officeId ? Number(f.officeId) : null,
         employmentType: f.employmentType,
+        dob: f.dob || undefined,
         salary: f.salary ? Number(f.salary) : undefined,
         address: f.address || undefined,
         emergencyContact: f.emergencyContact || undefined,
@@ -231,6 +233,14 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
         </Field>
         <Field label="Phone">
           <input className={inputCls} value={f.phone} onChange={(e) => set("phone", e.target.value)} />
+        </Field>
+        <Field label="Birthday" hint="Shown on the portal celebrations wall">
+          <input
+            className={inputCls}
+            type="date"
+            value={f.dob}
+            onChange={(e) => set("dob", e.target.value)}
+          />
         </Field>
         <Field label="Designation">
           <input

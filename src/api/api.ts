@@ -114,6 +114,12 @@ export interface AdminBooking {
   amount: number;
   status: AdminBookingStatus;
   paymentMode: string;
+  /** Assigned service partner, or null when nobody has accepted the lead yet. */
+  professionalId: number | null;
+  professionalName: string | null;
+  /** How the partner was chosen: AUTO = accepted the broadcast lead, MANUAL =
+   *  admin allocated directly. Null while unassigned. */
+  assignmentSource: "AUTO" | "MANUAL" | null;
   date: string;
 }
 
@@ -320,6 +326,45 @@ export const dispatcherApi = {
     ),
 };
 
+/* ------------------------- Partner referrals ---------------------------- */
+
+export interface ReferralSettings {
+  settingId: number;
+  /** Master switch — when false, no referral rewards are paid. */
+  enabled: boolean;
+  /** ₹ credited to the referrer on the referee's first completed booking. */
+  rewardAmount: number;
+  updatedAt: string;
+}
+
+export interface ReferralRow {
+  /** The referred (new) partner. */
+  professionalId: number;
+  name: string;
+  mobile: string | null;
+  onboardingStatus: PartnerOnboardingStatus;
+  joinedAt: string;
+  completedBookings: number;
+  /** The partner who referred them. */
+  referrer: { professionalId: number; name: string; referralCode: string | null } | null;
+  /** PENDING until the referee completes their first booking. */
+  status: "PENDING" | "REWARDED";
+  rewardedAt: string | null;
+}
+
+export const referralApi = {
+  /** GET /v1/admin/referrals/settings — the referral program config. */
+  settings: () => apiClient.get<ReferralSettings>("/v1/admin/referrals/settings"),
+
+  /** PATCH /v1/admin/referrals/settings — enable/disable + reward amount. */
+  updateSettings: (body: { enabled?: boolean; rewardAmount?: number }) =>
+    apiClient.patch<ReferralSettings>("/v1/admin/referrals/settings", body),
+
+  /** GET /v1/admin/referrals — referred partners + reward status. */
+  list: (search?: string) =>
+    apiClient.get<ReferralRow[]>(`/v1/admin/referrals${toQueryString({ search })}`),
+};
+
 /* ------------------------------ Customers ------------------------------- */
 
 export interface CustomerRow {
@@ -329,9 +374,20 @@ export interface CustomerRow {
   mobile: string | null;
   restaurantName: string | null;
   profileImage: string | null;
+  /** Admin block flag — a blocked customer cannot log in. */
+  isBlocked: boolean;
   bookingsCount: number;
   addressCount: number;
   joinedAt: string;
+}
+
+export interface CreateCustomerInput {
+  name: string;
+  /** 10-digit mobile number (used for the customer's OTP login). */
+  mobile: string;
+  email?: string;
+  restaurantName?: string;
+  gstNumber?: string;
 }
 
 export interface CustomerAddress {
@@ -364,6 +420,8 @@ export interface CustomerDetail {
   gstNumber: string | null;
   restaurantName: string | null;
   profileImage: string | null;
+  /** Admin block flag — a blocked customer cannot log in. */
+  isBlocked: boolean;
   joinedAt: string;
   stats: { totalBookings: number; completed: number; cancelled: number; totalSpent: number };
   addresses: CustomerAddress[];
@@ -402,6 +460,21 @@ export const customersApi = {
       `/v1/admin/customers/${userId}/coupons`,
       { count },
     ),
+
+  /** POST /v1/admin/customers — create a customer (USER account). */
+  create: (body: CreateCustomerInput) =>
+    apiClient.post<CustomerRow>("/v1/admin/customers", body),
+
+  /** PATCH /v1/admin/customers/:id/block — block or unblock a customer. */
+  setBlocked: (userId: number, isBlocked: boolean) =>
+    apiClient.patch<{ message: string; isBlocked: boolean }>(
+      `/v1/admin/customers/${userId}/block`,
+      { isBlocked },
+    ),
+
+  /** DELETE /v1/admin/customers/:id — permanently delete a customer + their data. */
+  remove: (userId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/customers/${userId}`),
 };
 
 /* ----------------------------- Analytics -------------------------------- */
@@ -523,6 +596,16 @@ export const dashboardApi = {
         limit: params.limit,
       })}`,
     ),
+
+  /** PATCH /v1/admin/bookings/:id/allocate — manually assign a partner to a
+   *  booking nobody accepted. Sets the booking ACCEPTED with a fresh start-OTP. */
+  allocateBooking: (bookingId: number, professionalId: number) =>
+    apiClient.patch<{
+      message: string;
+      bookingId: number;
+      professionalId: number;
+      status: AdminBookingStatus;
+    }>(`/v1/admin/bookings/${bookingId}/allocate`, { professionalId }),
 };
 
 /* ============================== Vendors ================================= */
@@ -1648,6 +1731,8 @@ export const queryKeys = {
   payouts: (search: string, status: string) =>
     ["dispatcher", "payouts", status, search] as const,
   payoutStatusCounts: ["dispatcher", "payouts", "status-counts"] as const,
+  referralSettings: ["dispatcher", "referrals", "settings"] as const,
+  referrals: (search: string) => ["dispatcher", "referrals", search] as const,
   dispatchTeams: (search: string) => ["dispatcher", "teams", search] as const,
   dispatchTeam: (id: number) => ["dispatcher", "team", id] as const,
   livePartners: ["dispatcher", "live-partners"] as const,
@@ -1727,6 +1812,19 @@ export interface CrmSummary {
   bookingsToday: number;
   pendingLeaves: number;
   employees: number;
+  // Business overview (spec dashboard)
+  activeRestaurants: number;
+  newLeads: number;
+  activeWorkforce: number;
+  openOrders: number;
+  monthlyRevenue: number;
+  pendingPayments: number;
+  pendingPaymentsCount: number;
+  customerSatisfaction: number | null;
+  ratingsCount: number;
+  workforceUtilizationPct: number | null;
+  openTickets: number;
+  dueFollowUps: number;
 }
 
 export interface CrmCustomerRow {
@@ -1734,6 +1832,8 @@ export interface CrmCustomerRow {
   name: string | null;
   email: string | null;
   mobile: string | null;
+  /** Admin block flag — a blocked customer cannot log in. */
+  isBlocked: boolean;
   createdAt: string;
   bookingCount: number;
 }
@@ -1768,6 +1868,7 @@ export interface CrmBookingRow {
   totalAmount: number;
   bookingDate: string;
   startTime: string;
+  endTime: string;
   serviceCity: string;
   serviceAddress: string;
   paymentMode: string;
@@ -1799,6 +1900,471 @@ export const crmApi = {
   }) => apiClient.get<CrmBookingList>(`/v1/crm/bookings${toQueryString(params)}`),
   updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED") =>
     apiClient.patch(`/v1/crm/bookings/${id}/status`, { status }),
+};
+
+/* ----------------------- CRM: Restaurant clients ----------------------- */
+
+export type RestaurantStatus = "PROSPECT" | "ACTIVE" | "INACTIVE" | "CHURNED";
+
+export interface RestaurantRow {
+  restaurantId: number;
+  name: string;
+  ownerName: string | null;
+  contactNumber: string | null;
+  email: string | null;
+  gstNumber: string | null;
+  address: string | null;
+  city: string | null;
+  restaurantType: string | null;
+  outlets: number;
+  status: RestaurantStatus;
+  agreementStart: string | null;
+  agreementEnd: string | null;
+  servicePackage: string | null;
+  pricingPlan: string | null;
+  agreementCopyUrl: string | null;
+  gstCertificateUrl: string | null;
+  fssaiLicenseUrl: string | null;
+  fssaiNumber: string | null;
+  notes: string | null;
+  linkedUserId: number | null;
+  linkedUser?: { userId: number; name: string | null; email: string | null } | null;
+  _count?: { tickets: number };
+  createdAt: string;
+}
+export type RestaurantList = CrmPage & { restaurants: RestaurantRow[] };
+
+export interface RestaurantDetail extends RestaurantRow {
+  orderStats: { totalBookings: number; revenue: number } | null;
+  convertedFromLead?: { leadId: number; restaurantName: string; wonAt: string | null } | null;
+  tickets: {
+    ticketId: number;
+    subject: string;
+    category: string;
+    status: string;
+    priority: string;
+    createdAt: string;
+  }[];
+}
+
+export type RestaurantBody = Partial<Omit<RestaurantRow, "restaurantId" | "createdAt">> & {
+  name?: string;
+};
+
+export const crmRestaurantsApi = {
+  list: (params: { search?: string; status?: string; city?: string; page?: number; limit?: number }) =>
+    apiClient.get<RestaurantList>(`/v1/crm/restaurants${toQueryString(params)}`),
+  get: (id: number) => apiClient.get<RestaurantDetail>(`/v1/crm/restaurants/${id}`),
+  bookings: (id: number, params: { page?: number; limit?: number }) =>
+    apiClient.get<CrmBookingList>(`/v1/crm/restaurants/${id}/bookings${toQueryString(params)}`),
+  create: (body: RestaurantBody & { name: string }) =>
+    apiClient.post<RestaurantRow>("/v1/crm/restaurants", body),
+  update: (id: number, body: RestaurantBody) =>
+    apiClient.patch<RestaurantRow>(`/v1/crm/restaurants/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/restaurants/${id}`),
+};
+
+/* ------------------------ CRM: Sales lead pipeline ---------------------- */
+
+export type SalesLeadStage =
+  | "NEW"
+  | "CONTACTED"
+  | "DEMO_SCHEDULED"
+  | "PROPOSAL_SENT"
+  | "NEGOTIATION"
+  | "WON"
+  | "LOST";
+
+export type SalesLeadSource =
+  | "WEBSITE"
+  | "INSTAGRAM"
+  | "LINKEDIN"
+  | "REFERRAL"
+  | "COLD_CALLING"
+  | "GOOGLE_ADS"
+  | "OTHER";
+
+export interface SalesFollowUpRow {
+  followUpId: number;
+  leadId: number;
+  dueAt: string;
+  note: string | null;
+  status: "PENDING" | "DONE";
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface SalesLeadRow {
+  leadId: number;
+  restaurantName: string;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  source: SalesLeadSource;
+  stage: SalesLeadStage;
+  leadValue: number;
+  expectedCloseAt: string | null;
+  notes: string | null;
+  lostReason: string | null;
+  wonAt: string | null;
+  assignedToId: number | null;
+  assignedTo?: { userId: number; name: string | null; email: string | null } | null;
+  convertedRestaurantId: number | null;
+  convertedRestaurant?: { restaurantId: number; name: string } | null;
+  nextFollowUp?: SalesFollowUpRow | null;
+  followUps?: SalesFollowUpRow[];
+  _count?: { followUps: number };
+  createdAt: string;
+}
+export type SalesLeadList = CrmPage & { leads: SalesLeadRow[] };
+
+export interface SalesPipeline {
+  byStage: { stage: SalesLeadStage; count: number; value: number }[];
+  overdueFollowUps: number;
+  upcomingFollowUps: number;
+}
+
+export type SalesLeadBody = {
+  restaurantName?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  source?: string;
+  stage?: string;
+  leadValue?: number;
+  expectedCloseAt?: string;
+  assignedToId?: number;
+  notes?: string;
+  lostReason?: string;
+};
+
+export const crmSalesApi = {
+  pipeline: () => apiClient.get<SalesPipeline>("/v1/crm/sales-leads/pipeline"),
+  list: (params: {
+    search?: string;
+    stage?: string;
+    source?: string;
+    assignedToId?: number;
+    page?: number;
+    limit?: number;
+  }) => apiClient.get<SalesLeadList>(`/v1/crm/sales-leads${toQueryString(params)}`),
+  get: (id: number) => apiClient.get<SalesLeadRow>(`/v1/crm/sales-leads/${id}`),
+  create: (body: SalesLeadBody & { restaurantName: string }) =>
+    apiClient.post<SalesLeadRow>("/v1/crm/sales-leads", body),
+  update: (id: number, body: SalesLeadBody) =>
+    apiClient.patch<SalesLeadRow>(`/v1/crm/sales-leads/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/sales-leads/${id}`),
+  convert: (id: number) => apiClient.post<RestaurantRow>(`/v1/crm/sales-leads/${id}/convert`, {}),
+  addFollowUp: (leadId: number, body: { dueAt: string; note?: string }) =>
+    apiClient.post<SalesFollowUpRow>(`/v1/crm/sales-leads/${leadId}/follow-ups`, body),
+  updateFollowUp: (followUpId: number, body: { dueAt?: string; note?: string; status?: string }) =>
+    apiClient.patch<SalesFollowUpRow>(`/v1/crm/sales-leads/follow-ups/${followUpId}`, body),
+  removeFollowUp: (followUpId: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/crm/sales-leads/follow-ups/${followUpId}`),
+};
+
+/* -------------------------- CRM: Support desk --------------------------- */
+
+export type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+export type TicketCategory =
+  | "WORKFORCE_ISSUE"
+  | "BILLING_ISSUE"
+  | "SERVICE_COMPLAINT"
+  | "TECHNICAL_ISSUE"
+  | "OTHER";
+export type TicketPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+
+export interface TicketMessageRow {
+  messageId: number;
+  ticketId: number;
+  body: string;
+  createdAt: string;
+  author: { userId: number; name: string | null; role: string } | null;
+}
+
+export interface TicketRow {
+  ticketId: number;
+  subject: string;
+  description: string;
+  category: TicketCategory;
+  status: TicketStatus;
+  priority: TicketPriority;
+  restaurantId: number | null;
+  restaurant?: { restaurantId: number; name: string; contactNumber?: string | null } | null;
+  raisedByName: string | null;
+  raisedByContact: string | null;
+  assignedToId: number | null;
+  assignedTo?: { userId: number; name: string | null; email?: string | null } | null;
+  firstResponseAt: string | null;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  messages?: TicketMessageRow[];
+  _count?: { messages: number };
+}
+export type TicketList = CrmPage & { tickets: TicketRow[] };
+
+export interface TicketSummary {
+  open: number;
+  inProgress: number;
+  resolved: number;
+  closed: number;
+  byCategory: { category: TicketCategory; count: number }[];
+  avgFirstResponseMinutes: number | null;
+  avgResolutionMinutes: number | null;
+}
+
+export type TicketBody = {
+  subject?: string;
+  description?: string;
+  category?: string;
+  status?: string;
+  priority?: string;
+  restaurantId?: number;
+  raisedByName?: string;
+  raisedByContact?: string;
+  assignedToId?: number;
+};
+
+export const crmTicketsApi = {
+  summary: () => apiClient.get<TicketSummary>("/v1/crm/tickets/summary"),
+  list: (params: {
+    search?: string;
+    status?: string;
+    category?: string;
+    priority?: string;
+    page?: number;
+    limit?: number;
+  }) => apiClient.get<TicketList>(`/v1/crm/tickets${toQueryString(params)}`),
+  get: (id: number) => apiClient.get<TicketRow>(`/v1/crm/tickets/${id}`),
+  create: (body: TicketBody & { subject: string; description: string }) =>
+    apiClient.post<TicketRow>("/v1/crm/tickets", body),
+  update: (id: number, body: TicketBody) =>
+    apiClient.patch<TicketRow>(`/v1/crm/tickets/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/tickets/${id}`),
+  addMessage: (id: number, body: string) =>
+    apiClient.post<TicketMessageRow>(`/v1/crm/tickets/${id}/messages`, { body }),
+};
+
+/* ------------------------ CRM: Marketing campaigns ---------------------- */
+
+export type CampaignChannel = "EMAIL" | "WHATSAPP" | "SMS";
+export type CampaignSegment =
+  | "ALL_CLIENTS"
+  | "ACTIVE_CLIENTS"
+  | "INACTIVE_CLIENTS"
+  | "HIGH_REVENUE_CLIENTS"
+  | "POTENTIAL_CLIENTS";
+export type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "FAILED";
+
+export interface CampaignRow {
+  campaignId: number;
+  name: string;
+  channel: CampaignChannel;
+  segment: CampaignSegment;
+  subject: string | null;
+  message: string;
+  status: CampaignStatus;
+  recipientCount: number;
+  sentCount: number;
+  failedCount: number;
+  sentAt: string | null;
+  createdBy?: { userId: number; name: string | null } | null;
+  createdAt: string;
+}
+export type CampaignList = CrmPage & { campaigns: CampaignRow[] };
+
+export interface SegmentPreview {
+  segment: string;
+  channel: string | null;
+  count: number;
+  sample: { name: string | null; email: string | null; mobile: string | null }[];
+}
+
+export const crmCampaignsApi = {
+  list: (params: { status?: string; channel?: string; page?: number; limit?: number }) =>
+    apiClient.get<CampaignList>(`/v1/crm/campaigns${toQueryString(params)}`),
+  get: (id: number) => apiClient.get<CampaignRow>(`/v1/crm/campaigns/${id}`),
+  previewSegment: (segment: string, channel?: string) =>
+    apiClient.get<SegmentPreview>(
+      `/v1/crm/campaigns/segments/preview${toQueryString({ segment, channel })}`,
+    ),
+  create: (body: {
+    name: string;
+    channel: string;
+    segment: string;
+    subject?: string;
+    message: string;
+  }) => apiClient.post<CampaignRow>("/v1/crm/campaigns", body),
+  update: (
+    id: number,
+    body: { name?: string; channel?: string; segment?: string; subject?: string; message?: string },
+  ) => apiClient.patch<CampaignRow>(`/v1/crm/campaigns/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/campaigns/${id}`),
+  send: (id: number) => apiClient.post<CampaignRow>(`/v1/crm/campaigns/${id}/send`, {}),
+};
+
+/* --------------------------- CRM: Finance ------------------------------- */
+
+export interface InvoiceRow {
+  invoiceId: number;
+  bookingId: number;
+  invoiceNumber: string;
+  serviceAmount: number;
+  platformFee: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  commissionAmount: number;
+  professionalEarning: number;
+  paymentStatus: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
+  paymentMethod: string | null;
+  transactionId: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  booking?: {
+    bookingId: number;
+    serviceCity?: string;
+    bookingDate?: string;
+    user: { userId: number; name: string | null; restaurantName: string | null } | null;
+    service: { name: string } | null;
+  } | null;
+}
+export type InvoiceList = CrmPage & { invoices: InvoiceRow[] };
+
+export interface FinanceSummary {
+  paid: { count: number; amount: number };
+  pending: { count: number; amount: number };
+  failed: { count: number; amount: number };
+  refunded: { count: number; amount: number };
+  overdue: { count: number; amount: number };
+  overdueAfterDays: number;
+  monthlyCollections: { month: string; amount: number; count: number }[];
+}
+
+export interface RevenueReport {
+  by: "restaurant" | "city" | "month";
+  rows: {
+    userId?: number;
+    name?: string;
+    mobile?: string | null;
+    city?: string;
+    month?: string;
+    bookings?: number;
+    count?: number;
+    revenue?: number;
+    amount?: number;
+  }[];
+}
+
+export const crmFinanceApi = {
+  summary: () => apiClient.get<FinanceSummary>("/v1/crm/finance/summary"),
+  invoices: (params: {
+    search?: string;
+    status?: string;
+    overdue?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    limit?: number;
+  }) => apiClient.get<InvoiceList>(`/v1/crm/finance/invoices${toQueryString(params)}`),
+  invoice: (id: number) => apiClient.get<InvoiceRow>(`/v1/crm/finance/invoices/${id}`),
+  updateInvoice: (
+    id: number,
+    body: { paymentStatus: string; paymentMethod?: string; transactionId?: string },
+  ) => apiClient.patch<InvoiceRow>(`/v1/crm/finance/invoices/${id}`, body),
+  revenue: (by: "restaurant" | "city" | "month") =>
+    apiClient.get<RevenueReport>(`/v1/crm/finance/revenue?by=${by}`),
+};
+
+/* -------------------------- CRM: Operations board ----------------------- */
+
+export interface OpsBoard {
+  date: string;
+  bookings: {
+    byStatus: Record<string, number>;
+    items: CrmBookingRow[];
+  };
+  alerts: {
+    staleAssignmentMinutes: number;
+    staleAssignments: {
+      bookingId: number;
+      assignedAt: string | null;
+      startTime: string;
+      user: { name: string | null } | null;
+      service: { name: string } | null;
+      professional: { user: { name: string | null; mobile: string | null } | null } | null;
+    }[];
+    emergencyReplacements: {
+      bookingId: number;
+      startTime: string;
+      user: { name: string | null } | null;
+      service: { name: string } | null;
+      professional: { user: { name: string | null } | null } | null;
+    }[];
+  };
+  workforce: {
+    partnersOnline: number;
+    partnersActive: number;
+    employeesActive: number;
+    checkedIn: number;
+    checkedOut: number;
+    lateAfter: string;
+    lateCheckIns: { employeeId: number; name: string; designation: string | null; checkInAt: string }[];
+    notCheckedIn: { employeeId: number; name: string; designation: string | null }[];
+  };
+}
+
+export const crmOpsApi = {
+  board: () => apiClient.get<OpsBoard>("/v1/crm/ops/board"),
+};
+
+/* --------------------------- CRM: Reports ------------------------------- */
+
+export interface SalesReport {
+  monthly: { month: string; revenue: number; bookings: number; newLeads: number }[];
+  funnel: { stage: SalesLeadStage; count: number }[];
+  totalLeads: number;
+  won: number;
+  lost: number;
+  conversionRate: number | null;
+  sources: { source: string; total: number; won: number; value: number }[];
+}
+
+export interface WorkforceReport {
+  activePartners: number;
+  onlinePartners: number;
+  utilizationPct: number | null;
+  busyPartnersThisMonth: number;
+  topPerformers: {
+    professionalId: number;
+    name: string | null;
+    service: string | null;
+    city: string | null;
+    rating: number;
+    totalJobs: number;
+    trainingStatus: string;
+  }[];
+  employeesActive: number;
+  attendanceToday: number;
+}
+
+export interface RestaurantsReport {
+  activeRestaurants: number;
+  repeatCustomers: number;
+  totalCustomersWithBookings: number;
+  repeatRatePct: number | null;
+  topByRevenue: { userId: number; name: string; bookings: number; revenue: number }[];
+  serviceFrequency: { serviceId: number; name: string; bookings: number }[];
+}
+
+export const crmReportsApi = {
+  sales: (months?: number) =>
+    apiClient.get<SalesReport>(`/v1/crm/reports/sales${months ? `?months=${months}` : ""}`),
+  workforce: () => apiClient.get<WorkforceReport>("/v1/crm/reports/workforce"),
+  restaurants: () => apiClient.get<RestaurantsReport>("/v1/crm/reports/restaurants"),
 };
 
 /* ------------------------------- RBAC ---------------------------------- */
@@ -1881,6 +2447,7 @@ export interface EmployeeRow {
   name: string;
   email: string;
   phone: string | null;
+  dob: string | null;
   designation: string | null;
   employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN";
   status: "ACTIVE" | "ON_LEAVE" | "TERMINATED" | "RESIGNED";
@@ -2076,11 +2643,176 @@ export const hrApi = {
     apiClient.delete<{ message: string }>(`/v1/hr/appraisals/${id}`),
 };
 
+/* --------------------- Employee self-service (ESS) ---------------------- */
+
+export interface PayslipRow {
+  payslipId: number;
+  employeeId: number;
+  month: string;
+  basic: number;
+  hra: number;
+  allowances: number;
+  bonus: number;
+  pf: number;
+  tax: number;
+  deductions: number;
+  lopDays: number;
+  paidDays: number;
+  grossPay: number;
+  netPay: number;
+  status: "DRAFT" | "PUBLISHED";
+  notes: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  employee?: {
+    employeeId: number;
+    employeeCode: string;
+    name: string;
+    designation: string | null;
+    joinDate?: string;
+    department: { name: string } | null;
+    office?: { name: string; address: string } | null;
+  };
+}
+export type PayrollList = CrmPage & { payslips: PayslipRow[] };
+
+export interface HolidayRow {
+  holidayId: number;
+  name: string;
+  date: string;
+  isOptional: boolean;
+}
+
+export interface JobPostingRow {
+  jobId: number;
+  title: string;
+  departmentId: number | null;
+  department: { departmentId: number; name: string } | null;
+  location: string | null;
+  employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN";
+  description: string | null;
+  status: "OPEN" | "CLOSED";
+  postedAt: string;
+  closedAt: string | null;
+}
+
+export interface CelebrationEntry {
+  employeeId: number;
+  name: string;
+  designation: string | null;
+  department: string | null;
+  date: string;
+  years?: number;
+}
+
+export interface Celebrations {
+  birthdays: CelebrationEntry[];
+  anniversaries: CelebrationEntry[];
+  newJoiners: CelebrationEntry[];
+}
+
+export interface MyPortal {
+  employee: EmployeeRow & {
+    manager: { employeeId: number; name: string; designation: string | null } | null;
+  };
+  leave: { totalAllocated: number; totalUsed: number; balances: LeaveBalanceRow[] };
+  attendanceThisMonth: {
+    month: string;
+    presentDays: number;
+    checkedInToday: boolean;
+    workedMinutes: number;
+  };
+  latestAppraisal: AppraisalRow | null;
+  latestPayslipMonth: string | null;
+  nextHolidays: HolidayRow[];
+}
+
+export interface MyIncrements {
+  appraisals: Pick<
+    AppraisalRow,
+    | "appraisalId"
+    | "cycle"
+    | "periodStart"
+    | "periodEnd"
+    | "overallRating"
+    | "recommendation"
+    | "incrementPct"
+    | "status"
+  >[];
+  salaryTrend: { month: string; grossPay: number; netPay: number }[];
+}
+
+export const essApi = {
+  portal: () => apiClient.get<MyPortal>("/v1/hr/me/portal"),
+  myPayslips: () => apiClient.get<PayslipRow[]>("/v1/hr/me/payslips"),
+  myPayslip: (id: number) => apiClient.get<PayslipRow>(`/v1/hr/me/payslips/${id}`),
+  myIncrements: () => apiClient.get<MyIncrements>("/v1/hr/me/increments"),
+  celebrations: () => apiClient.get<Celebrations>("/v1/hr/celebrations"),
+  holidays: (year?: number) =>
+    apiClient.get<HolidayRow[]>(`/v1/hr/holidays${year ? `?year=${year}` : ""}`),
+  openPositions: () => apiClient.get<JobPostingRow[]>("/v1/hr/positions/open"),
+};
+
+export const payrollApi = {
+  generate: (month: string) =>
+    apiClient.post<{ month: string; created: number; skipped: number }>(
+      "/v1/hr/payroll/generate",
+      { month },
+    ),
+  list: (params: { month?: string; status?: string; page?: number; limit?: number }) =>
+    apiClient.get<PayrollList>(`/v1/hr/payroll${toQueryString(params)}`),
+  update: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<PayslipRow>(`/v1/hr/payroll/${id}`, body),
+  publish: (id: number) => apiClient.post<PayslipRow>(`/v1/hr/payroll/${id}/publish`, {}),
+  publishMonth: (month: string) =>
+    apiClient.post<{ month: string; published: number }>("/v1/hr/payroll/publish-month", { month }),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/payroll/${id}`),
+};
+
+export const holidayApi = {
+  create: (body: { name: string; date: string; isOptional?: boolean }) =>
+    apiClient.post<HolidayRow>("/v1/hr/holidays", body),
+  update: (id: number, body: { name?: string; date?: string; isOptional?: boolean }) =>
+    apiClient.patch<HolidayRow>(`/v1/hr/holidays/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/holidays/${id}`),
+};
+
+export const positionsApi = {
+  list: (status?: string) =>
+    apiClient.get<JobPostingRow[]>(`/v1/hr/positions${status ? `?status=${status}` : ""}`),
+  create: (body: Record<string, unknown>) =>
+    apiClient.post<JobPostingRow>("/v1/hr/positions", body),
+  update: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<JobPostingRow>(`/v1/hr/positions/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/positions/${id}`),
+};
+
 export const crmQueryKeys = {
   summary: ["crm", "summary"] as const,
   crmCustomers: (p: object) => ["crm", "customers", p] as const,
   crmPartners: (p: object) => ["crm", "partners", p] as const,
   crmBookings: (p: object) => ["crm", "bookings", p] as const,
+  restaurants: (p: object) => ["crm", "restaurants", p] as const,
+  restaurant: (id: number) => ["crm", "restaurant", id] as const,
+  restaurantBookings: (id: number, p: object) => ["crm", "restaurant", id, "bookings", p] as const,
+  salesPipeline: ["crm", "sales-pipeline"] as const,
+  salesLeads: (p: object) => ["crm", "sales-leads", p] as const,
+  salesLead: (id: number) => ["crm", "sales-lead", id] as const,
+  ticketSummary: ["crm", "tickets", "summary"] as const,
+  tickets: (p: object) => ["crm", "tickets", p] as const,
+  ticket: (id: number) => ["crm", "ticket", id] as const,
+  campaigns: (p: object) => ["crm", "campaigns", p] as const,
+  campaign: (id: number) => ["crm", "campaign", id] as const,
+  segmentPreview: (segment: string, channel?: string) =>
+    ["crm", "segment-preview", segment, channel] as const,
+  financeSummary: ["crm", "finance", "summary"] as const,
+  invoices: (p: object) => ["crm", "invoices", p] as const,
+  invoice: (id: number) => ["crm", "invoice", id] as const,
+  revenue: (by: string) => ["crm", "revenue", by] as const,
+  opsBoard: ["crm", "ops", "board"] as const,
+  reportSales: (months?: number) => ["crm", "reports", "sales", months] as const,
+  reportWorkforce: ["crm", "reports", "workforce"] as const,
+  reportRestaurants: ["crm", "reports", "restaurants"] as const,
   rbacRoles: ["rbac", "roles"] as const,
   rbacCatalog: ["rbac", "catalog"] as const,
   rbacStaff: ["rbac", "staff"] as const,
@@ -2097,6 +2829,15 @@ export const crmQueryKeys = {
   leaves: (p: object) => ["hr", "leaves", p] as const,
   appraisals: (p: object) => ["hr", "appraisals", p] as const,
   myAppraisals: ["hr", "appraisals", "me"] as const,
+  myPortal: ["ess", "portal"] as const,
+  myPayslips: ["ess", "payslips"] as const,
+  myPayslip: (id: number) => ["ess", "payslip", id] as const,
+  myIncrements: ["ess", "increments"] as const,
+  celebrations: ["ess", "celebrations"] as const,
+  holidays: (year?: number) => ["ess", "holidays", year] as const,
+  openPositions: ["ess", "positions", "open"] as const,
+  payroll: (p: object) => ["hr", "payroll", p] as const,
+  positions: (status?: string) => ["hr", "positions", status] as const,
 };
 
 /* ============================ Resume builder ============================ */

@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
-import { crmQueryKeys, hrApi, type DepartmentRow, type OfficeRow } from "@/src/api/api";
+import {
+  crmQueryKeys,
+  essApi,
+  holidayApi,
+  hrApi,
+  type DepartmentRow,
+  type HolidayRow,
+  type OfficeRow,
+} from "@/src/api/api";
 import {
   Badge,
   Btn,
@@ -24,11 +32,170 @@ export default function HrSettingsPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <PageHeader
         title="HR Settings"
-        subtitle="Departments and office locations (attendance geofence anchors)."
+        subtitle="Departments, office locations (attendance geofence anchors) and the holiday calendar."
       />
       <Departments />
       <Offices />
+      <Holidays />
     </div>
+  );
+}
+
+/* ───────────────────────────── Holidays ─────────────────────────────── */
+
+function Holidays() {
+  const qc = useQueryClient();
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [modal, setModal] = useState<{ row?: HolidayRow } | null>(null);
+  const [notice, setNotice] = useState("");
+
+  const { data } = useQuery({
+    queryKey: crmQueryKeys.holidays(year),
+    queryFn: () => essApi.holidays(year),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => holidayApi.remove(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["ess", "holidays"] }),
+    onError: (e) => setNotice(e instanceof ApiError ? e.message : "Delete failed"),
+  });
+
+  const canManage = hasPermission("holidays.manage");
+  const fmt = (d: string) =>
+    new Date(`${d}T00:00:00`).toLocaleDateString("en-IN", {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-base font-semibold text-foreground">Holiday calendar</h2>
+        <div className="flex items-center gap-2">
+          <select
+            className={`${inputCls} w-auto`}
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+          >
+            {[year - 1, year, year + 1]
+              .filter((v, i, a) => a.indexOf(v) === i)
+              .map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+          </select>
+          {canManage && (
+            <Btn small onClick={() => setModal({})}>
+              <PlusIcon className="h-4 w-4" /> Add
+            </Btn>
+          )}
+        </div>
+      </div>
+      {notice && (
+        <div className="px-5 pt-4">
+          <Notice kind="error">{notice}</Notice>
+        </div>
+      )}
+      <TableShell head={["Holiday", "Date", "Kind", ""]}>
+        {!data?.length && (
+          <EmptyRow cols={4} label={`No holidays for ${year} — employees see these on their portal.`} />
+        )}
+        {data?.map((h) => (
+          <tr key={h.holidayId}>
+            <td className="px-4 py-3 font-medium text-foreground">{h.name}</td>
+            <td className="px-4 py-3 text-muted-foreground">{fmt(h.date)}</td>
+            <td className="px-4 py-3">
+              <Badge tone={h.isOptional ? "muted" : "primary"}>
+                {h.isOptional ? "Optional" : "Company"}
+              </Badge>
+            </td>
+            <td className="px-4 py-3 text-right">
+              {canManage && (
+                <div className="flex justify-end gap-2">
+                  <Btn small tone="ghost" onClick={() => setModal({ row: h })}>
+                    Edit
+                  </Btn>
+                  <Btn small tone="danger" onClick={() => del.mutate(h.holidayId)}>
+                    Delete
+                  </Btn>
+                </div>
+              )}
+            </td>
+          </tr>
+        ))}
+      </TableShell>
+      {modal && <HolidayModal row={modal.row} onClose={() => setModal(null)} />}
+    </Card>
+  );
+}
+
+function HolidayModal({ row, onClose }: { row?: HolidayRow; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState(row?.name ?? "");
+  const [date, setDate] = useState(row?.date ?? "");
+  const [isOptional, setIsOptional] = useState(row?.isOptional ?? false);
+  const [err, setErr] = useState("");
+
+  const save = useMutation({
+    mutationFn: () =>
+      row
+        ? holidayApi.update(row.holidayId, { name: name.trim(), date, isOptional })
+        : holidayApi.create({ name: name.trim(), date, isOptional }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["ess", "holidays"] });
+      onClose();
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Save failed"),
+  });
+
+  const submit = () => {
+    if (!name.trim()) return setErr("Name the holiday.");
+    if (!date) return setErr("Pick the date.");
+    setErr("");
+    save.mutate();
+  };
+
+  return (
+    <Modal title={row ? "Edit holiday" : "Add holiday"} onClose={onClose}>
+      <div className="space-y-4">
+        {err && <Notice kind="error">{err}</Notice>}
+        <Field label="Name *">
+          <input
+            className={inputCls}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Diwali"
+          />
+        </Field>
+        <Field label="Date *">
+          <input
+            type="date"
+            className={inputCls}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={isOptional}
+            onChange={(e) => setIsOptional(e.target.checked)}
+          />
+          Optional / restricted holiday
+        </label>
+        <div className="flex justify-end gap-2">
+          <Btn tone="ghost" onClick={onClose} disabled={save.isPending}>
+            Cancel
+          </Btn>
+          <Btn busy={save.isPending} onClick={submit}>
+            {row ? "Save" : "Add holiday"}
+          </Btn>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

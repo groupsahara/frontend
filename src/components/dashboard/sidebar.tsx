@@ -66,9 +66,9 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon, permission: "dispatcher.view" },
       { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon, permission: "wallets.view" },
       { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon, permission: "payouts.view" },
+      { label: "Referrals", href: "/dashboard/dispatcher/referrals", icon: TagIcon, permission: "referrals.view" },
     ],
   },
-  { label: "Customers", href: "/dashboard/customers", icon: UsersIcon, permission: "customers.view" },
   { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
   { label: "Vendors", href: "/dashboard/vendors", icon: CartIcon, permission: "vendors.view" },
   { label: "Payments", href: "/dashboard/payments", icon: WalletIcon },
@@ -96,9 +96,26 @@ const CRM_NAV: NavGroup = {
   icon: BriefcaseIcon,
   children: [
     { label: "CRM Overview", href: "/dashboard/crm", icon: GridIcon, permission: "crm.view" },
+    { label: "Restaurants", href: "/dashboard/crm/restaurants", icon: StoreIcon, permission: "restaurants.view" },
+    { label: "Sales Leads", href: "/dashboard/crm/sales-leads", icon: TagIcon, permission: "sales-leads.view" },
     { label: "Customers", href: "/dashboard/crm/customers", icon: UsersIcon, permission: "customers.view" },
     { label: "Partners", href: "/dashboard/crm/partners", icon: UsersIcon, permission: "partners.view" },
     { label: "Bookings", href: "/dashboard/crm/bookings", icon: BagIcon, permission: "bookings.view" },
+    { label: "Operations", href: "/dashboard/crm/operations", icon: RouteIcon, permission: "ops.view" },
+    { label: "Finance", href: "/dashboard/crm/finance", icon: WalletIcon, permission: "finance.view" },
+    { label: "Support Tickets", href: "/dashboard/crm/tickets", icon: MailIcon, permission: "tickets.view" },
+    { label: "Campaigns", href: "/dashboard/crm/campaigns", icon: ImageIcon, permission: "campaigns.view" },
+    { label: "Reports", href: "/dashboard/crm/reports", icon: ChartIcon, permission: "crm-reports.view" },
+  ],
+};
+
+// Keka-style employee self-service. One leaf gated on ess.view — assign the
+// "employee" role to a staff login and this becomes their home.
+const MY_SPACE_NAV: NavGroup = {
+  label: "My Space",
+  icon: UsersIcon,
+  children: [
+    { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.view" },
   ],
 };
 
@@ -110,6 +127,8 @@ const HR_NAV: NavGroup = {
     { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon, permission: "attendance.view" },
     { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon, permission: "leaves.view" },
     { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon, permission: "appraisals.view" },
+    { label: "Payroll", href: "/dashboard/crm/payroll", icon: WalletIcon, permission: "payroll.view" },
+    { label: "Positions", href: "/dashboard/crm/positions", icon: BriefcaseIcon, permission: "positions.view" },
     { label: "HR Settings", href: "/dashboard/crm/hr-settings", icon: ClipboardIcon, permission: "departments.view" },
   ],
 };
@@ -152,7 +171,7 @@ function buildNav(): NavEntry[] {
   const perms = getPermissions();
   const allowed = (leaf: NavLeaf) =>
     !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
-  const groups = [CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
+  const groups = [MY_SPACE_NAV, CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
   if (user?.role === "STAFF") {
