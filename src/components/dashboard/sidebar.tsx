@@ -109,6 +109,16 @@ const CRM_NAV: NavGroup = {
   ],
 };
 
+// Keka-style employee self-service. One leaf gated on ess.view — assign the
+// "employee" role to a staff login and this becomes their home.
+const MY_SPACE_NAV: NavGroup = {
+  label: "My Space",
+  icon: UsersIcon,
+  children: [
+    { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.view" },
+  ],
+};
+
 const HR_NAV: NavGroup = {
   label: "HR Management",
   icon: UsersIcon,
@@ -117,6 +127,8 @@ const HR_NAV: NavGroup = {
     { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon, permission: "attendance.view" },
     { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon, permission: "leaves.view" },
     { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon, permission: "appraisals.view" },
+    { label: "Payroll", href: "/dashboard/crm/payroll", icon: WalletIcon, permission: "payroll.view" },
+    { label: "Positions", href: "/dashboard/crm/positions", icon: BriefcaseIcon, permission: "positions.view" },
     { label: "HR Settings", href: "/dashboard/crm/hr-settings", icon: ClipboardIcon, permission: "departments.view" },
   ],
 };
@@ -159,7 +171,7 @@ function buildNav(): NavEntry[] {
   const perms = getPermissions();
   const allowed = (leaf: NavLeaf) =>
     !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
-  const groups = [CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
+  const groups = [MY_SPACE_NAV, CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
   if (user?.role === "STAFF") {

@@ -2447,6 +2447,7 @@ export interface EmployeeRow {
   name: string;
   email: string;
   phone: string | null;
+  dob: string | null;
   designation: string | null;
   employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN";
   status: "ACTIVE" | "ON_LEAVE" | "TERMINATED" | "RESIGNED";
@@ -2642,6 +2643,150 @@ export const hrApi = {
     apiClient.delete<{ message: string }>(`/v1/hr/appraisals/${id}`),
 };
 
+/* --------------------- Employee self-service (ESS) ---------------------- */
+
+export interface PayslipRow {
+  payslipId: number;
+  employeeId: number;
+  month: string;
+  basic: number;
+  hra: number;
+  allowances: number;
+  bonus: number;
+  pf: number;
+  tax: number;
+  deductions: number;
+  lopDays: number;
+  paidDays: number;
+  grossPay: number;
+  netPay: number;
+  status: "DRAFT" | "PUBLISHED";
+  notes: string | null;
+  publishedAt: string | null;
+  createdAt: string;
+  employee?: {
+    employeeId: number;
+    employeeCode: string;
+    name: string;
+    designation: string | null;
+    joinDate?: string;
+    department: { name: string } | null;
+    office?: { name: string; address: string } | null;
+  };
+}
+export type PayrollList = CrmPage & { payslips: PayslipRow[] };
+
+export interface HolidayRow {
+  holidayId: number;
+  name: string;
+  date: string;
+  isOptional: boolean;
+}
+
+export interface JobPostingRow {
+  jobId: number;
+  title: string;
+  departmentId: number | null;
+  department: { departmentId: number; name: string } | null;
+  location: string | null;
+  employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN";
+  description: string | null;
+  status: "OPEN" | "CLOSED";
+  postedAt: string;
+  closedAt: string | null;
+}
+
+export interface CelebrationEntry {
+  employeeId: number;
+  name: string;
+  designation: string | null;
+  department: string | null;
+  date: string;
+  years?: number;
+}
+
+export interface Celebrations {
+  birthdays: CelebrationEntry[];
+  anniversaries: CelebrationEntry[];
+  newJoiners: CelebrationEntry[];
+}
+
+export interface MyPortal {
+  employee: EmployeeRow & {
+    manager: { employeeId: number; name: string; designation: string | null } | null;
+  };
+  leave: { totalAllocated: number; totalUsed: number; balances: LeaveBalanceRow[] };
+  attendanceThisMonth: {
+    month: string;
+    presentDays: number;
+    checkedInToday: boolean;
+    workedMinutes: number;
+  };
+  latestAppraisal: AppraisalRow | null;
+  latestPayslipMonth: string | null;
+  nextHolidays: HolidayRow[];
+}
+
+export interface MyIncrements {
+  appraisals: Pick<
+    AppraisalRow,
+    | "appraisalId"
+    | "cycle"
+    | "periodStart"
+    | "periodEnd"
+    | "overallRating"
+    | "recommendation"
+    | "incrementPct"
+    | "status"
+  >[];
+  salaryTrend: { month: string; grossPay: number; netPay: number }[];
+}
+
+export const essApi = {
+  portal: () => apiClient.get<MyPortal>("/v1/hr/me/portal"),
+  myPayslips: () => apiClient.get<PayslipRow[]>("/v1/hr/me/payslips"),
+  myPayslip: (id: number) => apiClient.get<PayslipRow>(`/v1/hr/me/payslips/${id}`),
+  myIncrements: () => apiClient.get<MyIncrements>("/v1/hr/me/increments"),
+  celebrations: () => apiClient.get<Celebrations>("/v1/hr/celebrations"),
+  holidays: (year?: number) =>
+    apiClient.get<HolidayRow[]>(`/v1/hr/holidays${year ? `?year=${year}` : ""}`),
+  openPositions: () => apiClient.get<JobPostingRow[]>("/v1/hr/positions/open"),
+};
+
+export const payrollApi = {
+  generate: (month: string) =>
+    apiClient.post<{ month: string; created: number; skipped: number }>(
+      "/v1/hr/payroll/generate",
+      { month },
+    ),
+  list: (params: { month?: string; status?: string; page?: number; limit?: number }) =>
+    apiClient.get<PayrollList>(`/v1/hr/payroll${toQueryString(params)}`),
+  update: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<PayslipRow>(`/v1/hr/payroll/${id}`, body),
+  publish: (id: number) => apiClient.post<PayslipRow>(`/v1/hr/payroll/${id}/publish`, {}),
+  publishMonth: (month: string) =>
+    apiClient.post<{ month: string; published: number }>("/v1/hr/payroll/publish-month", { month }),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/payroll/${id}`),
+};
+
+export const holidayApi = {
+  create: (body: { name: string; date: string; isOptional?: boolean }) =>
+    apiClient.post<HolidayRow>("/v1/hr/holidays", body),
+  update: (id: number, body: { name?: string; date?: string; isOptional?: boolean }) =>
+    apiClient.patch<HolidayRow>(`/v1/hr/holidays/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/holidays/${id}`),
+};
+
+export const positionsApi = {
+  list: (status?: string) =>
+    apiClient.get<JobPostingRow[]>(`/v1/hr/positions${status ? `?status=${status}` : ""}`),
+  create: (body: Record<string, unknown>) =>
+    apiClient.post<JobPostingRow>("/v1/hr/positions", body),
+  update: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<JobPostingRow>(`/v1/hr/positions/${id}`, body),
+  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/positions/${id}`),
+};
+
 export const crmQueryKeys = {
   summary: ["crm", "summary"] as const,
   crmCustomers: (p: object) => ["crm", "customers", p] as const,
@@ -2684,6 +2829,15 @@ export const crmQueryKeys = {
   leaves: (p: object) => ["hr", "leaves", p] as const,
   appraisals: (p: object) => ["hr", "appraisals", p] as const,
   myAppraisals: ["hr", "appraisals", "me"] as const,
+  myPortal: ["ess", "portal"] as const,
+  myPayslips: ["ess", "payslips"] as const,
+  myPayslip: (id: number) => ["ess", "payslip", id] as const,
+  myIncrements: ["ess", "increments"] as const,
+  celebrations: ["ess", "celebrations"] as const,
+  holidays: (year?: number) => ["ess", "holidays", year] as const,
+  openPositions: ["ess", "positions", "open"] as const,
+  payroll: (p: object) => ["hr", "payroll", p] as const,
+  positions: (status?: string) => ["hr", "positions", status] as const,
 };
 
 /* ============================ Resume builder ============================ */
