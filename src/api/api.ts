@@ -117,6 +117,9 @@ export interface AdminBooking {
   /** Assigned service partner, or null when nobody has accepted the lead yet. */
   professionalId: number | null;
   professionalName: string | null;
+  /** How the partner was chosen: AUTO = accepted the broadcast lead, MANUAL =
+   *  admin allocated directly. Null while unassigned. */
+  assignmentSource: "AUTO" | "MANUAL" | null;
   date: string;
 }
 

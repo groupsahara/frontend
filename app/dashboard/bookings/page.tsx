@@ -190,7 +190,25 @@ export default function BookingsPage() {
                     <td className="px-5 py-3 text-muted-foreground">{b.paymentMode}</td>
                     <td className="px-5 py-3">
                       {b.professionalName ? (
-                        <span className="text-foreground">{b.professionalName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-foreground">{b.professionalName}</span>
+                          {b.assignmentSource && (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                b.assignmentSource === "MANUAL"
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-success/10 text-success"
+                              }`}
+                              title={
+                                b.assignmentSource === "MANUAL"
+                                  ? "Allocated manually by an admin"
+                                  : "Accepted from the auto-allocation broadcast"
+                              }
+                            >
+                              {b.assignmentSource === "MANUAL" ? "Manual" : "Auto"}
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-xs font-medium text-warning">Unassigned</span>
                       )}
