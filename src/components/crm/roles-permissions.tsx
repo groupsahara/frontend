@@ -15,6 +15,7 @@ import { hasPermission, isSuperAdmin } from "@/src/lib/auth";
 import {
   BagIcon,
   BriefcaseIcon,
+  BuildingIcon,
   CalendarIcon,
   CartIcon,
   ChartIcon,
@@ -68,6 +69,14 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
   offices: { icon: MapPinIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Office locations" },
   payments: { icon: WalletIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "Payments & payouts" },
   settings: { icon: SettingsIcon, color: "#94a3b8", bg: "rgba(148,163,184,0.12)", desc: "Panel settings & password" },
+  // SaaS platform (the /real-estate section) — its feature modules, so a panel
+  // role can be granted access to each part of the SaaS app.
+  saas: { icon: BuildingIcon, color: "#6366f1", bg: "rgba(99,102,241,0.12)", desc: "SaaS · show the platform tab" },
+  users: { icon: UsersIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "SaaS · platform users" },
+  forms: { icon: ClipboardIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "SaaS · dynamic forms" },
+  leads: { icon: BriefcaseIcon, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", desc: "SaaS · lead management" },
+  projects: { icon: MapPinIcon, color: "#fb923c", bg: "rgba(251,146,60,0.12)", desc: "SaaS · real-estate projects" },
+  reports: { icon: ChartIcon, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", desc: "SaaS · reports & analytics" },
 };
 
 const ACTION_META: Record<string, { icon: Icon; cls: string }> = {

@@ -19,6 +19,9 @@ export interface AdminUser {
   mobile: string | null;
   name: string;
   role: Role;
+  // Present for multi-tenant SaaS (tenant) users — scopes them to the
+  // /real-estate section. Null/absent for platform admins and staff.
+  tenantId?: string | null;
 }
 
 export interface LoginResponse {
@@ -460,6 +463,15 @@ export interface AnalyticsTopCity {
   revenue: number;
 }
 
+export interface AnalyticsZone {
+  /** geofenceId, or 0 for the synthetic "Unzoned" bucket. */
+  geofenceId: number;
+  name: string;
+  color: string;
+  bookings: number;
+  revenue: number;
+}
+
 export interface AnalyticsRatings {
   average: number;
   count: number;
@@ -488,6 +500,8 @@ export interface AnalyticsResponse {
   topCategories: AnalyticsTopCategory[];
   topPartners: AnalyticsTopPartner[];
   topCities: AnalyticsTopCity[];
+  /** Bookings + revenue per geo-fence zone (point-in-polygon on service location). */
+  zones: AnalyticsZone[];
   ratings: AnalyticsRatings;
 }
 
@@ -1498,7 +1512,41 @@ export interface PricingRuleInput {
   isActive?: boolean;
 }
 
+export interface LivePartnerPoint {
+  professionalId: number;
+  name: string;
+  mobile: string | null;
+  city: string | null;
+  lat: number;
+  lng: number;
+  teamId: number | null;
+  geofenceId: number | null;
+  zoneName: string | null;
+  zoneColor: string | null;
+}
+
+export interface LivePartnerZone {
+  geofenceId: number;
+  name: string;
+  color: string;
+  polygon: LatLng[];
+  /** The dispatch team assigned to this zone, if any. */
+  team: { teamId: number; name: string } | null;
+  activeCount: number;
+}
+
+export interface LivePartnersResponse {
+  totalActive: number;
+  unzonedCount: number;
+  zones: LivePartnerZone[];
+  partners: LivePartnerPoint[];
+}
+
 export const dispatchApi = {
+  /** GET /v1/admin/dispatch/live-partners — active partners placed on their zone. */
+  livePartners: () =>
+    apiClient.get<LivePartnersResponse>(`/v1/admin/dispatch/live-partners`),
+
   /** GET /v1/admin/dispatch/teams — teams with member/geofence counts. */
   listTeams: (search?: string) =>
     apiClient.get<DispatchTeamRow[]>(`/v1/admin/dispatch/teams${toQueryString({ search })}`),
@@ -1602,6 +1650,7 @@ export const queryKeys = {
   payoutStatusCounts: ["dispatcher", "payouts", "status-counts"] as const,
   dispatchTeams: (search: string) => ["dispatcher", "teams", search] as const,
   dispatchTeam: (id: number) => ["dispatcher", "team", id] as const,
+  livePartners: ["dispatcher", "live-partners"] as const,
   geofences: (search: string) => ["dispatcher", "geofences", search] as const,
   geofence: (id: number) => ["dispatcher", "geofence", id] as const,
   warehouses: (search: string) => ["dispatcher", "warehouses", search] as const,

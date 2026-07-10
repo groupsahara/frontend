@@ -11,6 +11,11 @@ import {
 import { ApiError } from "@/src/api/apiClient";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import {
+  LivePartnerMap,
+  type FenceOverlay,
+  type LivePartnerMapPoint,
+} from "@/src/components/dashboard/dispatch-map";
+import {
   CloseIcon,
   PencilIcon,
   PlusIcon,
@@ -69,6 +74,9 @@ export default function TeamsPage() {
           Add Team
         </button>
       </div>
+
+      {/* Live partner map */}
+      <LivePartnersCard />
 
       {/* Search */}
       <div className="flex items-center justify-between gap-3">
@@ -230,6 +238,109 @@ export default function TeamsPage() {
             </>
           }
         />
+      )}
+    </div>
+  );
+}
+
+/* --------------------------- Live partner map --------------------------- */
+
+function LivePartnersCard() {
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: queryKeys.livePartners,
+    queryFn: () => dispatchApi.livePartners(),
+    // Live-ish: refresh the snapshot every 30s while the page is open.
+    refetchInterval: 30_000,
+    placeholderData: keepPreviousData,
+  });
+
+  const zones: FenceOverlay[] = useMemo(
+    () =>
+      (data?.zones ?? []).map((z) => ({
+        // Map tooltip reads "Zone · Team" so the covering team is visible on hover.
+        name: z.team ? `${z.name} · ${z.team.name}` : z.name,
+        color: z.color,
+        polygon: z.polygon,
+      })),
+    [data],
+  );
+  const points: LivePartnerMapPoint[] = useMemo(
+    () =>
+      (data?.partners ?? []).map((p) => ({
+        name: p.name,
+        lat: p.lat,
+        lng: p.lng,
+        // Colour the pin by its zone; unzoned partners get a neutral slate tone.
+        color: p.zoneColor ?? "#94a3b8",
+        zoneName: p.zoneName,
+        mobile: p.mobile,
+      })),
+    [data],
+  );
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Live partner map</h2>
+          <p className="text-xs text-muted-foreground">
+            Active partners plotted by current location · {data?.totalActive ?? 0} online
+            {isFetching ? " · updating…" : ""}
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex h-96 items-center justify-center rounded-2xl bg-muted/30 text-muted-foreground">
+          <SpinnerIcon className="h-6 w-6" />
+        </div>
+      ) : isError ? (
+        <div className="flex h-96 flex-col items-center justify-center gap-3 rounded-2xl bg-muted/30 text-center">
+          <p className="text-muted-foreground">Couldn’t load live partners.</p>
+          <button
+            onClick={() => refetch()}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        <>
+          <LivePartnerMap zones={zones} partners={points} />
+
+          {/* Per-zone active-partner counts */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(data?.zones ?? []).map((z) => (
+              <span
+                key={z.geofenceId}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground"
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: z.color }} />
+                {z.name}
+                <span className="text-muted-foreground">
+                  · {z.team ? z.team.name : "No team"}
+                </span>
+                <strong className="font-semibold">{z.activeCount}</strong>
+              </span>
+            ))}
+            {(data?.unzonedCount ?? 0) > 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#94a3b8" }} />
+                Unzoned
+                <strong className="font-semibold">{data?.unzonedCount}</strong>
+              </span>
+            ) : null}
+            {data && data.totalActive === 0 ? (
+              <span className="text-xs text-muted-foreground">No partners are online right now.</span>
+            ) : null}
+          </div>
+        </>
       )}
     </div>
   );

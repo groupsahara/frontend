@@ -161,6 +161,21 @@ export default function AnalyticsPage() {
           </ChartCard>
         </div>
 
+        <ChartCard
+          title="Bookings & revenue by zone"
+          subtitle="Geo-fence zones · bookings placed by service location, revenue from completed bookings"
+        >
+          <BarList
+            rows={data.zones.map((z) => ({
+              id: z.geofenceId,
+              label: z.name,
+              value: z.revenue,
+              display: inr(z.revenue),
+              secondary: `${num(z.bookings)} booking${z.bookings === 1 ? "" : "s"}`,
+            }))}
+          />
+        </ChartCard>
+
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <TopPartnersCard data={data} />

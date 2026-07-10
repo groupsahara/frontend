@@ -21,7 +21,6 @@ import {
   MapPinIcon,
   MonitorIcon,
   PaletteIcon,
-  PhoneIcon,
   PolygonIcon,
   RouteIcon,
   SettingsIcon,
@@ -124,14 +123,23 @@ const ACCESS_NAV: NavGroup = {
   ],
 };
 
-// Multi-tenant real-estate CRM — a full app-within-the-app ported verbatim
-// from the ai-sales-agent reference frontend (own shell, sidebar and pages)
-// mounted at /real-estate. One entry point here; module nav lives inside.
+// Multi-tenant SaaS platform (mounted at /real-estate). The platform-operator
+// features — dashboard, client/tenant management, AI training and audit logs —
+// are surfaced here in the panel as a SaaS dropdown so they're reachable
+// without entering the sub-app; the tenant-facing CRM modules keep their own
+// nav inside the /real-estate shell.
+// Every child is gated on "saas.view" so the whole SaaS tab is hidden unless a
+// role has been granted SaaS access (super admins hold "*"). Without the grant
+// the group has no visible children and drops out of the nav entirely.
 const REAL_ESTATE_NAV: NavGroup = {
-  label: "Real Estate",
+  label: "SaaS",
   icon: BuildingIcon,
   children: [
-    { label: "AI Sales Agent", href: "/real-estate", icon: PhoneIcon },
+    { label: "Dashboard", href: "/real-estate", icon: GridIcon, permission: "saas.view" },
+    { label: "Add Clients", href: "/real-estate/client-management/add-clients", icon: UsersIcon, permission: "saas.view" },
+    { label: "Manage Clients", href: "/real-estate/client-management/manage-clients", icon: UsersIcon, permission: "saas.view" },
+    { label: "AI Training", href: "/real-estate/ai-training", icon: MonitorIcon, permission: "saas.view" },
+    { label: "Audit Logs", href: "/real-estate/audit-logs", icon: FileTextIcon, permission: "saas.view" },
   ],
 };
 
@@ -176,8 +184,18 @@ function allowedLeaves(): NavLeaf[] {
  */
 export function firstAllowedRoute(): string {
   const user = getStoredUser();
+  // Tenant (SaaS) users don't belong in the admin panel — send them straight
+  // into the /real-estate section, which is scoped to their tenant.
+  if (isTenantUser()) return "/real-estate";
   if (user?.role !== "STAFF") return "/dashboard";
   return allowedLeaves()[0]?.href ?? "/dashboard";
+}
+
+// A tenant user is any signed-in account that is not a platform role
+// (ADMIN / SUPER_ADMIN / STAFF) — e.g. a multi-tenant CRM member.
+export function isTenantUser(): boolean {
+  const role = getStoredUser()?.role;
+  return !!role && role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "STAFF";
 }
 
 /**
@@ -284,7 +302,7 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: Side
 
 // Section roots ("/dashboard", "/dashboard/crm") match exactly, else every
 // child page would light them (and their group) up too.
-const EXACT_HREFS = new Set(["/dashboard", "/dashboard/crm"]);
+const EXACT_HREFS = new Set(["/dashboard", "/dashboard/crm", "/real-estate"]);
 
 function leafActive(href: string, pathname: string): boolean {
   return EXACT_HREFS.has(href) ? pathname === href : pathname.startsWith(href);

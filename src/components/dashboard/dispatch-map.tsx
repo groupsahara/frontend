@@ -124,6 +124,92 @@ export function GeofenceOverviewMap({
   return <div ref={containerRef} className={`w-full rounded-2xl ${className}`} />;
 }
 
+const escapeHtml = (s: string) =>
+  s.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string,
+  );
+
+export interface LivePartnerMapPoint {
+  name: string;
+  lat: number;
+  lng: number;
+  /** Marker colour — the zone's colour, or a neutral tone when unzoned. */
+  color: string;
+  zoneName: string | null;
+  mobile: string | null;
+}
+
+/**
+ * Live-ops map for the Teams page: draws every active zone polygon and drops a
+ * pin for each currently-active partner at their last known location, coloured
+ * by the zone they're inside. Hover shows the partner name; click shows details.
+ */
+export function LivePartnerMap({
+  zones,
+  partners,
+  className = "h-96",
+}: {
+  zones: FenceOverlay[];
+  partners: LivePartnerMapPoint[];
+  className?: string;
+}) {
+  const layerRef = useRef<Leaflet.LayerGroup | null>(null);
+  const zonesRef = useLatest(zones);
+  const partnersRef = useLatest(partners);
+
+  const { containerRef, mapRef, moduleRef } = useLeafletMap((L, map) => {
+    layerRef.current = L.layerGroup().addTo(map);
+    draw(L, map);
+  });
+
+  function draw(L: LeafletModule, map: Leaflet.Map) {
+    const layer = layerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    const all: LatLng[] = [];
+
+    for (const zone of zonesRef.current) {
+      if (zone.polygon.length < 3) continue;
+      all.push(...zone.polygon);
+      L.polygon(
+        zone.polygon.map((p) => [p.lat, p.lng]),
+        { color: zone.color, weight: 2, fillColor: zone.color, fillOpacity: 0.08 },
+      )
+        .bindTooltip(escapeHtml(zone.name), { sticky: true })
+        .addTo(layer);
+    }
+
+    for (const p of partnersRef.current) {
+      all.push({ lat: p.lat, lng: p.lng });
+      L.marker([p.lat, p.lng], { icon: pinIcon(L, p.color) })
+        .bindTooltip(escapeHtml(p.name), { direction: "top", offset: [0, -22] })
+        .bindPopup(
+          `<strong>${escapeHtml(p.name)}</strong>` +
+            (p.mobile ? `<br/>${escapeHtml(p.mobile)}` : "") +
+            `<br/>${p.zoneName ? `Zone: ${escapeHtml(p.zoneName)}` : "Unzoned"}`,
+        )
+        .addTo(layer);
+    }
+
+    if (all.length >= 2) {
+      map.fitBounds(L.latLngBounds(all.map((p) => [p.lat, p.lng])), { padding: [40, 40] });
+    } else if (all.length === 1) {
+      map.setView([all[0].lat, all[0].lng], 13);
+    }
+  }
+
+  useEffect(() => {
+    const L = moduleRef.current;
+    const map = mapRef.current;
+    if (L && map) draw(L, map);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zones, partners]);
+
+  return <div ref={containerRef} className={`w-full rounded-2xl ${className}`} />;
+}
+
 /** Click-to-place location picker (warehouse position). */
 export function LocationPickerMap({
   value,

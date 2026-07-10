@@ -35,7 +35,7 @@ export const authApi = {
     email: string
   ) => {
     const response = await apiClient.post(
-      "/api/auth/send-set-password",
+      "/api/v1/auth/send-set-password",
       { email }
     );
 
@@ -46,7 +46,7 @@ export const authApi = {
     token: string
   ) => {
     const response = await apiClient.get(
-      `/api/auth/validate-token?token=${token}`
+      `/api/v1/auth/validate-token?token=${encodeURIComponent(token)}`
     );
 
     return response.data;
@@ -57,7 +57,7 @@ export const authApi = {
     password: string
   ) => {
     const response = await apiClient.post(
-      "/api/auth/set-password",
+      "/api/v1/auth/set-password",
       {
         token,
         password,
@@ -69,32 +69,50 @@ export const authApi = {
 
   // Panel profile mapped into the reference User shape ({ id, email, tenantId,
   // roles, permissions }) so usePermissions/PermissionGate work unchanged.
-  // Panel admins hold "*" permissions → normalized to the super_admin role.
+  // Panel admins hold "*" permissions → normalized to the super_admin role;
+  // tenant users surface their tenantId + tenant role so /real-estate scopes to
+  // their tenant. tenantId/roleNames come from the panel session (rc.* keys the
+  // login wrote) — /api/v1/admin/me is admin-guarded and may reject a tenant
+  // user, so we read those from storage and treat the /me call as best-effort.
   getMe: async () => {
-    const response = await apiClient.get("/api/v1/admin/me");
-    const admin = response.data as {
-      id: number;
-      email: string | null;
+    const read = <T,>(key: string, fallback: T): T => {
+      try {
+        return JSON.parse(window.localStorage.getItem(key) ?? "null") ?? fallback;
+      } catch {
+        return fallback;
+      }
+    };
+    const stored = read<{
+      id?: number;
+      email?: string | null;
       name?: string | null;
       role?: string;
-    };
-    let permissions: string[] = [];
+      tenantId?: string | null;
+    } | null>("rc.user", null);
+    const permissions = read<string[]>("rc.permissions", []);
+    const roleNames = read<string[]>("rc.roleNames", []);
+
+    let admin = stored;
     try {
-      permissions = JSON.parse(
-        window.localStorage.getItem("rc.permissions") ?? "[]",
-      ) as string[];
+      const response = await apiClient.get("/api/v1/admin/me");
+      admin = { ...stored, ...(response.data as object) };
     } catch {
-      permissions = [];
+      // Admin-guarded endpoint refuses tenant users — fall back to the stored
+      // panel profile written at login.
     }
+
     const roles =
-      admin.role === "SUPER_ADMIN" || permissions.includes("*")
+      admin?.role === "SUPER_ADMIN" || permissions.includes("*")
         ? ["super_admin"]
-        : [String(admin.role ?? "").toLowerCase()];
+        : roleNames.length
+          ? roleNames
+          : [String(admin?.role ?? "").toLowerCase()];
+
     return {
-      id: String(admin.id),
-      email: admin.email ?? "",
-      name: admin.name ?? "",
-      tenantId: null,
+      id: String(admin?.id ?? ""),
+      email: admin?.email ?? "",
+      name: admin?.name ?? "",
+      tenantId: admin?.tenantId ?? stored?.tenantId ?? null,
       roles,
       permissions,
     };

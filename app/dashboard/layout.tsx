@@ -12,6 +12,7 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Sidebar,
   firstAllowedRoute,
+  isTenantUser,
   routeAllowed,
 } from "@/src/components/dashboard/sidebar";
 import { Topbar } from "@/src/components/dashboard/topbar";
@@ -51,10 +52,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (authed === false) router.replace("/login");
   }, [authed, router]);
 
+  // Tenant (SaaS) users have no place in the admin panel — send them to their
+  // /real-estate section instead of rendering the console shell.
+  useEffect(() => {
+    if (authed && isTenantUser()) router.replace("/real-estate");
+  }, [authed, router]);
+
   // STAFF may only open pages their role permissions grant — bounce deep
   // links to their first allowed page (admins are never restricted).
   useEffect(() => {
-    if (authed && !routeAllowed(pathname)) {
+    if (authed && !isTenantUser() && !routeAllowed(pathname)) {
       const fallback = firstAllowedRoute();
       if (fallback !== pathname) router.replace(fallback);
     }
