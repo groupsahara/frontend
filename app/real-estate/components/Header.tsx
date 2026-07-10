@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { authApi } from "@/app/api/api";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
+import { clearSession } from "@/src/lib/auth";
 import apiClient from "@/app/api/apiClient";
 
 interface FormConfig {
@@ -87,6 +88,9 @@ export default function Header({
     mutationFn: authApi.logout,
     onSettled: () => {
       clearAuth();
+      // Also clear the panel session (rc.* keys) — the source of truth. Without
+      // it, /login still sees a token via getToken() and bounces back in.
+      clearSession();
       document.cookie = "accessToken=; path=/; max-age=0; SameSite=Lax";
       window.location.href = "/login";
     },
@@ -370,16 +374,30 @@ export default function Header({
               <PanelLeft className="w-5 h-5" />
             </button>
 
-            <Link href="/real-estate">
-              <span className="font-bold text-base text-foreground tracking-tight select-none">TSK</span>
+            <Link href="/dashboard" className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://restocare-asset.s3.ap-south-1.amazonaws.com/Clientlogo/6985da0674994.png"
+                alt="RestoCare"
+                className="h-7 w-auto shrink-0"
+              />
+              <span className="font-bold text-base text-foreground tracking-tight select-none">RestoCare</span>
             </Link>
           </div>
 
           {/* Desktop Layout - Aligns Sidebar Icon Perfectly Centered on the Sidebar Border Line */}
           <div className={`hidden lg:flex items-center transition-all duration-205 ease-in-out relative ${isDesktopSidebarOpen ? "w-52" : "w-8"
             }`}>
-            <Link href="/real-estate" className="flex items-center">
-              <span className="font-bold text-base text-foreground tracking-tight select-none">TSK</span>
+            <Link href="/dashboard" className="flex items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://restocare-asset.s3.ap-south-1.amazonaws.com/Clientlogo/6985da0674994.png"
+                alt="RestoCare"
+                className="h-7 w-auto shrink-0"
+              />
+              {isDesktopSidebarOpen && (
+                <span className="font-bold text-base text-foreground tracking-tight select-none">RestoCare</span>
+              )}
             </Link>
 
             <button

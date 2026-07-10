@@ -14,6 +14,7 @@ import { authApi } from "@/app/api/api";
 import { useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "@/store/authStore";
 import { usePermissions } from "@/hooks/usePermissions";
+import { clearSession } from "@/src/lib/auth";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -266,8 +267,11 @@ export default function Sidebar({
     mutationFn: authApi.logout,
     onSettled: () => {
       clearAuth();
+      // The panel session (rc.* localStorage keys) is the source of truth here —
+      // the zustand store is only a mirror. Without clearing it, /login still
+      // sees a valid token via getToken() and bounces straight back in.
+      clearSession();
       document.cookie = "accessToken=; path=/; max-age=0; SameSite=Lax";
-      window.history.pushState(null, "", "/login");
       window.location.href = "/login";
     },
   });
@@ -430,7 +434,15 @@ export default function Sidebar({
       >
         {/* Mobile-only close button row */}
         <div className="lg:hidden h-14 flex items-center justify-between px-3 border-b border-border shrink-0">
-          <span className="font-bold text-base text-foreground tracking-tight select-none">TSK</span>
+          <Link href="/dashboard" className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://restocare-asset.s3.ap-south-1.amazonaws.com/Clientlogo/6985da0674994.png"
+              alt="RestoCare"
+              className="h-7 w-auto shrink-0"
+            />
+            <span className="font-bold text-base text-foreground tracking-tight select-none">RestoCare</span>
+          </Link>
           <button
             onClick={onClose}
             aria-label="Close sidebar"

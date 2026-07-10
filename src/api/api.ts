@@ -19,6 +19,9 @@ export interface AdminUser {
   mobile: string | null;
   name: string;
   role: Role;
+  // Present for multi-tenant SaaS (tenant) users — scopes them to the
+  // /real-estate section. Null/absent for platform admins and staff.
+  tenantId?: string | null;
 }
 
 export interface LoginResponse {

@@ -78,8 +78,14 @@ export function seedAuthFromPanelSession(): boolean {
   const token = window.localStorage.getItem("rc.accessToken");
   if (!token) return false;
 
-  let panelUser: { id?: number; email?: string | null; role?: string } | null = null;
+  let panelUser: {
+    id?: number;
+    email?: string | null;
+    role?: string;
+    tenantId?: string | null;
+  } | null = null;
   let permissions: string[] = [];
+  let roleNames: string[] = [];
   try {
     panelUser = JSON.parse(window.localStorage.getItem("rc.user") ?? "null");
   } catch {
@@ -90,17 +96,28 @@ export function seedAuthFromPanelSession(): boolean {
   } catch {
     permissions = [];
   }
+  try {
+    roleNames = JSON.parse(window.localStorage.getItem("rc.roleNames") ?? "[]");
+  } catch {
+    roleNames = [];
+  }
   if (!panelUser) return false;
 
+  // Super admins hold "*" → normalized to super_admin so the reference RBAC
+  // helpers grant everything. Everyone else surfaces their real role name(s):
+  // a tenant user's tenant role (e.g. "admin"/"sales") drives the sidebar and
+  // the profile chip; fall back to the SystemRole when no role names are set.
   const roles =
     panelUser.role === "SUPER_ADMIN" || permissions.includes("*")
       ? ["super_admin"]
-      : [String(panelUser.role ?? "").toLowerCase()];
+      : roleNames.length
+        ? roleNames
+        : [String(panelUser.role ?? "").toLowerCase()];
 
   useAuthStore.getState().setAuth(token, {
     id: String(panelUser.id ?? ""),
     email: panelUser.email ?? "",
-    tenantId: null,
+    tenantId: panelUser.tenantId ?? null,
     roles,
     permissions,
   });
