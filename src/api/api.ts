@@ -329,9 +329,20 @@ export interface CustomerRow {
   mobile: string | null;
   restaurantName: string | null;
   profileImage: string | null;
+  /** Admin block flag — a blocked customer cannot log in. */
+  isBlocked: boolean;
   bookingsCount: number;
   addressCount: number;
   joinedAt: string;
+}
+
+export interface CreateCustomerInput {
+  name: string;
+  /** 10-digit mobile number (used for the customer's OTP login). */
+  mobile: string;
+  email?: string;
+  restaurantName?: string;
+  gstNumber?: string;
 }
 
 export interface CustomerAddress {
@@ -364,6 +375,8 @@ export interface CustomerDetail {
   gstNumber: string | null;
   restaurantName: string | null;
   profileImage: string | null;
+  /** Admin block flag — a blocked customer cannot log in. */
+  isBlocked: boolean;
   joinedAt: string;
   stats: { totalBookings: number; completed: number; cancelled: number; totalSpent: number };
   addresses: CustomerAddress[];
@@ -402,6 +415,21 @@ export const customersApi = {
       `/v1/admin/customers/${userId}/coupons`,
       { count },
     ),
+
+  /** POST /v1/admin/customers — create a customer (USER account). */
+  create: (body: CreateCustomerInput) =>
+    apiClient.post<CustomerRow>("/v1/admin/customers", body),
+
+  /** PATCH /v1/admin/customers/:id/block — block or unblock a customer. */
+  setBlocked: (userId: number, isBlocked: boolean) =>
+    apiClient.patch<{ message: string; isBlocked: boolean }>(
+      `/v1/admin/customers/${userId}/block`,
+      { isBlocked },
+    ),
+
+  /** DELETE /v1/admin/customers/:id — permanently delete a customer + their data. */
+  remove: (userId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/customers/${userId}`),
 };
 
 /* ----------------------------- Analytics -------------------------------- */
@@ -1734,6 +1762,8 @@ export interface CrmCustomerRow {
   name: string | null;
   email: string | null;
   mobile: string | null;
+  /** Admin block flag — a blocked customer cannot log in. */
+  isBlocked: boolean;
   createdAt: string;
   bookingCount: number;
 }

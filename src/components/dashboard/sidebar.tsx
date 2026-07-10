@@ -68,7 +68,6 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon, permission: "payouts.view" },
     ],
   },
-  { label: "Customers", href: "/dashboard/customers", icon: UsersIcon, permission: "customers.view" },
   { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
   { label: "Vendors", href: "/dashboard/vendors", icon: CartIcon, permission: "vendors.view" },
   { label: "Payments", href: "/dashboard/payments", icon: WalletIcon },

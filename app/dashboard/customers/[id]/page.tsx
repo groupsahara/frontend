@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { customersApi, queryKeys, type CustomerDetail } from "@/src/api/api";
+import { ApiError } from "@/src/api/apiClient";
+import { getStoredUser, hasPermission } from "@/src/lib/auth";
+import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import { SpinnerIcon } from "@/src/components/icons";
 
 function inr(n: number): string {
@@ -64,13 +67,62 @@ export default function CustomerDetailPage() {
 }
 
 function CustomerView({ customer }: { customer: CustomerDetail }) {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Permission reads hit localStorage — resolve after mount to avoid SSR/CSR skew.
+  const [canManage, setCanManage] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+  useEffect(() => {
+    setCanManage(hasPermission("customers.update"));
+    const role = getStoredUser()?.role;
+    setCanDelete(role === "ADMIN" || role === "SUPER_ADMIN");
+  }, []);
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.customer(customer.userId) });
+    queryClient.invalidateQueries({ queryKey: ["customers"] });
+  };
+
+  const blockMutation = useMutation({
+    mutationFn: (isBlocked: boolean) => customersApi.setBlocked(customer.userId, isBlocked),
+    onSuccess: (res) => {
+      setError(null);
+      setNotice(res.message);
+      invalidate();
+    },
+    onError: (e) => setError(e instanceof ApiError ? e.message : "Action failed."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => customersApi.remove(customer.userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["customers"] });
+      router.replace("/dashboard/customers");
+    },
+    onError: (e) => {
+      setConfirmDelete(false);
+      setError(e instanceof ApiError ? e.message : "Could not delete customer.");
+    },
+  });
+
   return (
     <>
       {/* Header */}
       <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card p-5">
         <Avatar customer={customer} />
         <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">{customer.name}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-foreground">
+            {customer.name}
+            {customer.isBlocked && (
+              <span className="rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-danger">
+                Blocked
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-muted-foreground">
             {customer.restaurantName ? `${customer.restaurantName} · ` : ""}Joined{" "}
             {new Date(customer.joinedAt).toLocaleDateString("en-IN", {
@@ -80,7 +132,42 @@ function CustomerView({ customer }: { customer: CustomerDetail }) {
             })}
           </p>
         </div>
+
+        {canManage && (
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              className={`text-sm font-medium ${
+                customer.isBlocked ? "text-danger" : "text-muted-foreground"
+              }`}
+            >
+              {customer.isBlocked ? "Blocked" : "Active"}
+            </span>
+            <button
+              role="switch"
+              aria-checked={customer.isBlocked}
+              disabled={blockMutation.isPending}
+              onClick={() => blockMutation.mutate(!customer.isBlocked)}
+              title={customer.isBlocked ? "Unblock customer" : "Block customer"}
+              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+                customer.isBlocked ? "bg-danger" : "bg-muted"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+                  customer.isBlocked ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        )}
       </div>
+
+      {notice ? (
+        <div className="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">{notice}</div>
+      ) : null}
+      {error ? (
+        <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+      ) : null}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -201,6 +288,41 @@ function CustomerView({ customer }: { customer: CustomerDetail }) {
           </div>
         )}
       </div>
+
+      {/* Danger zone */}
+      {canDelete && (
+        <div className="space-y-3 rounded-2xl border border-danger/30 bg-card p-5">
+          <h2 className="text-base font-semibold text-danger">Danger zone</h2>
+          <p className="text-sm text-muted-foreground">
+            Permanently delete this customer and erase all their data. This cannot be undone.
+          </p>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="rounded-xl bg-danger px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+          >
+            Delete customer permanently
+          </button>
+        </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          danger
+          title="Permanently delete this customer?"
+          confirmLabel="Delete everything"
+          busy={deleteMutation.isPending}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={() => deleteMutation.mutate()}
+          message={
+            <>
+              This will permanently delete{" "}
+              <strong className="text-foreground">{customer.name}</strong> and erase{" "}
+              <strong className="text-foreground">all associated data</strong> — bookings, coupons,
+              addresses and ratings. This action is irreversible.
+            </>
+          }
+        />
+      )}
     </>
   );
 }
