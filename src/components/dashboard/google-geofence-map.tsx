@@ -469,7 +469,7 @@ export function GeofenceMapEditor({
   const showBlocker = authError || loadError;
 
   return (
-    <div className={`relative w-full ${className}`}>
+    <div className={`isolate relative z-0 w-full ${className}`}>
       <div ref={containerRef} className="h-full w-full rounded-2xl" />
       {/* Search overlay — clear of the map controls. */}
       {!showBlocker && (
