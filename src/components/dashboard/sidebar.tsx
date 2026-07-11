@@ -88,6 +88,8 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon },
     ],
   },
+  // No `permission` — super-admin credentials page, hidden from STAFF logins.
+  { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
 ];
 

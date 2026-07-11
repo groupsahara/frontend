@@ -9,6 +9,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
+import { Toaster } from "sonner";
 import {
   Sidebar,
   firstAllowedRoute,
@@ -96,6 +97,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh bg-background">
+      <Toaster richColors position="top-right" />
       <Sidebar
         collapsed={collapsed}
         mobileOpen={mobileOpen}

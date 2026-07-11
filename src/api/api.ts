@@ -365,6 +365,41 @@ export const referralApi = {
     apiClient.get<ReferralRow[]>(`/v1/admin/referrals${toQueryString({ search })}`),
 };
 
+/* --------------------- Configure (platform credentials) ----------------- */
+
+export interface ConfigureField {
+  /** Stable key — same as the backend env var name. */
+  key: string;
+  label: string;
+  placeholder: string;
+  /** Rendered masked with a show/hide toggle. */
+  isSecret: boolean;
+  value: string;
+  /** Where the current value comes from. */
+  source: "database" | "env" | "unset";
+}
+
+export interface ConfigureGroup {
+  key: string;
+  title: string;
+  description: string;
+  fields: ConfigureField[];
+}
+
+export interface ConfigureSection {
+  title: string;
+  groups: ConfigureGroup[];
+}
+
+export const configureApi = {
+  /** GET /v1/configure — all credential cards + current values (super admin). */
+  get: () => apiClient.get<{ sections: ConfigureSection[] }>("/v1/configure"),
+
+  /** PUT /v1/configure — upsert the given key/value overrides (super admin). */
+  update: (values: { key: string; value: string }[]) =>
+    apiClient.put<{ updated: number }>("/v1/configure", { values }),
+};
+
 /* ------------------------------ Customers ------------------------------- */
 
 export interface CustomerRow {
@@ -1755,6 +1790,7 @@ export const queryKeys = {
   userAddresses: (userId: string | number) => ["addresses", userId] as const,
   userBookings: (userId: string | number) => ["bookings", "user", userId] as const,
   contactSubmissions: (search: string) => ["contacts", search] as const,
+  configure: ["configure"] as const,
 };
 
 /* ========================= Contact Enquiries ============================ */
