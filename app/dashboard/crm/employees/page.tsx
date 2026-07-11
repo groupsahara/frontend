@@ -328,7 +328,11 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
             <input className={inputCls} value={f.address} onChange={(e) => set("address", e.target.value)} />
           </Field>
         </div>
-        {!row && (
+        {row ? (
+          <div className="sm:col-span-2">
+            <LinkLoginSection employee={row} />
+          </div>
+        ) : (
           <div className="sm:col-span-2">
             <Field
               label="Panel login password (optional)"
@@ -354,5 +358,143 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
         </div>
       </form>
     </Modal>
+  );
+}
+
+// Link (or unlink) a login to an existing employee so they can sign in and
+// mark geofenced attendance. Either attach an existing unlinked panel user, or
+// mint a new STAFF login on the employee's email.
+function LinkLoginSection({ employee }: { employee: EmployeeRow }) {
+  const qc = useQueryClient();
+  const [linked, setLinked] = useState(employee.user);
+  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [selUser, setSelUser] = useState("");
+  const [pwd, setPwd] = useState("");
+  const [err, setErr] = useState("");
+
+  const { data: users } = useQuery({
+    queryKey: ["hr", "linkable-users"],
+    queryFn: hrApi.linkableUsers,
+    enabled: !linked,
+  });
+
+  const link = useMutation({
+    mutationFn: () =>
+      hrApi.linkEmployeeUser(
+        employee.employeeId,
+        mode === "existing" ? { userId: Number(selUser) } : { password: pwd },
+      ),
+    onSuccess: (emp) => {
+      setLinked(emp.user);
+      setErr("");
+      setPwd("");
+      setSelUser("");
+      qc.invalidateQueries({ queryKey: ["hr", "employees"] });
+      qc.invalidateQueries({ queryKey: ["hr", "linkable-users"] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not link login"),
+  });
+
+  const unlink = useMutation({
+    mutationFn: () => hrApi.unlinkEmployeeUser(employee.employeeId),
+    onSuccess: () => {
+      setLinked(null);
+      setErr("");
+      qc.invalidateQueries({ queryKey: ["hr", "employees"] });
+      qc.invalidateQueries({ queryKey: ["hr", "linkable-users"] });
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not unlink login"),
+  });
+
+  const canLink = mode === "existing" ? !!selUser : pwd.length >= 6;
+
+  return (
+    <div className="rounded-xl border border-border bg-muted/30 p-4">
+      <div className="mb-1 text-sm font-medium text-foreground">Panel login</div>
+      {err && (
+        <div className="mb-3">
+          <Notice kind="error">{err}</Notice>
+        </div>
+      )}
+
+      {linked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Linked to <span className="font-medium text-foreground">{linked.email}</span> — signs in
+            with email &amp; password to mark attendance.
+          </p>
+          <Btn tone="danger" busy={unlink.isPending} onClick={() => unlink.mutate()}>
+            Unlink
+          </Btn>
+        </div>
+      ) : (
+        <>
+          <p className="mb-3 text-xs text-muted-foreground">
+            No login yet — this employee can’t check in. Link an existing staff login, or create a
+            new one so they can sign in with email &amp; password.
+          </p>
+          <div className="mb-3 flex gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setMode("existing")}
+              className={`rounded-lg px-3 py-1.5 transition-colors ${
+                mode === "existing"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-accent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Link existing login
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("new")}
+              className={`rounded-lg px-3 py-1.5 transition-colors ${
+                mode === "new"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-accent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Create new login
+            </button>
+          </div>
+
+          {mode === "existing" ? (
+            <Field label="Staff login" hint="Panel users not yet linked to an employee">
+              <select
+                className={inputCls}
+                value={selUser}
+                onChange={(e) => setSelUser(e.target.value)}
+              >
+                <option value="">— Select a login —</option>
+                {users?.map((u) => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.name} · {u.email} ({u.role.toLowerCase()})
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <Field
+              label={`New password for ${employee.email}`}
+              hint="Creates a STAFF login on this employee’s email (min 6 chars). If a panel login already uses this email, it’s linked and its password is kept."
+            >
+              <input
+                className={inputCls}
+                type="password"
+                minLength={6}
+                value={pwd}
+                onChange={(e) => setPwd(e.target.value)}
+              />
+            </Field>
+          )}
+
+          <div className="mt-3 flex justify-end">
+            <Btn busy={link.isPending} disabled={!canLink} onClick={() => link.mutate()}>
+              {mode === "existing" ? "Link login" : "Create & link"}
+            </Btn>
+          </div>
+        </>
+      )}
+    </div>
   );
 }

@@ -113,10 +113,15 @@ function MyAttendanceCard() {
           </div>
         </div>
         <div className="flex gap-2">
-          {!today && (
+          {!today && data?.employee?.office && (
             <Btn busy={punch.isPending} onClick={() => punch.mutate("in")}>
               <MapPinIcon className="h-4 w-4" /> Check in
             </Btn>
+          )}
+          {!today && !data?.employee?.office && (
+            <span className="rounded-lg bg-accent px-3 py-2 text-xs text-muted-foreground">
+              Ask HR to assign your office to enable check-in
+            </span>
           )}
           {today && !today.checkOutAt && (
             <Btn tone="ghost" busy={punch.isPending} onClick={() => punch.mutate("out")}>

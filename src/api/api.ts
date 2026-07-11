@@ -2461,6 +2461,13 @@ export interface EmployeeRow {
   user: { userId: number; email: string | null } | null;
 }
 
+export interface LinkableUser {
+  userId: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export interface AttendanceRow {
   attendanceId: number;
   employeeId: number;
@@ -2586,6 +2593,12 @@ export const hrApi = {
     apiClient.patch<EmployeeRow>(`/v1/hr/employees/${id}`, body),
   deleteEmployee: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/hr/employees/${id}`),
+
+  linkableUsers: () => apiClient.get<LinkableUser[]>("/v1/hr/linkable-users"),
+  linkEmployeeUser: (id: number, body: { userId?: number; password?: string }) =>
+    apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/link-user`, body),
+  unlinkEmployeeUser: (id: number) =>
+    apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/unlink-user`, {}),
 
   checkIn: (body: { lat: number; lng: number }) =>
     apiClient.post<AttendanceRow>("/v1/hr/attendance/check-in", body),
