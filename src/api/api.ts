@@ -2472,8 +2472,10 @@ export interface AttendanceRow {
   attendanceId: number;
   employeeId: number;
   date: string;
+  workMode: "OFFICE" | "REMOTE" | "FIELD";
+  note: string | null;
   checkInAt: string;
-  checkInDistanceM: number;
+  checkInDistanceM: number | null;
   checkOutAt: string | null;
   checkOutDistanceM: number | null;
   workedMinutes: number | null;
@@ -2600,7 +2602,7 @@ export const hrApi = {
   unlinkEmployeeUser: (id: number) =>
     apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/unlink-user`, {}),
 
-  checkIn: (body: { lat: number; lng: number }) =>
+  checkIn: (body: { lat: number; lng: number; mode?: string; note?: string }) =>
     apiClient.post<AttendanceRow>("/v1/hr/attendance/check-in", body),
   checkOut: (body: { lat: number; lng: number }) =>
     apiClient.post<AttendanceRow>("/v1/hr/attendance/check-out", body),

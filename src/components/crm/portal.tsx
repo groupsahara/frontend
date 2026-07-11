@@ -60,6 +60,71 @@ const Loading = ({ min = "min-h-40" }: { min?: string }) => (
   </div>
 );
 
+/* ----------------------------- Work modes ------------------------------- */
+// Attendance can be marked from the Office (geofenced), Work-from-home, or the
+// Field / a client site. Only Office enforces the radius; the others just need
+// a reason (captured for HR).
+export type WorkMode = "OFFICE" | "REMOTE" | "FIELD";
+
+export const WORK_MODES: { key: WorkMode; label: string }[] = [
+  { key: "OFFICE", label: "Office" },
+  { key: "REMOTE", label: "Work from home" },
+  { key: "FIELD", label: "Field / On-site" },
+];
+
+const MODE_META: Record<string, { label: string; tone: string }> = {
+  OFFICE: { label: "Office", tone: "primary" },
+  REMOTE: { label: "WFH", tone: "success" },
+  FIELD: { label: "Field", tone: "warning" },
+};
+
+export function WorkModeBadge({ mode }: { mode: string }) {
+  const m = MODE_META[mode] ?? { label: mode, tone: "muted" };
+  return <Badge tone={m.tone}>{m.label}</Badge>;
+}
+
+// Reusable "how are you working today" control: a mode dropdown plus a reason
+// field that appears for non-office modes.
+export function CheckInControls({
+  mode,
+  setMode,
+  note,
+  setNote,
+  disabled,
+}: {
+  mode: WorkMode;
+  setMode: (m: WorkMode) => void;
+  note: string;
+  setNote: (n: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <select
+        className={`${inputCls} sm:w-44`}
+        value={mode}
+        disabled={disabled}
+        onChange={(e) => setMode(e.target.value as WorkMode)}
+      >
+        {WORK_MODES.map((m) => (
+          <option key={m.key} value={m.key}>
+            {m.label}
+          </option>
+        ))}
+      </select>
+      {mode !== "OFFICE" && (
+        <input
+          className={`${inputCls} sm:w-64`}
+          placeholder="Reason (required) — e.g. WFH, client visit"
+          value={note}
+          disabled={disabled}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
 /* --------------------------- Dashboard header --------------------------- */
 
 export function PortalStatsHeader({ portal }: { portal: MyPortal }) {
@@ -291,6 +356,8 @@ export function OverviewSection({ checkedInToday }: { checkedInToday: boolean })
   const qc = useQueryClient();
   const [punchError, setPunchError] = useState<string | null>(null);
   const [punchNotice, setPunchNotice] = useState<string | null>(null);
+  const [mode, setMode] = useState<WorkMode>("OFFICE");
+  const [note, setNote] = useState("");
 
   const celebrations = useQuery({
     queryKey: crmQueryKeys.celebrations,
@@ -304,7 +371,9 @@ export function OverviewSection({ checkedInToday }: { checkedInToday: boolean })
   const punch = useMutation({
     mutationFn: async (kind: "in" | "out") => {
       const pos = await getPosition();
-      return kind === "in" ? hrApi.checkIn(pos) : hrApi.checkOut(pos);
+      return kind === "in"
+        ? hrApi.checkIn({ ...pos, mode, note: note.trim() || undefined })
+        : hrApi.checkOut(pos);
     },
     onSuccess: (_res, kind) => {
       setPunchError(null);
@@ -314,6 +383,15 @@ export function OverviewSection({ checkedInToday }: { checkedInToday: boolean })
     },
     onError: (e) => setPunchError(e instanceof ApiError ? e.message : (e as Error).message),
   });
+
+  const doCheckIn = () => {
+    if (mode !== "OFFICE" && !note.trim()) {
+      setPunchError("Add a short reason for remote / field attendance.");
+      return;
+    }
+    setPunchError(null);
+    punch.mutate("in");
+  };
 
   const today = istToday();
   const upcomingHolidays = (holidays.data ?? []).filter((h) => h.date >= today).slice(0, 6);
@@ -327,26 +405,37 @@ export function OverviewSection({ checkedInToday }: { checkedInToday: boolean })
         <div>
           <h2 className="text-sm font-medium text-foreground">Attendance</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Geofenced — you must be within your office radius to check in.
+            Office check-in is geofenced — or mark Work from home / Field from anywhere.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Btn
-            tone="success"
-            busy={punch.isPending && punch.variables === "in"}
-            disabled={checkedInToday || punch.isPending}
-            onClick={() => punch.mutate("in")}
-          >
-            Check in
-          </Btn>
-          <Btn
-            tone="ghost"
-            busy={punch.isPending && punch.variables === "out"}
-            disabled={punch.isPending}
-            onClick={() => punch.mutate("out")}
-          >
-            Check out
-          </Btn>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          {!checkedInToday && (
+            <CheckInControls
+              mode={mode}
+              setMode={setMode}
+              note={note}
+              setNote={setNote}
+              disabled={punch.isPending}
+            />
+          )}
+          <div className="flex gap-2">
+            <Btn
+              tone="success"
+              busy={punch.isPending && punch.variables === "in"}
+              disabled={checkedInToday || punch.isPending}
+              onClick={doCheckIn}
+            >
+              Check in
+            </Btn>
+            <Btn
+              tone="ghost"
+              busy={punch.isPending && punch.variables === "out"}
+              disabled={punch.isPending}
+              onClick={() => punch.mutate("out")}
+            >
+              Check out
+            </Btn>
+          </div>
         </div>
       </Card>
 
@@ -443,6 +532,8 @@ export function AttendanceSection() {
   const qc = useQueryClient();
   const month = istToday().slice(0, 7);
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [mode, setMode] = useState<WorkMode>("OFFICE");
+  const [note, setNote] = useState("");
 
   const { data, isLoading, error } = useQuery({
     queryKey: crmQueryKeys.myAttendance(month),
@@ -453,14 +544,18 @@ export function AttendanceSection() {
   const punch = useMutation({
     mutationFn: async (kind: "in" | "out") => {
       const pos = await getPosition();
-      return kind === "in" ? hrApi.checkIn(pos) : hrApi.checkOut(pos);
+      return kind === "in"
+        ? hrApi.checkIn({ ...pos, mode, note: note.trim() || undefined })
+        : hrApi.checkOut(pos);
     },
     onSuccess: (row, kind) => {
       setMsg({
         kind: "success",
         text:
           kind === "in"
-            ? `Checked in ✓ — ${row.checkInDistanceM} m from the office`
+            ? row.checkInDistanceM != null
+              ? `Checked in ✓ — ${row.checkInDistanceM} m from the office`
+              : `Checked in ✓ — ${WORK_MODES.find((m) => m.key === row.workMode)?.label ?? row.workMode}`
             : `Checked out ✓ — worked ${row.workedMinutes} min`,
       });
       qc.invalidateQueries({ queryKey: ["hr", "attendance"] });
@@ -469,6 +564,15 @@ export function AttendanceSection() {
     onError: (e) =>
       setMsg({ kind: "error", text: e instanceof ApiError ? e.message : (e as Error).message }),
   });
+
+  const doCheckIn = () => {
+    if (mode !== "OFFICE" && !note.trim()) {
+      setMsg({ kind: "error", text: "Add a short reason for remote / field attendance." });
+      return;
+    }
+    setMsg(null);
+    punch.mutate("in");
+  };
 
   if (isLoading) return <Loading />;
   if (error || !data)
@@ -486,12 +590,12 @@ export function AttendanceSection() {
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
 
       <Card className="p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-sm text-muted-foreground">
               {office
-                ? `${office.name} · allowed within ${office.radiusMeters} m`
-                : "No office assigned — contact HR"}
+                ? `${office.name} · office check-in within ${office.radiusMeters} m — or work from home / field from anywhere`
+                : "No base office — check in as Work from home or Field"}
             </div>
             <div className="mt-2 text-2xl font-semibold text-foreground">
               {today?.checkOutAt
@@ -500,23 +604,35 @@ export function AttendanceSection() {
                   ? `Checked in at ${fmtTime(today.checkInAt)}`
                   : "Not checked in yet"}
             </div>
+            {today && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <WorkModeBadge mode={today.workMode} />
+                {today.note && <span className="text-xs text-muted-foreground">{today.note}</span>}
+              </div>
+            )}
           </div>
-          <div className="flex gap-2">
-            {!today && office && (
-              <Btn busy={punch.isPending} onClick={() => punch.mutate("in")}>
-                Check in
-              </Btn>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            {!today && (
+              <CheckInControls
+                mode={mode}
+                setMode={setMode}
+                note={note}
+                setNote={setNote}
+                disabled={punch.isPending}
+              />
             )}
-            {!today && !office && (
-              <span className="rounded-lg bg-accent px-3 py-2 text-xs text-muted-foreground">
-                Ask HR to assign your office to enable check-in
-              </span>
-            )}
-            {today && !today.checkOutAt && (
-              <Btn tone="ghost" busy={punch.isPending} onClick={() => punch.mutate("out")}>
-                Check out
-              </Btn>
-            )}
+            <div className="flex gap-2 sm:justify-end">
+              {!today && (
+                <Btn busy={punch.isPending} onClick={doCheckIn}>
+                  Check in
+                </Btn>
+              )}
+              {today && !today.checkOutAt && (
+                <Btn tone="ghost" busy={punch.isPending} onClick={() => punch.mutate("out")}>
+                  Check out
+                </Btn>
+              )}
+            </div>
           </div>
         </div>
       </Card>
@@ -525,13 +641,18 @@ export function AttendanceSection() {
         <div className="border-b border-border px-5 py-4 text-sm font-medium text-foreground">
           {monthLabel(month)}
         </div>
-        <TableShell head={["Date", "Check-in", "Distance", "Check-out", "Worked", "Status"]}>
-          {!data.records.length && <EmptyRow cols={6} label="No attendance yet this month" />}
+        <TableShell head={["Date", "Mode", "Check-in", "Distance", "Check-out", "Worked", "Status"]}>
+          {!data.records.length && <EmptyRow cols={7} label="No attendance yet this month" />}
           {data.records.map((r) => (
             <tr key={r.attendanceId}>
               <td className="px-4 py-2.5 text-foreground">{fmtDate(r.date)}</td>
+              <td className="px-4 py-2.5">
+                <WorkModeBadge mode={r.workMode} />
+              </td>
               <td className="px-4 py-2.5 text-muted-foreground">{fmtTime(r.checkInAt)}</td>
-              <td className="px-4 py-2.5 text-muted-foreground">{r.checkInDistanceM} m</td>
+              <td className="px-4 py-2.5 text-muted-foreground">
+                {r.checkInDistanceM != null ? `${r.checkInDistanceM} m` : "—"}
+              </td>
               <td className="px-4 py-2.5 text-muted-foreground">{fmtTime(r.checkOutAt)}</td>
               <td className="px-4 py-2.5 text-muted-foreground">
                 {r.workedMinutes != null ? `${r.workedMinutes} min` : "—"}
