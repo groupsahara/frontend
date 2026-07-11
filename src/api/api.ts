@@ -2461,12 +2461,21 @@ export interface EmployeeRow {
   user: { userId: number; email: string | null } | null;
 }
 
+export interface LinkableUser {
+  userId: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export interface AttendanceRow {
   attendanceId: number;
   employeeId: number;
   date: string;
+  workMode: "OFFICE" | "REMOTE" | "FIELD";
+  note: string | null;
   checkInAt: string;
-  checkInDistanceM: number;
+  checkInDistanceM: number | null;
   checkOutAt: string | null;
   checkOutDistanceM: number | null;
   workedMinutes: number | null;
@@ -2587,7 +2596,13 @@ export const hrApi = {
   deleteEmployee: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/hr/employees/${id}`),
 
-  checkIn: (body: { lat: number; lng: number }) =>
+  linkableUsers: () => apiClient.get<LinkableUser[]>("/v1/hr/linkable-users"),
+  linkEmployeeUser: (id: number, body: { userId?: number; password?: string }) =>
+    apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/link-user`, body),
+  unlinkEmployeeUser: (id: number) =>
+    apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/unlink-user`, {}),
+
+  checkIn: (body: { lat: number; lng: number; mode?: string; note?: string }) =>
     apiClient.post<AttendanceRow>("/v1/hr/attendance/check-in", body),
   checkOut: (body: { lat: number; lng: number }) =>
     apiClient.post<AttendanceRow>("/v1/hr/attendance/check-out", body),

@@ -109,13 +109,19 @@ const CRM_NAV: NavGroup = {
   ],
 };
 
-// Keka-style employee self-service. One leaf gated on ess.view — assign the
-// "employee" role to a staff login and this becomes their home.
+// Keka-style employee self-service. Every leaf is gated on ess.view — assign
+// the "employee" role to a staff login and this becomes their whole panel.
 const MY_SPACE_NAV: NavGroup = {
   label: "My Space",
   icon: UsersIcon,
   children: [
     { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.view" },
+    { label: "My Attendance", href: "/dashboard/crm/my-attendance", icon: ClockIcon, permission: "ess.view" },
+    { label: "My Leaves", href: "/dashboard/crm/my-leaves", icon: CalendarIcon, permission: "ess.view" },
+    { label: "Payslips", href: "/dashboard/crm/my-payslips", icon: WalletIcon, permission: "ess.view" },
+    { label: "Increments", href: "/dashboard/crm/my-increments", icon: ChartIcon, permission: "ess.view" },
+    { label: "Holidays", href: "/dashboard/crm/my-holidays", icon: CalendarIcon, permission: "ess.view" },
+    { label: "Open positions", href: "/dashboard/crm/my-positions", icon: BriefcaseIcon, permission: "ess.view" },
   ],
 };
 
