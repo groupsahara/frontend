@@ -88,8 +88,9 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon },
     ],
   },
-  // No `permission` — super-admin credentials page, hidden from STAFF logins.
-  { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon },
+  // Platform credentials page — visible to staff only when their role holds
+  // configure.view (the super admin grants it per role; admins always see it).
+  { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon, permission: "configure.view" },
   { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
 ];
 
