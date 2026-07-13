@@ -139,11 +139,11 @@ export default function ConfigurePage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 text-center">
         <h1 className="text-lg font-semibold text-foreground">
-          {forbidden ? "Super admin access required" : "Could not load configuration"}
+          {forbidden ? "Access required" : "Could not load configuration"}
         </h1>
         <p className="max-w-sm text-sm text-muted-foreground">
           {forbidden
-            ? "Only super admins can view and edit platform credentials."
+            ? "Your role has not been granted the Configure permission. Ask a super admin to enable it under Roles & Permissions."
             : error instanceof ApiError
               ? error.message
               : "Something went wrong while loading the configuration."}

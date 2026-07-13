@@ -39,6 +39,7 @@ import {
   UserCircleIcon,
   UsersIcon,
   WalletIcon,
+  WrenchIcon,
 } from "@/src/components/icons";
 
 type Icon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -69,6 +70,7 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
   offices: { icon: MapPinIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Office locations" },
   payments: { icon: WalletIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "Payments & payouts" },
   settings: { icon: SettingsIcon, color: "#94a3b8", bg: "rgba(148,163,184,0.12)", desc: "Panel settings & password" },
+  configure: { icon: WrenchIcon, color: "#fb923c", bg: "rgba(251,146,60,0.12)", desc: "Platform credentials" },
   // SaaS platform (the /real-estate section) — its feature modules, so a panel
   // role can be granted access to each part of the SaaS app.
   saas: { icon: BuildingIcon, color: "#6366f1", bg: "rgba(99,102,241,0.12)", desc: "SaaS · show the platform tab" },
