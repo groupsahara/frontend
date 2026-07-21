@@ -2802,6 +2802,12 @@ export const essApi = {
   holidays: (year?: number) =>
     apiClient.get<HolidayRow[]>(`/v1/hr/holidays${year ? `?year=${year}` : ""}`),
   openPositions: () => apiClient.get<JobPostingRow[]>("/v1/hr/positions/open"),
+  myOfferLetters: () => apiClient.get<OfferLetterRow[]>("/v1/hr/me/offer-letters"),
+  myOfferLetter: (id: number) => apiClient.get<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}`),
+  acceptOffer: (id: number) =>
+    apiClient.post<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}/accept`, {}),
+  declineOffer: (id: number, reason?: string) =>
+    apiClient.post<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}/decline`, { reason }),
 };
 
 export const payrollApi = {
@@ -2836,6 +2842,72 @@ export const positionsApi = {
   update: (id: number, body: Record<string, unknown>) =>
     apiClient.patch<JobPostingRow>(`/v1/hr/positions/${id}`, body),
   remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/positions/${id}`),
+};
+
+/* --------------------------- Offer letters ----------------------------- */
+// HR fills a fixed-format template (only the variable fields — name/CTC/joining
+// date …); issuing unlocks the employee's read-only "My Offer Letters" view,
+// where they can accept/decline and download a PDF. `computed` is a
+// server-derived salary breakup + amount-in-words shared by every render.
+
+export type OfferLetterStatus = "DRAFT" | "ISSUED" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
+
+export interface OfferLetterComputed {
+  monthlyCtc: number;
+  annualInWords: string;
+  breakup: { basic: number; hra: number; specialAllowance: number };
+}
+
+export interface OfferLetterRow {
+  offerLetterId: number;
+  referenceNo: string | null;
+  employeeId: number | null;
+  templateKey: "standard" | "detailed";
+  status: OfferLetterStatus;
+  candidateName: string;
+  candidateEmail: string | null;
+  designation: string;
+  departmentName: string | null;
+  employmentType: "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERN";
+  annualCtc: number;
+  joiningDate: string;
+  workLocation: string | null;
+  probationMonths: number;
+  reportingTo: string | null;
+  offerDate: string;
+  responseByDate: string | null;
+  companyName: string;
+  companyAddress: string | null;
+  signatoryName: string | null;
+  signatoryTitle: string | null;
+  customNote: string | null;
+  issuedAt: string | null;
+  respondedAt: string | null;
+  issuedById: number | null;
+  createdAt: string;
+  updatedAt: string;
+  computed: OfferLetterComputed;
+  employee?: {
+    employeeId: number;
+    employeeCode: string;
+    name: string;
+    email?: string;
+    userId: number | null;
+  } | null;
+}
+
+export const offerLetterApi = {
+  list: (params: { status?: string; employeeId?: number; search?: string }) =>
+    apiClient.get<OfferLetterRow[]>(`/v1/hr/offer-letters${toQueryString(params)}`),
+  get: (id: number) => apiClient.get<OfferLetterRow>(`/v1/hr/offer-letters/${id}`),
+  create: (body: Record<string, unknown>) =>
+    apiClient.post<OfferLetterRow>("/v1/hr/offer-letters", body),
+  update: (id: number, body: Record<string, unknown>) =>
+    apiClient.patch<OfferLetterRow>(`/v1/hr/offer-letters/${id}`, body),
+  issue: (id: number) => apiClient.post<OfferLetterRow>(`/v1/hr/offer-letters/${id}/issue`, {}),
+  withdraw: (id: number) =>
+    apiClient.post<OfferLetterRow>(`/v1/hr/offer-letters/${id}/withdraw`, {}),
+  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/offer-letters/${id}`),
 };
 
 export const crmQueryKeys = {
@@ -2889,6 +2961,10 @@ export const crmQueryKeys = {
   openPositions: ["ess", "positions", "open"] as const,
   payroll: (p: object) => ["hr", "payroll", p] as const,
   positions: (status?: string) => ["hr", "positions", status] as const,
+  offerLetters: (p: object) => ["hr", "offer-letters", p] as const,
+  offerLetter: (id: number) => ["hr", "offer-letter", id] as const,
+  myOfferLetters: ["ess", "offer-letters"] as const,
+  myOfferLetter: (id: number) => ["ess", "offer-letter", id] as const,
 };
 
 /* ============================ Resume builder ============================ */
