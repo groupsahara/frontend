@@ -60,19 +60,23 @@ export const statusTone = (status: string): string =>
       APPROVED: "success",
       COMPLETED: "success",
       ACKNOWLEDGED: "success",
+      ACCEPTED: "success",
       VERIFIED: "primary",
       SUBMITTED: "primary",
       IN_PROGRESS: "primary",
+      ISSUED: "primary",
       PENDING: "warning",
       ON_LEAVE: "warning",
       DRAFT: "warning",
       LATE: "warning",
       HALF_DAY: "warning",
       REJECTED: "danger",
+      DECLINED: "danger",
       CANCELLED: "danger",
       BLOCKED: "danger",
       TERMINATED: "danger",
       RESIGNED: "muted",
+      WITHDRAWN: "muted",
     } as Record<string, string>
   )[status] ?? "muted";
 
