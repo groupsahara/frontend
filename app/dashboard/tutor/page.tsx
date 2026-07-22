@@ -80,7 +80,7 @@ function chunkForSpeech(text: string): string[] {
 }
 
 const GREETING =
-  "Hello… I am Aanya, your tutor. Sit closer — the lamp does not reach very far. Press the mic once and we can simply talk, or type below. Ask me anything you wish to learn.";
+  "Hello, dear one… I am Aanya, your angel tutor. Come, sit with me in the light. Press the mic once and we can simply talk, or type below. Ask me anything you wish to learn.";
 
 /* --------------------------------- page ----------------------------------- */
 
@@ -430,32 +430,32 @@ export default function TutorPage() {
             : "Waiting for you";
 
   return (
-    <div className="tutor-page relative -mx-4 -my-6 h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden bg-black sm:-mx-6">
+    <div className="tutor-page relative -mx-4 -my-6 h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden bg-[#cfdcf4] sm:-mx-6">
       <TutorScene phase={phase}>
         <TutorAvatar phase={phase} getLevel={getLevel} />
       </TutorScene>
 
       {/* title + status */}
       <div className="pointer-events-none absolute left-5 top-4 z-20 select-none">
-        <h1 className="tutor-title text-2xl font-semibold tracking-[0.35em] text-red-100/80 sm:text-3xl">
+        <h1 className="tutor-title text-2xl font-semibold tracking-[0.35em] text-amber-600 sm:text-3xl">
           AANYA
         </h1>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-slate-400/70 sm:text-xs">
-          AI Tutor · ask me anything
+        <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-indigo-900/60 sm:text-xs">
+          Angel Tutor · ask me anything
         </p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-1 backdrop-blur">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/60 px-3 py-1 backdrop-blur">
           <span
             className={[
               "h-2 w-2 rounded-full",
-              phase === "listening" && "animate-pulse bg-red-500",
+              phase === "listening" && "animate-pulse bg-sky-500",
               phase === "thinking" && "animate-pulse bg-amber-400",
-              phase === "speaking" && "animate-pulse bg-emerald-400",
-              phase === "idle" && (conversation ? "animate-pulse bg-red-400" : "bg-slate-500"),
+              phase === "speaking" && "animate-pulse bg-emerald-500",
+              phase === "idle" && (conversation ? "animate-pulse bg-amber-400" : "bg-indigo-300"),
             ]
               .filter(Boolean)
               .join(" ")}
           />
-          <span className="text-xs text-slate-300">{statusLabel}</span>
+          <span className="text-xs text-indigo-900/80">{statusLabel}</span>
         </div>
       </div>
 
@@ -463,20 +463,20 @@ export default function TutorPage() {
       <button
         type="button"
         onClick={() => setPanelOpen((v) => !v)}
-        className="absolute right-4 top-4 z-30 rounded-full border border-white/10 bg-black/50 px-4 py-1.5 text-xs text-slate-300 backdrop-blur transition-colors hover:bg-black/70 hover:text-white"
+        className="absolute right-4 top-4 z-30 rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-xs text-indigo-900/80 backdrop-blur transition-colors hover:bg-white/90 hover:text-indigo-950"
       >
         {panelOpen ? "Hide transcript" : "Transcript"}
       </button>
 
       {/* transcript panel */}
       {panelOpen && (
-        <div className="absolute bottom-32 right-4 top-14 z-20 flex w-[19rem] max-w-[85vw] flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/55 backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
-            <span className="text-xs uppercase tracking-widest text-slate-400">Lesson transcript</span>
+        <div className="absolute bottom-32 right-4 top-14 z-20 flex w-[19rem] max-w-[85vw] flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/60 backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-indigo-100 px-4 py-2.5">
+            <span className="text-xs uppercase tracking-widest text-indigo-400">Lesson transcript</span>
             <button
               type="button"
               onClick={() => setPanelOpen(false)}
-              className="text-slate-500 transition-colors hover:text-white"
+              className="text-indigo-300 transition-colors hover:text-indigo-700"
             >
               <CloseIcon className="h-4 w-4" />
             </button>
@@ -488,8 +488,8 @@ export default function TutorPage() {
                   className={[
                     "max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed",
                     m.role === "user"
-                      ? "rounded-br-sm bg-red-900/60 text-red-50"
-                      : "rounded-bl-sm bg-white/8 text-slate-200",
+                      ? "rounded-br-sm bg-indigo-500/85 text-white"
+                      : "rounded-bl-sm bg-white/85 text-slate-700 shadow-sm",
                   ].join(" ")}
                 >
                   {m.text}
@@ -498,7 +498,7 @@ export default function TutorPage() {
             ))}
             {phase === "thinking" && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-white/8 px-3 py-2 text-[13px] text-slate-400">
+                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-white/85 px-3 py-2 text-[13px] text-indigo-400 shadow-sm">
                   <SpinnerIcon className="h-3.5 w-3.5" /> Aanya is thinking…
                 </div>
               </div>
@@ -510,7 +510,7 @@ export default function TutorPage() {
       {/* live subtitle while she speaks */}
       {phase === "speaking" && subtitle && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[min(46rem,90vw)] -translate-x-1/2 text-center">
-          <p className="mx-auto line-clamp-3 rounded-xl bg-black/45 px-4 py-2 text-sm italic leading-relaxed text-amber-100/85 backdrop-blur-sm">
+          <p className="mx-auto line-clamp-3 rounded-xl bg-white/65 px-4 py-2 text-sm italic leading-relaxed text-indigo-900/90 backdrop-blur-sm">
             “{subtitle}”
           </p>
         </div>
@@ -519,7 +519,7 @@ export default function TutorPage() {
       {/* interim voice text */}
       {phase === "listening" && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[min(40rem,90vw)] -translate-x-1/2 text-center">
-          <p className="mx-auto rounded-xl bg-black/45 px-4 py-2 text-sm text-red-200/90 backdrop-blur-sm">
+          <p className="mx-auto rounded-xl bg-white/65 px-4 py-2 text-sm text-sky-800 backdrop-blur-sm">
             {interim || "I'm listening… speak your question."}
           </p>
         </div>
@@ -532,7 +532,7 @@ export default function TutorPage() {
             e.preventDefault();
             void ask(draft);
           }}
-          className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/60 p-2 backdrop-blur-md"
+          className="flex items-center gap-2 rounded-2xl border border-white/70 bg-white/65 p-2 shadow-lg shadow-indigo-300/30 backdrop-blur-md"
         >
           {/* mic — one click for a hands-free conversation */}
           <button
@@ -549,15 +549,15 @@ export default function TutorPage() {
             className={[
               "relative grid h-12 w-12 shrink-0 place-items-center rounded-full transition-all",
               conversation
-                ? "bg-red-600 text-white shadow-[0_0_24px_rgba(220,38,38,0.55)]"
-                : "bg-white/10 text-slate-200 hover:bg-white/20",
+                ? "bg-amber-400 text-white shadow-[0_0_24px_rgba(245,185,66,0.75)]"
+                : "bg-indigo-900/10 text-indigo-800 hover:bg-indigo-900/20",
               !micSupported && "cursor-not-allowed opacity-40",
             ]
               .filter(Boolean)
               .join(" ")}
           >
             {phase === "listening" && (
-              <span className="absolute inset-0 animate-ping rounded-full bg-red-600/40" />
+              <span className="absolute inset-0 animate-ping rounded-full bg-amber-400/50" />
             )}
             {conversation ? (
               <svg viewBox="0 0 24 24" className="relative h-5 w-5" fill="currentColor">
@@ -576,7 +576,7 @@ export default function TutorPage() {
             value={interim && phase === "listening" ? interim : draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={conversation ? "Conversation on — just speak…" : "Ask Aanya anything…"}
-            className="min-w-0 flex-1 bg-transparent px-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent px-2 text-sm text-indigo-950 placeholder:text-indigo-400 focus:outline-none"
           />
 
           {phase === "speaking" ? (
@@ -586,7 +586,7 @@ export default function TutorPage() {
                 stopSpeaking();
                 if (conversationRef.current) startListeningRef.current();
               }}
-              className="shrink-0 rounded-xl bg-white/10 px-4 py-2.5 text-sm text-slate-200 transition-colors hover:bg-white/20"
+              className="shrink-0 rounded-xl bg-indigo-900/10 px-4 py-2.5 text-sm text-indigo-800 transition-colors hover:bg-indigo-900/20"
             >
               Stop
             </button>
@@ -594,7 +594,7 @@ export default function TutorPage() {
             <button
               type="submit"
               disabled={!draft.trim() || phase === "thinking"}
-              className="shrink-0 rounded-xl bg-red-800 px-4 py-2.5 text-sm font-medium text-red-50 transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="shrink-0 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {phase === "thinking" ? <SpinnerIcon className="h-4 w-4" /> : "Ask"}
             </button>
@@ -603,8 +603,7 @@ export default function TutorPage() {
       </div>
 
       <style>{`
-        .tutor-title { text-shadow: 0 0 18px rgba(190, 30, 45, 0.45), 0 0 2px rgba(255,255,255,0.25); }
-        .tutor-page .bg-white\\/8 { background-color: rgba(255,255,255,0.08); }
+        .tutor-title { text-shadow: 0 0 18px rgba(255, 214, 110, 0.85), 0 1px 2px rgba(255,255,255,0.9); }
       `}</style>
     </div>
   );
