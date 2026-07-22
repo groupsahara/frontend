@@ -5,10 +5,9 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import {
   MAX_PDF_BYTES,
   downloadBytes,
-  editKey,
   exportEditedPdf,
   loadPdfDocument,
-  type TextEdit,
+  type PdfEdit,
 } from "@/src/lib/pdf-editor";
 import { PdfPageView } from "@/src/components/pdf-editor/pdf-page";
 import { CloseIcon, PencilIcon, SpinnerIcon } from "@/src/components/icons";
@@ -39,7 +38,7 @@ export function PdfEditor() {
 
   const [editMode, setEditMode] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const [edits, setEdits] = useState<Map<string, TextEdit>>(new Map());
+  const [edits, setEdits] = useState<Map<string, PdfEdit>>(new Map());
   const [exporting, setExporting] = useState(false);
 
   // Free pdf.js worker resources when the tool unmounts or a new file replaces the old one.
@@ -94,17 +93,17 @@ export function PdfEditor() {
     setError(null);
   };
 
-  const applyEdit = (edit: TextEdit) =>
+  const applyEdit = (edit: PdfEdit) =>
     setEdits((prev) => {
       const next = new Map(prev);
-      next.set(editKey(edit.pageIndex, edit.boxId), edit);
+      next.set(edit.key, edit);
       return next;
     });
 
-  const removeEdit = (pageIndex: number, boxId: number) =>
+  const removeEdit = (key: string) =>
     setEdits((prev) => {
       const next = new Map(prev);
-      next.delete(editKey(pageIndex, boxId));
+      next.delete(key);
       return next;
     });
 
@@ -283,8 +282,9 @@ export function PdfEditor() {
 
           {editMode && (
             <div className="rounded-xl border border-primary/30 bg-accent px-4 py-2.5 text-sm text-accent-foreground">
-              Click any text on the page to edit it. The detected font family and size are
-              pre-filled — use “Match original” in the editor to re-apply them at any time.
+              Click any text to edit it (fonts, size, slant pre-matched) — or drag a box over
+              ANY area, even logos and image text: AI reads it so you can replace or erase it.
+              Use “Blend (old doc)” on scanned documents to keep the aged look.
             </div>
           )}
 

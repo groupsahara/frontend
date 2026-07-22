@@ -49,10 +49,17 @@ export type TextBox = {
   family: FontFamilyKey;
   bold: boolean;
   italic: boolean;
+  /** Baseline rotation in degrees, PDF-space counter-clockwise (0 = horizontal). */
+  angle: number;
 };
 
-/** A user edit applied to one text box. */
+/** Axis-aligned rectangle in PDF space (origin bottom-left, points). */
+export type PdfRect = { x: number; y: number; w: number; h: number };
+
+/** A replacement applied to one extracted text run. */
 export type TextEdit = {
+  kind: "text";
+  key: string;
   pageIndex: number;
   boxId: number;
   box: TextBox; // snapshot of the original run (PDF-space fields are what matter)
@@ -63,7 +70,27 @@ export type TextEdit = {
   italic: boolean;
   color: RGB; // replacement text color
   bg: RGB; // patch color sampled around the original text
+  /** Baseline rotation — replacement is drawn at the same slant as the original. */
+  angle: number;
+  /** Aged-blend raster: when set, this pre-composed image replaces the vector patch+text. */
+  blendPng?: string;
+  blendRect?: PdfRect;
 };
+
+/**
+ * A freehand region edit (marquee): erase an area — logos, image text,
+ * stains — by covering it with cloned background texture, optionally with
+ * replacement text baked in. `png` is fully composed client-side.
+ */
+export type RegionEdit = {
+  kind: "region";
+  key: string;
+  pageIndex: number;
+  rect: PdfRect;
+  png: string; // data URL
+};
+
+export type PdfEdit = TextEdit | RegionEdit;
 
 export const editKey = (pageIndex: number, boxId: number) => `${pageIndex}:${boxId}`;
 
@@ -209,7 +236,12 @@ export async function extractTextBoxes(
     fontRaw = fontRaw.replace(/^[A-Z]{6}\+/, ""); // strip subset tag "ABCDEF+"
     const detected = classifyFont(fontRaw || style?.fontFamily || "");
 
+    // Baseline slant of the run (rotated/slanted stamps, watermarks, labels).
+    let angle = (Math.atan2(m[1], m[0]) * 180) / Math.PI;
+    if (Math.abs(angle) < 0.5) angle = 0;
+
     boxes.push({
+      angle,
       id: id++,
       str: raw.str,
       pdfX: m[4],
@@ -384,17 +416,36 @@ export function hexToRgb(hex: string): RGB {
  */
 export async function exportEditedPdf(
   original: ArrayBuffer,
-  edits: TextEdit[],
+  edits: PdfEdit[],
 ): Promise<Uint8Array> {
-  const { PDFDocument, rgb } = await import("pdf-lib");
+  const { PDFDocument, rgb, degrees } = await import("pdf-lib");
 
   const doc = await PDFDocument.load(original.slice(0), { ignoreEncryption: true });
   const pages = doc.getPages();
   const fonts = new Map<string, Awaited<ReturnType<typeof doc.embedFont>>>();
 
+  const drawPngRect = async (pageIndex: number, png: string, rect: PdfRect) => {
+    const page = pages[pageIndex];
+    if (!page) return;
+    const image = await doc.embedPng(dataUrlToBytes(png));
+    page.drawImage(image, { x: rect.x, y: rect.y, width: rect.w, height: rect.h });
+  };
+
   for (const edit of edits) {
     const page = pages[edit.pageIndex];
     if (!page) continue;
+
+    // Region edits and aged-blend text edits are pre-composed rasters —
+    // texture-cloned background (plus text) that keeps old documents looking
+    // original instead of showing a crisp flat rectangle.
+    if (edit.kind === "region") {
+      await drawPngRect(edit.pageIndex, edit.png, edit.rect);
+      continue;
+    }
+    if (edit.blendPng && edit.blendRect) {
+      await drawPngRect(edit.pageIndex, edit.blendPng, edit.blendRect);
+      continue;
+    }
 
     const fontName = standardFontName(edit.family, edit.bold, edit.italic);
     let font = fonts.get(fontName);
@@ -419,11 +470,23 @@ export async function exportEditedPdf(
     const patchFontSize = Math.max(box.fontSize, edit.fontSize);
     const newWidth = text ? font.widthOfTextAtSize(text, edit.fontSize) : 0;
 
+    // Patch + replacement follow the original run's slant: both rotate around
+    // the baseline origin, so slanted stamps/labels stay slanted after edits.
+    const rad = (edit.angle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    const atOffset = (dx: number, dy: number): [number, number] => [
+      box.pdfX + dx * cos - dy * sin,
+      box.pdfBaseline + dx * sin + dy * cos,
+    ];
+    const [patchX, patchY] = atOffset(-1, -0.25 * patchFontSize - 1);
+
     page.drawRectangle({
-      x: box.pdfX - 1,
-      y: box.pdfBaseline - 0.25 * patchFontSize - 1,
+      x: patchX,
+      y: patchY,
       width: Math.max(box.pdfWidth, newWidth) + 2,
       height: 1.1 * patchFontSize + 2,
+      rotate: degrees(edit.angle),
       color: rgb(edit.bg.r / 255, edit.bg.g / 255, edit.bg.b / 255),
     });
 
@@ -433,12 +496,185 @@ export async function exportEditedPdf(
         y: box.pdfBaseline,
         size: edit.fontSize,
         font,
+        rotate: degrees(edit.angle),
         color: rgb(edit.color.r / 255, edit.color.g / 255, edit.color.b / 255),
       });
     }
   }
 
   return doc.save();
+}
+
+function dataUrlToBytes(dataUrl: string): Uint8Array {
+  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Background texture cloning + aged composition                      *
+ * ------------------------------------------------------------------ *
+ * Flat color patches look pasted-on over old scans. Instead we clone a
+ * same-sized strip of untouched background from around the region (keeps
+ * paper grain, tint and noise) and, for replacements on aged documents,
+ * soften the new text with slight blur + noise so it matches the scan.  */
+
+/** Crop a region of the rendered page canvas as a PNG data URL. */
+export function cropCanvasRegion(
+  canvas: HTMLCanvasElement,
+  rectCss: { left: number; top: number; width: number; height: number },
+  cssToCanvas: number,
+  maxDim = 1200,
+): string | null {
+  const sx = Math.max(0, Math.round(rectCss.left * cssToCanvas));
+  const sy = Math.max(0, Math.round(rectCss.top * cssToCanvas));
+  const sw = Math.min(canvas.width - sx, Math.round(rectCss.width * cssToCanvas));
+  const sh = Math.min(canvas.height - sy, Math.round(rectCss.height * cssToCanvas));
+  if (sw <= 0 || sh <= 0) return null;
+  const scale = Math.min(1, maxDim / Math.max(sw, sh));
+  const out = document.createElement("canvas");
+  out.width = Math.max(1, Math.round(sw * scale));
+  out.height = Math.max(1, Math.round(sh * scale));
+  const ctx = out.getContext("2d");
+  if (!ctx) return null;
+  ctx.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+  return out.toDataURL("image/png");
+}
+
+/**
+ * Clone the flattest same-sized strip of background adjacent to the region
+ * (above / below / left / right). Returns null when no candidate fits on the
+ * page — callers fall back to a flat sampled color.
+ */
+export function cloneBackgroundTexture(
+  canvas: HTMLCanvasElement,
+  rectCss: { left: number; top: number; width: number; height: number },
+  cssToCanvas: number,
+): string | null {
+  const { left, top, width, height } = rectCss;
+  const candidates = [
+    { left, top: top - height - 2, width, height },
+    { left, top: top + height + 2, width, height },
+    { left: left - width - 2, top, width, height },
+    { left: left + width + 2, top, width, height },
+  ].filter(
+    (c) =>
+      c.left >= 0 &&
+      c.top >= 0 &&
+      (c.left + c.width) * cssToCanvas <= canvas.width &&
+      (c.top + c.height) * cssToCanvas <= canvas.height,
+  );
+
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+
+  let best: { rect: (typeof candidates)[number]; variance: number } | null = null;
+  for (const rect of candidates) {
+    try {
+      const data = ctx.getImageData(
+        Math.round(rect.left * cssToCanvas),
+        Math.round(rect.top * cssToCanvas),
+        Math.max(1, Math.round(rect.width * cssToCanvas)),
+        Math.max(1, Math.round(rect.height * cssToCanvas)),
+      ).data;
+      let sum = 0;
+      let sumSq = 0;
+      let n = 0;
+      for (let i = 0; i < data.length; i += 16) {
+        const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        sum += lum;
+        sumSq += lum * lum;
+        n++;
+      }
+      const mean = sum / n;
+      const variance = sumSq / n - mean * mean;
+      if (!best || variance < best.variance) best = { rect, variance };
+    } catch {
+      // canvas read failure — skip candidate
+    }
+  }
+  // High variance means the strip contains content (text/graphics) — unusable.
+  if (!best || best.variance > 900) return null;
+  return cropCanvasRegion(canvas, best.rect, cssToCanvas);
+}
+
+export type RegionTextStyle = {
+  family: FontFamilyKey;
+  sizePt: number;
+  bold: boolean;
+  italic: boolean;
+  color: RGB;
+};
+
+/**
+ * Compose the final raster for a region edit: cloned texture (or flat color)
+ * with optional replacement text baked in. `aged` softens the text and adds
+ * grain so edits on old documents keep the original look.
+ */
+export async function composeRegionPng(opts: {
+  widthPt: number;
+  heightPt: number;
+  texture: string | null;
+  bgColor: RGB;
+  text?: string;
+  style?: RegionTextStyle;
+  aged?: boolean;
+  blur?: "none" | "slight" | "strong";
+}): Promise<string> {
+  const SCALE = 3; // raster resolution: 3px per PDF point
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(opts.widthPt * SCALE));
+  canvas.height = Math.max(1, Math.round(opts.heightPt * SCALE));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas unavailable");
+
+  if (opts.texture) {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("texture load failed"));
+      img.src = opts.texture!;
+    });
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = rgbToCss(opts.bgColor);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  if (opts.text?.trim() && opts.style) {
+    const s = opts.style;
+    const px = s.sizePt * SCALE;
+    const soften = opts.aged || (opts.blur && opts.blur !== "none");
+    if (soften) ctx.filter = opts.blur === "strong" ? "blur(1.1px)" : "blur(0.5px)";
+    ctx.font = `${s.italic ? "italic " : ""}${s.bold ? "700 " : "400 "}${px}px ${CSS_FONT_STACKS[s.family]}`;
+    ctx.fillStyle = rgbToCss(s.color);
+    ctx.textBaseline = "middle";
+    const lines = opts.text.split("\n");
+    const lineH = px * 1.3;
+    const blockH = lineH * lines.length;
+    lines.forEach((line, i) => {
+      const y = canvas.height / 2 - blockH / 2 + lineH * (i + 0.5);
+      ctx.fillText(line, Math.round(px * 0.2), y);
+    });
+    ctx.filter = "none";
+
+    if (opts.aged) {
+      // faint monochrome noise so fresh ink blends into scan grain
+      const noise = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = noise.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 12;
+        d[i] += n;
+        d[i + 1] += n;
+        d[i + 2] += n;
+      }
+      ctx.putImageData(noise, 0, 0);
+    }
+  }
+
+  return canvas.toDataURL("image/png");
 }
 
 export function downloadBytes(bytes: Uint8Array, filename: string) {
