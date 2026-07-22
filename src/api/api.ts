@@ -3017,3 +3017,25 @@ export const resumeQueryKeys = {
   resumes: ["resumes"] as const,
   resume: (id: number) => ["resume", id] as const,
 };
+
+/* ============================== PDF AI ================================= */
+// Gemini-vision analysis for the PDF editor tool: OCR + typography of a
+// cropped page region, so edits can match font, color, slant and aging.
+
+export interface PdfRegionAnalysis {
+  text: string;
+  fontCategory: "sans" | "serif" | "mono";
+  fontName: string;
+  bold: boolean;
+  italic: boolean;
+  slantDegrees: number;
+  colorHex: string;
+  backgroundHex: string;
+  aged: boolean;
+  blur: "none" | "slight" | "strong";
+}
+
+export const pdfAiApi = {
+  /** POST /v1/pdf-ai/analyze — image is a PNG/JPEG data URL of the cropped region. */
+  analyze: (image: string) => apiClient.post<PdfRegionAnalysis>("/v1/pdf-ai/analyze", { image }),
+};
