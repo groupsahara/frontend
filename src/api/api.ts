@@ -3039,3 +3039,20 @@ export const pdfAiApi = {
   /** POST /v1/pdf-ai/analyze — image is a PNG/JPEG data URL of the cropped region. */
   analyze: (image: string) => apiClient.post<PdfRegionAnalysis>("/v1/pdf-ai/analyze", { image }),
 };
+
+/* ============================== AI Tutor ================================ */
+// The animated speaking teacher behind the admin panel's AI Tutor tab.
+// `ask` returns a spoken-style plain-text answer; `speak` returns Gemini TTS
+// audio as base64 PCM (mimeType carries the sample rate, e.g. rate=24000).
+
+export interface TutorTurn {
+  role: "user" | "tutor";
+  text: string;
+}
+
+export const aiTutorApi = {
+  ask: (body: { question: string; history?: TutorTurn[] }) =>
+    apiClient.post<{ answer: string }>("/v1/ai-tutor/ask", body),
+  speak: (text: string) =>
+    apiClient.post<{ audio: string; mimeType: string }>("/v1/ai-tutor/speak", { text }),
+};
