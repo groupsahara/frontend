@@ -4,19 +4,19 @@ import type { ReactNode } from "react";
 import type { TutorPhase } from "./tutor-avatar";
 
 // Deterministic pseudo-random (index-seeded) so SSR and client render the
-// same dust field — Math.random() here would cause hydration mismatches.
+// same sparkle field — Math.random() here would cause hydration mismatches.
 const rand = (i: number, salt: number) => {
   const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
   return x - Math.floor(x);
 };
 
-const DUST = Array.from({ length: 26 }, (_, i) => ({
+const SPARKLES = Array.from({ length: 30 }, (_, i) => ({
   left: rand(i, 1) * 100,
-  top: rand(i, 2) * 100,
-  size: 1 + rand(i, 3) * 2.2,
-  duration: 9 + rand(i, 4) * 16,
-  delay: -rand(i, 5) * 20,
-  opacity: 0.12 + rand(i, 6) * 0.3,
+  top: 20 + rand(i, 2) * 80,
+  size: 1.5 + rand(i, 3) * 3,
+  duration: 10 + rand(i, 4) * 14,
+  delay: -rand(i, 5) * 22,
+  opacity: 0.25 + rand(i, 6) * 0.5,
 }));
 
 interface TutorSceneProps {
@@ -25,230 +25,161 @@ interface TutorSceneProps {
 }
 
 /**
- * The room: a near-black study lit by one swinging, flickering bulb.
- * Boarded window, drifting fog, dust motes, film grain, vignette and a rare
- * lightning flash. The avatar renders as `children` under the light cone.
+ * The heavens: a radiant sky with god-rays falling from above, drifting
+ * clouds, golden sparkles floating upward and a soft glory pulsing behind
+ * the angel. The avatar renders as `children` inside the shaft of light.
  */
 export function TutorScene({ phase, children }: TutorSceneProps) {
   return (
     <div className={`tutor-scene tutor-scene-${phase}`}>
-      {/* wall + floor */}
-      <div className="tutor-wall" />
-      <div className="tutor-floor" />
+      {/* sky + distant glow */}
+      <div className="tutor-sky" />
 
-      {/* boarded window with cold moonlight */}
-      <div className="tutor-window">
-        <div className="tutor-window-glow" />
-        <div className="tutor-plank tutor-plank-1" />
-        <div className="tutor-plank tutor-plank-2" />
-        <div className="tutor-plank tutor-plank-3" />
-      </div>
+      {/* god-rays fanning out from the light above */}
+      <div className="tutor-rays" />
 
-      {/* cobweb corner */}
-      <svg className="tutor-web" viewBox="0 0 120 120">
-        <path d="M0 0 L120 8 M0 0 L96 34 M0 0 L60 62 M0 0 L28 92 M0 0 L6 118" stroke="#9aa4ad" strokeWidth="0.7" opacity="0.35" fill="none" />
-        <path d="M30 4 Q28 16 22 24 M56 8 Q50 26 40 40 M84 12 Q72 34 56 52" stroke="#9aa4ad" strokeWidth="0.6" opacity="0.28" fill="none" />
-      </svg>
+      {/* distant drifting clouds */}
+      <div className="tutor-cloud tutor-cloud-1" />
+      <div className="tutor-cloud tutor-cloud-2" />
+      <div className="tutor-cloud tutor-cloud-3" />
 
-      {/* back fog */}
-      <div className="tutor-fog tutor-fog-back" />
+      {/* glory — the halo of light behind the angel */}
+      <div className="tutor-glory" />
 
-      {/* floor spotlight pool under the chair */}
-      <div className="tutor-pool" />
-
-      {/* the girl */}
+      {/* the angel */}
       <div className="tutor-stage">{children}</div>
 
-      {/* hanging lamp + cone (above her, blended as light) */}
-      <div className="tutor-lamp">
-        <div className="tutor-cord" />
-        <div className="tutor-shade" />
-        <div className="tutor-bulb" />
-        <div className="tutor-cone" />
-      </div>
+      {/* broad shaft of light falling on her */}
+      <div className="tutor-shaft" />
 
-      {/* front fog, dust, red pulse, lightning, grain, vignette */}
-      <div className="tutor-fog tutor-fog-front" />
-      <div className="tutor-dust">
-        {DUST.map((d, i) => (
+      {/* cloud banks framing the bottom */}
+      <div className="tutor-cloudbank" />
+
+      {/* golden sparkles floating upward */}
+      <div className="tutor-sparkles">
+        {SPARKLES.map((s, i) => (
           <span
             key={i}
             style={{
-              left: `${d.left}%`,
-              top: `${d.top}%`,
-              width: d.size,
-              height: d.size,
-              opacity: d.opacity,
-              animationDuration: `${d.duration}s`,
-              animationDelay: `${d.delay}s`,
+              left: `${s.left}%`,
+              top: `${s.top}%`,
+              width: s.size,
+              height: s.size,
+              opacity: s.opacity,
+              animationDuration: `${s.duration}s`,
+              animationDelay: `${s.delay}s`,
             }}
           />
         ))}
       </div>
-      <div className="tutor-redpulse" />
-      <div className="tutor-flash" />
-      <svg className="tutor-grain" aria-hidden>
-        <filter id="tutorNoise">
-          <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#tutorNoise)" />
-      </svg>
+
+      {/* soft edges */}
       <div className="tutor-vignette" />
 
       <style>{`
         .tutor-scene {
           position: absolute; inset: 0; overflow: hidden;
-          background: #030304;
+          background: #cfdcf4;
         }
 
-        .tutor-wall {
-          position: absolute; inset: 0 0 22% 0;
-          background:
-            radial-gradient(120% 90% at 50% 0%, #0d1016 0%, #07080c 55%, #030304 100%),
-            repeating-linear-gradient(90deg, transparent 0 118px, rgba(255,255,255,0.014) 118px 120px);
-        }
-        .tutor-floor {
-          position: absolute; left: 0; right: 0; bottom: 0; height: 24%;
-          background:
-            linear-gradient(#0a0b0e, #040405 70%),
-            repeating-linear-gradient(90deg, rgba(0,0,0,0.35) 0 2px, transparent 2px 64px);
-          transform: perspective(500px) rotateX(28deg);
-          transform-origin: 50% 0%;
-        }
-
-        .tutor-window {
-          position: absolute; top: 9%; left: 7%;
-          width: 130px; height: 170px;
-          border: 6px solid #0f0d0a;
-          background: linear-gradient(160deg, #121a24 0%, #0a0f16 60%, #06080c 100%);
-          box-shadow: 0 0 60px rgba(96,140,180,0.10), inset 0 0 24px rgba(0,0,0,0.9);
-        }
-        .tutor-window-glow {
+        .tutor-sky {
           position: absolute; inset: 0;
-          background: radial-gradient(60% 45% at 68% 26%, rgba(150,190,230,0.35), transparent 70%);
-          animation: tutorMoon 11s ease-in-out infinite;
-        }
-        .tutor-plank {
-          position: absolute; left: -10%; width: 120%; height: 16px;
-          background: linear-gradient(#241a10, #120c06);
-          box-shadow: 0 2px 6px rgba(0,0,0,0.8);
-        }
-        .tutor-plank-1 { top: 18%; transform: rotate(-7deg); }
-        .tutor-plank-2 { top: 52%; transform: rotate(5deg); }
-        .tutor-plank-3 { top: 80%; transform: rotate(-3deg); }
-
-        .tutor-web { position: absolute; top: 0; right: 0; width: 130px; height: 130px; transform: scaleX(-1); }
-
-        .tutor-fog {
-          position: absolute; inset: -20%;
-          pointer-events: none;
           background:
-            radial-gradient(40% 30% at 30% 60%, rgba(120,140,160,0.05), transparent 70%),
-            radial-gradient(50% 35% at 70% 70%, rgba(110,130,150,0.05), transparent 70%),
-            radial-gradient(45% 30% at 50% 40%, rgba(100,120,145,0.04), transparent 70%);
-          filter: blur(24px);
+            radial-gradient(90% 70% at 50% 0%, #fff9e8 0%, #fdeecb 18%, #e8ecf7 48%, #c4d2ef 78%, #a9bce6 100%);
         }
-        .tutor-fog-back { animation: tutorFogDrift 46s linear infinite alternate; }
-        .tutor-fog-front { animation: tutorFogDrift 32s linear infinite alternate-reverse; opacity: 0.85; }
 
-        .tutor-pool {
-          position: absolute; left: 50%; bottom: 6%;
-          width: 62%; height: 15%;
-          transform: translateX(-50%);
-          background: radial-gradient(50% 50% at 50% 50%, rgba(255,214,150,0.10), transparent 70%);
-          filter: blur(6px);
+        .tutor-rays {
+          position: absolute; inset: -30% -20% 0 -20%;
+          background: repeating-conic-gradient(
+            from 168deg at 50% -12%,
+            transparent 0deg,
+            rgba(255, 241, 200, 0.5) 3deg,
+            transparent 7deg,
+            transparent 12deg
+          );
+          filter: blur(3px);
+          mix-blend-mode: soft-light;
+          animation: tutorRays 8s ease-in-out infinite alternate;
         }
+
+        .tutor-cloud {
+          position: absolute; pointer-events: none;
+          background: radial-gradient(50% 55% at 50% 55%, rgba(255,255,255,0.95), rgba(255,255,255,0.45) 60%, transparent 75%);
+          filter: blur(10px);
+          border-radius: 50%;
+        }
+        .tutor-cloud-1 { top: 16%; left: -6%; width: 40%; height: 15%; animation: tutorDrift 70s linear infinite alternate; }
+        .tutor-cloud-2 { top: 32%; right: -8%; width: 46%; height: 17%; animation: tutorDrift 55s linear infinite alternate-reverse; }
+        .tutor-cloud-3 { top: 7%; left: 34%; width: 34%; height: 12%; opacity: 0.8; animation: tutorDrift 85s linear infinite alternate; }
+
+        .tutor-glory {
+          position: absolute; left: 50%; top: 26%;
+          width: 68%; height: 62%;
+          transform: translateX(-50%);
+          background: radial-gradient(50% 50% at 50% 42%, rgba(255,236,180,0.65) 0%, rgba(255,244,214,0.28) 45%, transparent 72%);
+          filter: blur(8px);
+          animation: tutorGlory 6.5s ease-in-out infinite;
+          pointer-events: none;
+        }
+        /* the light answers her: brighter while she speaks, hushed while she thinks */
+        .tutor-scene-speaking .tutor-glory { animation-duration: 3.2s; }
+        .tutor-scene-thinking .tutor-glory { opacity: 0.75; }
+        .tutor-scene-listening .tutor-rays { animation-duration: 4s; }
 
         .tutor-stage {
           position: absolute; inset: 8% 0 4% 0;
           display: flex; align-items: flex-end; justify-content: center;
         }
 
-        .tutor-lamp {
-          position: absolute; top: -6px; left: 50%;
-          transform-origin: 50% 0;
-          animation: tutorSwing 6.5s ease-in-out infinite alternate;
-          pointer-events: none;
-        }
-        .tutor-cord { width: 2px; height: 74px; margin: 0 auto; background: linear-gradient(#1c1c22, #0c0c10); }
-        .tutor-shade {
-          width: 58px; height: 26px; margin: 0 auto;
-          background: linear-gradient(#23252c, #101115);
-          clip-path: polygon(28% 0, 72% 0, 100% 100%, 0 100%);
-        }
-        .tutor-bulb {
-          width: 14px; height: 14px; margin: -4px auto 0;
-          border-radius: 50%;
-          background: radial-gradient(circle at 45% 35%, #fff6dd, #ffce7a 60%, #b97b2e);
-          box-shadow: 0 0 22px 8px rgba(255,205,120,0.55);
-          animation: tutorFlicker 4.7s steps(1, end) infinite;
-        }
-        .tutor-cone {
-          width: 520px; height: 440px; margin: -10px auto 0;
-          background: radial-gradient(50% 100% at 50% 0%, rgba(255,218,160,0.20) 0%, rgba(255,208,150,0.07) 45%, transparent 72%);
-          clip-path: polygon(44% 0, 56% 0, 92% 100%, 8% 100%);
-          filter: blur(2px);
+        .tutor-shaft {
+          position: absolute; top: -4%; left: 50%;
+          width: 560px; max-width: 90%; height: 92%;
+          transform: translateX(-50%);
+          background: radial-gradient(50% 100% at 50% 0%, rgba(255,248,222,0.5) 0%, rgba(255,244,210,0.18) 45%, transparent 75%);
+          clip-path: polygon(38% 0, 62% 0, 96% 100%, 4% 100%);
+          filter: blur(4px);
           mix-blend-mode: screen;
-          animation: tutorFlicker 4.7s steps(1, end) infinite;
+          pointer-events: none;
+          animation: tutorShaft 9s ease-in-out infinite alternate;
         }
-        /* the lamp steadies a little when she speaks, stutters when she thinks */
-        .tutor-scene-thinking .tutor-bulb, .tutor-scene-thinking .tutor-cone { animation-duration: 1.6s; }
-        .tutor-scene-speaking .tutor-bulb, .tutor-scene-speaking .tutor-cone { animation-duration: 8s; }
 
-        .tutor-dust { position: absolute; inset: 0; pointer-events: none; }
-        .tutor-dust span {
+        .tutor-cloudbank {
+          position: absolute; left: -6%; right: -6%; bottom: -14%;
+          height: 34%;
+          background:
+            radial-gradient(28% 70% at 12% 45%, rgba(255,255,255,0.98), transparent 70%),
+            radial-gradient(30% 75% at 38% 55%, rgba(255,255,255,0.95), transparent 72%),
+            radial-gradient(30% 75% at 64% 48%, rgba(255,255,255,0.97), transparent 70%),
+            radial-gradient(28% 70% at 88% 55%, rgba(255,255,255,0.95), transparent 72%);
+          filter: blur(9px);
+          pointer-events: none;
+          animation: tutorBankDrift 26s ease-in-out infinite alternate;
+        }
+
+        .tutor-sparkles { position: absolute; inset: 0; pointer-events: none; }
+        .tutor-sparkles span {
           position: absolute; border-radius: 50%;
-          background: #d8cdbb;
-          animation-name: tutorFloat;
+          background: #ffe9a8;
+          box-shadow: 0 0 6px 1px rgba(255, 226, 150, 0.8);
+          animation-name: tutorRise;
           animation-timing-function: ease-in-out;
           animation-iteration-count: infinite;
         }
 
-        .tutor-redpulse {
-          position: absolute; right: -12%; bottom: -10%;
-          width: 55%; height: 55%;
-          background: radial-gradient(50% 50% at 50% 50%, rgba(150,20,30,0.10), transparent 70%);
-          animation: tutorRed 9s ease-in-out infinite;
-          pointer-events: none;
-        }
-
-        .tutor-flash {
-          position: absolute; inset: 0; pointer-events: none;
-          background: linear-gradient(180deg, rgba(190,210,240,0.5), rgba(160,180,220,0.12) 60%, transparent);
-          opacity: 0;
-          animation: tutorLightning 17s linear infinite;
-          mix-blend-mode: screen;
-        }
-
-        .tutor-grain { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.05; pointer-events: none; }
         .tutor-vignette {
           position: absolute; inset: 0; pointer-events: none;
-          background: radial-gradient(80% 70% at 50% 45%, transparent 40%, rgba(0,0,0,0.55) 78%, rgba(0,0,0,0.9) 100%);
+          background: radial-gradient(85% 75% at 50% 45%, transparent 55%, rgba(150,170,220,0.22) 82%, rgba(120,145,205,0.45) 100%);
         }
 
-        @keyframes tutorSwing { from { transform: translateX(-50%) rotate(-2.4deg); } to { transform: translateX(-50%) rotate(2.6deg); } }
-        @keyframes tutorFlicker {
-          0%, 100% { opacity: 1; }
-          7% { opacity: 0.72; } 9% { opacity: 1; }
-          38% { opacity: 0.85; } 40% { opacity: 1; }
-          61% { opacity: 0.55; } 63% { opacity: 0.95; }
-          64.5% { opacity: 0.7; } 66% { opacity: 1; }
-        }
-        @keyframes tutorFogDrift { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
-        @keyframes tutorFloat {
-          0%, 100% { transform: translate(0, 0); }
-          25% { transform: translate(9px, -14px); }
-          50% { transform: translate(-7px, -26px); }
-          75% { transform: translate(6px, -12px); }
-        }
-        @keyframes tutorRed { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-        @keyframes tutorMoon { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
-        @keyframes tutorLightning {
-          0%, 90.5%, 93.5%, 100% { opacity: 0; }
-          91% { opacity: 0.55; }
-          91.6% { opacity: 0.08; }
-          92.2% { opacity: 0.7; }
-          93% { opacity: 0.12; }
+        @keyframes tutorRays { from { opacity: 0.55; } to { opacity: 1; } }
+        @keyframes tutorDrift { from { transform: translateX(-3%); } to { transform: translateX(4%); } }
+        @keyframes tutorGlory { 0%, 100% { opacity: 0.75; } 50% { opacity: 1; } }
+        @keyframes tutorShaft { from { opacity: 0.75; } to { opacity: 1; } }
+        @keyframes tutorBankDrift { from { transform: translateX(-1.5%); } to { transform: translateX(1.5%); } }
+        @keyframes tutorRise {
+          0% { transform: translateY(0); }
+          50% { transform: translateY(-34px) translateX(6px); }
+          100% { transform: translateY(-68px) translateX(-4px); opacity: 0; }
         }
       `}</style>
     </div>
