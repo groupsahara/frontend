@@ -14,6 +14,7 @@ import {
   ClipboardIcon,
   ClockIcon,
   FileTextIcon,
+  GraduationCapIcon,
   GridIcon,
   ImageIcon,
   LogoutIcon,
@@ -88,6 +89,8 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon },
     ],
   },
+  // Immersive AI teacher (no permission -> super admin / admin only).
+  { label: "AI Tutor", href: "/dashboard/tutor", icon: GraduationCapIcon },
   // Platform credentials page — visible to staff only when their role holds
   // configure.view (the super admin grants it per role; admins always see it).
   { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon, permission: "configure.view" },
