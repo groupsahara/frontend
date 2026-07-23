@@ -53,6 +53,14 @@ export default function CategoriesPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree }),
   });
 
+  // Publish / unpublish a category. Unpublished categories still appear on the
+  // storefront + customer app, but render as a "Coming soon" tile.
+  const publishMutation = useMutation({
+    mutationFn: ({ id, isPublished }: { id: number; isPublished: boolean }) =>
+      categoryApi.setPublished(id, isPublished),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.categoryTree }),
+  });
+
   const categories = useMemo(() => data ?? [], [data]);
 
   // ── Drag-and-drop ordering (persisted locally in the admin browser) ──
@@ -218,6 +226,7 @@ export default function CategoriesPage() {
                   <th className="px-5 py-3 font-medium">Description</th>
                   <th className="px-5 py-3 font-medium">Services</th>
                   <th className="px-5 py-3 font-medium">Variants</th>
+                  <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 text-right font-medium">Action</th>
                 </tr>
               </thead>
@@ -277,6 +286,57 @@ export default function CategoriesPage() {
                       {countServices(category)}
                     </td>
                     <td className="px-5 py-3 text-foreground">{countVariants(category)}</td>
+                    <td className="px-5 py-3">
+                      {(() => {
+                        // Missing flag (old backend) → treat as published so nothing hides.
+                        const published = category.isPublished !== false;
+                        const loading =
+                          publishMutation.isPending &&
+                          publishMutation.variables?.id === category.categoryId;
+                        return (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={published}
+                              aria-busy={loading}
+                              disabled={loading}
+                              onClick={() =>
+                                publishMutation.mutate({
+                                  id: category.categoryId,
+                                  isPublished: !published,
+                                })
+                              }
+                              title={
+                                published
+                                  ? "Published — live on the app. Toggle to show as Coming soon"
+                                  : "Coming soon — not yet live. Toggle to publish"
+                              }
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:cursor-wait ${
+                                published ? "bg-primary" : "bg-muted"
+                              }`}
+                            >
+                              <span
+                                className={`flex h-5 w-5 transform items-center justify-center rounded-full bg-white shadow transition-transform ${
+                                  published ? "translate-x-5" : "translate-x-0.5"
+                                }`}
+                              >
+                                {loading && <SpinnerIcon className="h-3 w-3 text-muted-foreground" />}
+                              </span>
+                            </button>
+                            <span
+                              className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${
+                                published
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-amber-500/10 text-amber-600"
+                              }`}
+                            >
+                              {published ? "Published" : "Coming soon"}
+                            </span>
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
