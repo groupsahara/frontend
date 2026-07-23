@@ -160,25 +160,51 @@ export function PopularCategories(_props: PopularCategoriesProps) {
 
 function CategoryTile({ category }: { category: CategoryTreeNode }) {
   const hasImage = Boolean(category.profileImage);
+  // Not yet published → render as a non-clickable "Coming soon" tile.
+  const comingSoon = category.isPublished === false;
+
+  const icon = (
+    <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition group-hover:ring-amber-200">
+      {hasImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- external category images
+        <img
+          src={category.profileImage}
+          alt={category.name}
+          className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
+        />
+      ) : (
+        <span className="text-2xl transition duration-300 group-hover:scale-110">
+          {emojiFor(category.name)}
+        </span>
+      )}
+    </div>
+  );
+
+  if (comingSoon) {
+    return (
+      <div
+        aria-disabled
+        title="Coming soon"
+        className="relative flex cursor-not-allowed flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center opacity-60"
+      >
+        <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+          Soon
+        </span>
+        {icon}
+        <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-500">
+          {category.name}
+        </p>
+        <span className="text-[10px] font-semibold text-amber-600">Coming soon</span>
+      </div>
+    );
+  }
+
   return (
     <Link
       href={`/category/${category.categoryId}`}
       className="group flex cursor-pointer flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center transition duration-200 hover:-translate-y-0.5 hover:border-amber-200 hover:bg-amber-50/70 hover:shadow-md"
     >
-      <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition group-hover:ring-amber-200">
-        {hasImage ? (
-          // eslint-disable-next-line @next/next/no-img-element -- external category images
-          <img
-            src={category.profileImage}
-            alt={category.name}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
-          />
-        ) : (
-          <span className="text-2xl transition duration-300 group-hover:scale-110">
-            {emojiFor(category.name)}
-          </span>
-        )}
-      </div>
+      {icon}
       <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-700 transition group-hover:text-gray-900">
         {category.name}
       </p>

@@ -778,6 +778,11 @@ export const categoryApi = {
    *  web storefront and customer app show categories in the same sequence. */
   reorder: (ids: number[]) =>
     apiClient.patch<{ message: string; count: number }>("/v1/catagories/reorder", { ids }),
+
+  /** PATCH /v1/catagories/:id/publish — publish or unpublish a category.
+   *  Unpublished categories still appear on the storefront but as "Coming soon". */
+  setPublished: (id: number, isPublished: boolean) =>
+    apiClient.patch<CategoryTreeNode>(`/v1/catagories/${id}/publish`, { isPublished }),
 };
 
 /* ====================== Services (catalog) & variants =================== */
@@ -935,6 +940,8 @@ export interface CategoryTreeNode {
   bannerImage?: string | null;
   /** Banner video shown on the category page (optional, takes priority over the image). */
   bannerVideo?: string | null;
+  /** When false, the category shows as "Coming soon" on the storefront/customer app. */
+  isPublished?: boolean;
   /** Services attached directly to this category (no sub-category). */
   services: CategoryTreeService[];
   groups: CategoryTreeGroup[];
