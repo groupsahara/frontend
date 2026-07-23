@@ -72,25 +72,25 @@ const ADMIN_NAV: NavEntry[] = [
   },
   { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
   { label: "Vendors", href: "/dashboard/vendors", icon: CartIcon, permission: "vendors.view" },
-  { label: "Payments", href: "/dashboard/payments", icon: WalletIcon },
+  { label: "Payments", href: "/dashboard/payments", icon: WalletIcon, permission: "payments.view" },
   {
     label: "Styling",
     icon: PaletteIcon,
     children: [
-      { label: "Web Styling", href: "/dashboard/styling/web", icon: MonitorIcon },
-      { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon },
+      { label: "Web Styling", href: "/dashboard/styling/web", icon: MonitorIcon, permission: "styling.view" },
+      { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon, permission: "styling.view" },
     ],
   },
   {
     label: "Tools",
     icon: WrenchIcon,
     children: [
-      { label: "PDF Editor", href: "/dashboard/tools/pdf-editor", icon: FileTextIcon },
-      { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon },
+      { label: "PDF Editor", href: "/dashboard/tools/pdf-editor", icon: FileTextIcon, permission: "pdf-editor.view" },
+      { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon, permission: "resume-builder.view" },
     ],
   },
-  // Immersive AI teacher (no permission -> super admin / admin only).
-  { label: "AI Tutor", href: "/dashboard/tutor", icon: GraduationCapIcon },
+  // Immersive AI teacher — grantable per role (admins hold "*").
+  { label: "AI Tutor", href: "/dashboard/tutor", icon: GraduationCapIcon, permission: "ai-tutor.view" },
   // Platform credentials page — visible to staff only when their role holds
   // configure.view (the super admin grants it per role; admins always see it).
   { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon, permission: "configure.view" },
