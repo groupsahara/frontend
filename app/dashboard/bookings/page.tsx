@@ -16,11 +16,16 @@ import { BagIcon, SearchIcon, SpinnerIcon, UsersIcon } from "@/src/components/ic
 
 const PAGE_SIZE = 20;
 
-const TABS: { key: AdminBookingStatus | "ALL"; label: string }[] = [
+/** Filter tabs. "OUT_OF_ZONE" is not a status — it filters bookings placed
+ *  outside every active service zone (the "coming soon in your area" demand). */
+type BookingTab = AdminBookingStatus | "ALL" | "OUT_OF_ZONE";
+
+const TABS: { key: BookingTab; label: string }[] = [
   { key: "ALL", label: "All" },
   { key: "PENDING", label: "Pending" },
   { key: "COMPLETED", label: "Completed" },
   { key: "CANCELLED", label: "Cancelled" },
+  { key: "OUT_OF_ZONE", label: "Coming Soon" },
 ];
 
 /** Tailwind classes per booking status badge. */
@@ -33,6 +38,26 @@ const STATUS_STYLES: Record<AdminBookingStatus, string> = {
   COMPLETED: "bg-success/10 text-success",
   CANCELLED: "bg-danger/10 text-danger",
 };
+
+/** Tailwind classes per slot day-part chip. */
+const PERIOD_STYLES: Record<string, string> = {
+  Morning: "bg-amber-500/10 text-amber-600",
+  Afternoon: "bg-sky-500/10 text-sky-600",
+  Evening: "bg-indigo-500/10 text-indigo-600",
+  Night: "bg-slate-500/10 text-slate-500",
+};
+
+/** "19:00" → "7:00 PM"; tolerates the "24:00" midnight end our slots use. */
+function formatTime(t: string | null): string {
+  if (!t) return "";
+  const [hStr, mStr = "00"] = t.split(":");
+  const raw = Number(hStr);
+  if (!Number.isFinite(raw)) return t;
+  const h = ((raw % 24) + 24) % 24;
+  const period = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${mStr} ${period}`;
+}
 
 function prettyStatus(status: AdminBookingStatus): string {
   return status
@@ -49,7 +74,7 @@ function canAllocate(b: AdminBooking): boolean {
 
 export default function BookingsPage() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<AdminBookingStatus | "ALL">("ALL");
+  const [tab, setTab] = useState<BookingTab>("ALL");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [allocating, setAllocating] = useState<AdminBooking | null>(null);
@@ -64,7 +89,8 @@ export default function BookingsPage() {
   }, [tab, search]);
 
   const params = {
-    status: tab === "ALL" ? undefined : tab,
+    status: tab === "ALL" || tab === "OUT_OF_ZONE" ? undefined : tab,
+    outOfServiceArea: tab === "OUT_OF_ZONE" ? true : undefined,
     search: search.trim() || undefined,
     page,
     limit: PAGE_SIZE,
@@ -102,7 +128,12 @@ export default function BookingsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border">
         <div className="flex flex-wrap gap-1">
           {TABS.map((t) => {
-            const count = t.key === "ALL" ? counts?.all : counts?.[t.key];
+            const count =
+              t.key === "ALL"
+                ? counts?.all
+                : t.key === "OUT_OF_ZONE"
+                  ? counts?.outOfServiceArea
+                  : counts?.[t.key];
             const active = tab === t.key;
             return (
               <button
@@ -166,6 +197,8 @@ export default function BookingsPage() {
                   <th className="px-5 py-3 font-medium">Customer</th>
                   <th className="px-5 py-3 font-medium">Mobile</th>
                   <th className="px-5 py-3 font-medium">Service</th>
+                  <th className="px-5 py-3 font-medium">Slot / Shift</th>
+                  <th className="px-5 py-3 font-medium">Area</th>
                   <th className="px-5 py-3 font-medium">Amount</th>
                   <th className="px-5 py-3 font-medium">Payment</th>
                   <th className="px-5 py-3 font-medium">Partner</th>
@@ -184,6 +217,51 @@ export default function BookingsPage() {
                     <td className="px-5 py-3 text-foreground">{b.customer}</td>
                     <td className="px-5 py-3 text-muted-foreground">{b.mobile ?? "—"}</td>
                     <td className="px-5 py-3 text-muted-foreground">{b.service}</td>
+                    <td className="px-5 py-3">
+                      {b.startTime || b.shift ? (
+                        <div className="flex max-w-[15rem] flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            {b.slotPeriod && (
+                              <span
+                                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                  PERIOD_STYLES[b.slotPeriod] ?? "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {b.slotPeriod}
+                              </span>
+                            )}
+                            {b.startTime && (
+                              <span className="text-xs text-foreground">
+                                {formatTime(b.startTime)}
+                                {b.endTime ? ` – ${formatTime(b.endTime)}` : ""}
+                              </span>
+                            )}
+                          </div>
+                          {b.shift && (
+                            <span className="truncate text-xs text-muted-foreground" title={b.shift}>
+                              {b.shift}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex max-w-[14rem] flex-col gap-1">
+                        <span className="truncate text-foreground" title={b.address ?? undefined}>
+                          {b.city || "—"}
+                        </span>
+                        {b.outOfServiceArea && (
+                          <span
+                            className="inline-flex w-fit items-center rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning"
+                            title="Placed outside every active service zone — recorded as demand, shown to the customer as “Coming soon in your area” and not dispatched to a partner."
+                          >
+                            Coming soon · out of zone
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-5 py-3 font-medium text-foreground">
                       ₹{b.amount.toLocaleString("en-IN")}
                     </td>

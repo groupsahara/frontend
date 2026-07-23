@@ -120,12 +120,27 @@ export interface AdminBooking {
   /** How the partner was chosen: AUTO = accepted the broadcast lead, MANUAL =
    *  admin allocated directly. Null while unassigned. */
   assignmentSource: "AUTO" | "MANUAL" | null;
+  /** The booked slot window ("HH:mm") + the shift the customer picked. */
+  startTime: string | null;
+  endTime: string | null;
+  /** Variant name, e.g. "5 Hour Shift (11 AM – 4 PM)". */
+  shift: string | null;
+  /** Day-part bucket derived from startTime: Morning/Afternoon/Evening/Night. */
+  slotPeriod: string | null;
+  /** Where the booking is for. */
+  city: string | null;
+  address: string | null;
+  /** True when the booking fell outside every active service zone — recorded as
+   *  demand (customer saw "Coming soon in your area"), not dispatched to a partner. */
+  outOfServiceArea: boolean;
   date: string;
 }
 
 export interface AdminBookingListParams {
   status?: AdminBookingStatus;
   search?: string;
+  /** true = only out-of-zone demand bookings; false = only in-zone; omit = all. */
+  outOfServiceArea?: boolean;
   page?: number;
   limit?: number;
 }
@@ -627,6 +642,7 @@ export const dashboardApi = {
       `/v1/admin/bookings${toQueryString({
         status: params.status,
         search: params.search,
+        outOfServiceArea: params.outOfServiceArea,
         page: params.page,
         limit: params.limit,
       })}`,
@@ -701,7 +717,7 @@ export interface VendorListParams {
   search?: string;
 }
 
-function toQueryString(params: Record<string, string | number | undefined>): string {
+function toQueryString(params: Record<string, string | number | boolean | undefined>): string {
   const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
   if (entries.length === 0) return "";
   const qs = new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
