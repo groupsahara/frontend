@@ -2,8 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import { aiTutorApi, type TutorTurn } from "@/src/api/api";
+import {
+  aiTutorApi,
+  type TutorLook,
+  type TutorSpeechLang,
+  type TutorTurn,
+  type TutorVisual,
+} from "@/src/api/api";
 import { TutorAvatar, type TutorPhase } from "@/src/components/tutor/tutor-avatar";
+import { TutorBoard } from "@/src/components/tutor/tutor-board";
+import { TutorCamera } from "@/src/components/tutor/tutor-camera";
+import { TutorGalaxyScene } from "@/src/components/tutor/tutor-galaxy-scene";
 import { TutorScene } from "@/src/components/tutor/tutor-scene";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
 
@@ -58,29 +67,146 @@ function getAudioCtxCtor(): typeof AudioContext {
 }
 
 /**
- * Split an answer into sentence chunks for pipelined TTS: the first chunk is
- * kept short so her voice starts almost immediately; the rest synthesize in
- * parallel while the first one plays.
+ * Split an answer for pipelined TTS: a short first chunk so her voice starts
+ * almost immediately, and AT MOST one more with everything else. Two calls
+ * max per answer — more parallel calls were tripping the TTS model's tight
+ * per-minute quota, forcing the browser-voice fallback mid-answer.
  */
 function chunkForSpeech(text: string): string[] {
   const sentences = text.match(/[^.!?।…]+[.!?।…]+["'”]?|[^.!?।…]+$/g) ?? [text];
-  const chunks: string[] = [];
-  let current = "";
-  const flush = () => {
-    if (current.trim()) chunks.push(current.trim());
-    current = "";
-  };
-  for (const s of sentences) {
-    const limit = chunks.length === 0 ? 120 : 280;
-    if (current && (current + s).length > limit) flush();
-    current += s;
+  let first = "";
+  let i = 0;
+  while (i < sentences.length && (first === "" || (first + sentences[i]).length <= 120)) {
+    first += sentences[i];
+    i++;
   }
-  flush();
-  return chunks.length ? chunks : [text];
+  const rest = sentences.slice(i).join("").trim();
+  first = first.trim();
+  if (!first) return [text];
+  return rest ? [first, rest] : [first];
+}
+
+/** One retry with a breather before giving a chunk up — rides out 429s. */
+function fetchSpeech(text: string, lang: TutorSpeechLang) {
+  return aiTutorApi
+    .speak(text, lang)
+    .catch(
+      () =>
+        new Promise((res) => window.setTimeout(res, 1400)).then(() => aiTutorApi.speak(text, lang)),
+    );
+}
+
+/**
+ * Fallback browser voice: Indian accent only. Prefer a real hi-IN/en-IN
+ * voice, then UK English (closest to Indian English on most systems) —
+ * never a US voice while any alternative exists.
+ */
+function pickBrowserVoice(voices: SpeechSynthesisVoice[], lang: TutorSpeechLang) {
+  const norm = (l: string | undefined) => (l ?? "").replace("_", "-").toLowerCase();
+  const primary = lang.slice(0, 2);
+  const isUS = (v: SpeechSynthesisVoice) => norm(v.lang) === "en-us" || /us english/i.test(v.name);
+  const female = (v: SpeechSynthesisVoice) =>
+    /female|lekha|swara|veena|heera|kalpana|neerja|isha/i.test(`${v.name} ${v.voiceURI}`);
+  const exact = voices.filter((v) => norm(v.lang) === lang.toLowerCase());
+  const sameLang = voices.filter((v) => norm(v.lang).startsWith(primary) && !isUS(v));
+  const ukFemale = voices.filter((v) => norm(v.lang) === "en-gb" && female(v));
+  return (
+    exact.find(female) ??
+    exact[0] ??
+    (lang === "en-IN" ? ukFemale[0] : undefined) ??
+    sameLang.find(female) ??
+    sameLang[0] ??
+    voices.find((v) => norm(v.lang).startsWith(primary))
+  );
+}
+
+/**
+ * One language per answer, decided over the FULL text and reused for every
+ * chunk — otherwise the accent could flip between chunks. Devanagari → Hindi;
+ * romanized text with enough Hindi cue-words → Hinglish (the hi-IN voice
+ * code-switches naturally); anything else → Indian English.
+ */
+function detectSpeechLang(text: string): TutorSpeechLang {
+  if (/[ऀ-ॿ]/.test(text)) return "hi-IN";
+  const cues = text
+    .toLowerCase()
+    .match(
+      /\b(hai|hain|nahi|nahin|kya|kyu|kyun|aap|tum|hum|mein|mera|meri|acha|accha|theek|thik|bahut|bohot|karo|karna|hota|hoti|wala|wali|aur|lekin|matlab|samajh|seekho|bilkul|zaroor|shukriya|chalo|dekho|suno|jaise|kaise|kitna|kuch|yeh|woh)\b/g,
+    );
+  return (cues?.length ?? 0) >= 2 ? "hi-IN" : "en-IN";
+}
+
+/* --------------------------- "mirror me" store ---------------------------- */
+// Only the derived traits persist (localStorage); the photo itself never
+// leaves the scan request. useSyncExternalStore keeps hydration clean.
+
+const LOOK_KEY = "rc.tutorLook";
+let lookCache: TutorLook | null | undefined;
+const lookListeners = new Set<() => void>();
+
+function getLookSnapshot(): TutorLook | null {
+  if (lookCache === undefined) {
+    try {
+      lookCache = JSON.parse(window.localStorage.getItem(LOOK_KEY) ?? "null") as TutorLook | null;
+    } catch {
+      lookCache = null;
+    }
+  }
+  return lookCache ?? null;
+}
+
+function subscribeLook(cb: () => void): () => void {
+  lookListeners.add(cb);
+  return () => {
+    lookListeners.delete(cb);
+  };
+}
+
+function saveLook(look: TutorLook | null) {
+  lookCache = look;
+  try {
+    if (look) window.localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+    else window.localStorage.removeItem(LOOK_KEY);
+  } catch {
+    /* private mode */
+  }
+  lookListeners.forEach((cb) => cb());
+}
+
+/* ------------------------------ theme store ------------------------------- */
+// Galaxy is the default; the side tab switches to the angel theme and back.
+
+type TutorTheme = "galaxy" | "angel";
+const THEME_KEY = "rc.tutorTheme";
+let themeCache: TutorTheme | undefined;
+const themeListeners = new Set<() => void>();
+
+function getThemeSnapshot(): TutorTheme {
+  if (themeCache === undefined) {
+    themeCache = window.localStorage.getItem(THEME_KEY) === "angel" ? "angel" : "galaxy";
+  }
+  return themeCache;
+}
+
+function subscribeTheme(cb: () => void): () => void {
+  themeListeners.add(cb);
+  return () => {
+    themeListeners.delete(cb);
+  };
+}
+
+function saveTheme(theme: TutorTheme) {
+  themeCache = theme;
+  try {
+    window.localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    /* private mode */
+  }
+  themeListeners.forEach((cb) => cb());
 }
 
 const GREETING =
-  "Hello, dear one… I am Aanya, your angel tutor. Come, sit with me in the light. Press the mic once and we can simply talk, or type below. Ask me anything you wish to learn.";
+  "Hello, dear one… I am Aanya, your tutor. Press the mic once and we can simply talk, or type below. Ask me anything you wish to learn.";
 
 /* --------------------------------- page ----------------------------------- */
 
@@ -92,6 +218,14 @@ export default function TutorPage() {
   const [conversation, setConversation] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [subtitle, setSubtitle] = useState("");
+  const [visual, setVisual] = useState<Extract<TutorVisual, { applicable: true }> | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  // The student's scanned look — she transforms whenever this changes.
+  const look = useSyncExternalStore(subscribeLook, getLookSnapshot, () => null);
+  // Scene theme: galaxy (default) or angel, switched by the side tab.
+  const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, () => "galaxy" as const);
+  const dark = theme === "galaxy";
 
   const phaseRef = useRef<TutorPhase>("idle");
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -104,6 +238,8 @@ export default function TutorPage() {
   const conversationRef = useRef(false);
   // Invalidates any in-flight playback loop when speech is stopped/replaced.
   const playTokenRef = useRef(0);
+  // Ties a background visualize() result to the question it belongs to.
+  const askSeqRef = useRef(0);
   // Lets speak/ask re-arm the mic without a circular useCallback dependency.
   const startListeningRef = useRef<() => void>(() => {});
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -185,20 +321,16 @@ export default function TutorPage() {
   /* ----------------------------- speak an answer --------------------------- */
 
   const speakWithBrowser = useCallback(
-    (text: string) => {
+    (text: string, lang: TutorSpeechLang) => {
       const synth = window.speechSynthesis;
       if (!synth) {
         finishSpeaking();
         return;
       }
       const utterance = new SpeechSynthesisUtterance(text);
-      const voices = synth.getVoices();
-      const female = voices.find((v) =>
-        /female|zira|samantha|veena|heera|lekha|google uk english female|google हिन्दी/i.test(
-          `${v.name} ${v.voiceURI}`,
-        ),
-      );
-      if (female) utterance.voice = female;
+      utterance.lang = lang;
+      const voice = pickBrowserVoice(synth.getVoices(), lang);
+      if (voice) utterance.voice = voice;
       utterance.pitch = 1.05;
       utterance.rate = 1;
       utterance.onend = () => finishSpeaking();
@@ -216,11 +348,15 @@ export default function TutorPage() {
       const token = ++playTokenRef.current;
       setSubtitle(text);
 
+      // One language for the whole answer, decided over the full text — every
+      // chunk carries the same lock so the accent can't flip mid-reply.
+      const lang = detectSpeechLang(text);
+
       // Fire every chunk's TTS request up front; play them back in order.
       // Wrapped so a late chunk failing never surfaces as an unhandled rejection.
       const chunks = chunkForSpeech(text);
       const fetches = chunks.map((c) =>
-        aiTutorApi.speak(c).then(
+        fetchSpeech(c, lang).then(
           (r) => ({ ok: true as const, r }),
           () => ({ ok: false as const }),
         ),
@@ -258,7 +394,7 @@ export default function TutorPage() {
       } catch {
         if (playTokenRef.current !== token) return;
         // Server TTS unavailable — browser voice covers whatever wasn't spoken.
-        speakWithBrowser(chunks.slice(next).join(" "));
+        speakWithBrowser(chunks.slice(next).join(" "), lang);
       } finally {
         // The playback loop is over by the time we get here (every chunk is
         // awaited), so releasing the tap is always safe — even doubly so after
@@ -286,9 +422,19 @@ export default function TutorPage() {
       const history = messagesRef.current.slice(-20);
       setMessages((prev) => [...prev, { role: "user", text: q }]);
       updatePhase("thinking");
+      const seq = ++askSeqRef.current;
+      setVisual(null);
       try {
         const { answer } = await aiTutorApi.ask({ question: q, history });
         setMessages((prev) => [...prev, { role: "tutor", text: answer }]);
+        // Whiteboard runs in the background while she starts speaking — the
+        // board pops in whenever it's ready, and only for the latest question.
+        aiTutorApi
+          .visualize({ question: q, answer })
+          .then((v) => {
+            if (askSeqRef.current === seq && v.applicable) setVisual(v);
+          })
+          .catch(() => undefined);
         await speak(answer);
       } catch (err) {
         updatePhase("idle");
@@ -398,6 +544,27 @@ export default function TutorPage() {
     }
   }, [startListening, stopListening, stopSpeaking]);
 
+  /* ------------------------------ mirror me -------------------------------- */
+
+  const handleCaptured = useCallback((dataUrl: string) => {
+    setCameraOpen(false);
+    setScanning(true);
+    aiTutorApi
+      .appearance(dataUrl)
+      .then((r) => {
+        if (r.person) {
+          saveLook(r);
+          toast.success("Scan complete — Aanya has taken your look ✨");
+        } else {
+          toast.error("I couldn't see a face clearly — try again with better light");
+        }
+      })
+      .catch((err: unknown) =>
+        toast.error(err instanceof Error ? err.message : "Scan failed — try again"),
+      )
+      .finally(() => setScanning(false));
+  }, []);
+
   /* ------------------------------- lifecycle ------------------------------- */
 
   useEffect(() => {
@@ -430,53 +597,138 @@ export default function TutorPage() {
             : "Waiting for you";
 
   return (
-    <div className="tutor-page relative -mx-4 -my-6 h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden bg-[#cfdcf4] sm:-mx-6">
-      <TutorScene phase={phase}>
-        <TutorAvatar phase={phase} getLevel={getLevel} />
-      </TutorScene>
+    <div
+      className={`tutor-page relative -mx-4 -my-6 h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden sm:-mx-6 ${dark ? "bg-[#04040c]" : "bg-[#cfdcf4]"}`}
+    >
+      {dark ? (
+        <TutorGalaxyScene phase={phase}>
+          <TutorAvatar phase={phase} getLevel={getLevel} look={look} theme="galaxy" />
+        </TutorGalaxyScene>
+      ) : (
+        <TutorScene phase={phase}>
+          <TutorAvatar phase={phase} getLevel={getLevel} look={look} theme="angel" />
+        </TutorScene>
+      )}
+
+
+      {cameraOpen && (
+        <TutorCamera onCancel={() => setCameraOpen(false)} onCaptured={handleCaptured} />
+      )}
 
       {/* title + status */}
       <div className="pointer-events-none absolute left-5 top-4 z-20 select-none">
-        <h1 className="tutor-title text-2xl font-semibold tracking-[0.35em] text-amber-600 sm:text-3xl">
+        <h1
+          className={`text-2xl font-semibold tracking-[0.35em] sm:text-3xl ${dark ? "tutor-title-galaxy text-violet-200" : "tutor-title-angel text-amber-600"}`}
+        >
           AANYA
         </h1>
-        <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-indigo-900/60 sm:text-xs">
-          Angel Tutor · ask me anything
+        <p
+          className={`mt-1 text-[10px] uppercase tracking-[0.3em] sm:text-xs ${dark ? "text-indigo-200/60" : "text-indigo-900/60"}`}
+        >
+          {dark ? "Cosmic Tutor · ask me anything" : "Angel Tutor · ask me anything"}
         </p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/60 px-3 py-1 backdrop-blur">
+        <div
+          className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 backdrop-blur ${dark ? "border-white/15 bg-white/10" : "border-white/60 bg-white/60"}`}
+        >
           <span
             className={[
               "h-2 w-2 rounded-full",
-              phase === "listening" && "animate-pulse bg-sky-500",
+              phase === "listening" && "animate-pulse bg-sky-400",
               phase === "thinking" && "animate-pulse bg-amber-400",
-              phase === "speaking" && "animate-pulse bg-emerald-500",
-              phase === "idle" && (conversation ? "animate-pulse bg-amber-400" : "bg-indigo-300"),
+              phase === "speaking" && "animate-pulse bg-emerald-400",
+              phase === "idle" &&
+                (conversation ? "animate-pulse bg-amber-400" : dark ? "bg-slate-400" : "bg-indigo-300"),
             ]
               .filter(Boolean)
               .join(" ")}
           />
-          <span className="text-xs text-indigo-900/80">{statusLabel}</span>
+          <span className={`text-xs ${dark ? "text-indigo-100/90" : "text-indigo-900/80"}`}>
+            {statusLabel}
+          </span>
         </div>
       </div>
 
-      {/* transcript toggle */}
-      <button
-        type="button"
-        onClick={() => setPanelOpen((v) => !v)}
-        className="absolute right-4 top-4 z-30 rounded-full border border-white/60 bg-white/60 px-4 py-1.5 text-xs text-indigo-900/80 backdrop-blur transition-colors hover:bg-white/90 hover:text-indigo-950"
-      >
-        {panelOpen ? "Hide transcript" : "Transcript"}
-      </button>
+      {/* whiteboard — floats beside her on wide screens, above the controls on small */}
+      {visual && (
+        <div className="pointer-events-none absolute left-1/2 top-16 z-20 w-[min(24rem,92vw)] -translate-x-1/2 lg:left-6 lg:top-1/2 lg:w-[min(26rem,38vw)] lg:-translate-x-0 lg:-translate-y-1/2">
+          <TutorBoard visual={visual} onClose={() => setVisual(null)} />
+        </div>
+      )}
+
+      {/* top-right actions: theme tabs + mirror-me scan + transcript */}
+      <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
+        {/* theme tabs — galaxy by default, angel only when its tab is clicked */}
+        <div
+          className={`flex items-center rounded-full border p-0.5 backdrop-blur ${dark ? "border-white/15 bg-white/10" : "border-white/60 bg-white/60"}`}
+        >
+          <button
+            type="button"
+            onClick={() => saveTheme("galaxy")}
+            className={`rounded-full px-3 py-1 text-xs transition-colors ${dark ? "bg-violet-600 text-white shadow-[0_0_12px_rgba(140,110,255,0.5)]" : "text-indigo-900/60 hover:text-indigo-950"}`}
+          >
+            Galaxy
+          </button>
+          <button
+            type="button"
+            onClick={() => saveTheme("angel")}
+            className={`rounded-full px-3 py-1 text-xs transition-colors ${!dark ? "bg-amber-400 text-white shadow-[0_0_12px_rgba(245,185,66,0.5)]" : "text-indigo-200/70 hover:text-white"}`}
+          >
+            Angel
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCameraOpen(true)}
+          disabled={scanning}
+          title="Scan yourself once — Aanya transforms to match you"
+          className={`flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs backdrop-blur transition-colors disabled:opacity-50 ${dark ? "border-violet-300/40 bg-white/10 text-violet-200 hover:bg-white/20" : "border-amber-300/70 bg-white/60 text-amber-700 hover:bg-white/90"}`}
+        >
+          {scanning ? (
+            <>
+              <SpinnerIcon className="h-3.5 w-3.5" /> Transforming…
+            </>
+          ) : (
+            <>
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              {look ? "Rescan me" : "Mirror me"}
+            </>
+          )}
+        </button>
+        {look && !scanning && (
+          <button
+            type="button"
+            onClick={() => saveLook(null)}
+            title="Back to Aanya's own look"
+            className={`rounded-full border px-3 py-1.5 text-xs backdrop-blur transition-colors ${dark ? "border-white/15 bg-white/10 text-indigo-100 hover:bg-white/20" : "border-white/60 bg-white/60 text-indigo-900/80 hover:bg-white/90"}`}
+          >
+            Reset look
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setPanelOpen((v) => !v)}
+          className={`rounded-full border px-4 py-1.5 text-xs backdrop-blur transition-colors ${dark ? "border-white/15 bg-white/10 text-indigo-100 hover:bg-white/20 hover:text-white" : "border-white/60 bg-white/60 text-indigo-900/80 hover:bg-white/90 hover:text-indigo-950"}`}
+        >
+          {panelOpen ? "Hide transcript" : "Transcript"}
+        </button>
+      </div>
 
       {/* transcript panel */}
       {panelOpen && (
-        <div className="absolute bottom-32 right-4 top-14 z-20 flex w-[19rem] max-w-[85vw] flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/60 backdrop-blur-md">
-          <div className="flex items-center justify-between border-b border-indigo-100 px-4 py-2.5">
-            <span className="text-xs uppercase tracking-widest text-indigo-400">Lesson transcript</span>
+        <div
+          className={`absolute bottom-32 right-4 top-14 z-20 flex w-[19rem] max-w-[85vw] flex-col overflow-hidden rounded-2xl border backdrop-blur-md ${dark ? "border-white/10 bg-black/50" : "border-white/70 bg-white/60"}`}
+        >
+          <div
+            className={`flex items-center justify-between border-b px-4 py-2.5 ${dark ? "border-white/10" : "border-indigo-100"}`}
+          >
+            <span className={`text-xs uppercase tracking-widest ${dark ? "text-indigo-300" : "text-indigo-400"}`}>Lesson transcript</span>
             <button
               type="button"
               onClick={() => setPanelOpen(false)}
-              className="text-indigo-300 transition-colors hover:text-indigo-700"
+              className={`transition-colors ${dark ? "text-indigo-400 hover:text-white" : "text-indigo-300 hover:text-indigo-700"}`}
             >
               <CloseIcon className="h-4 w-4" />
             </button>
@@ -488,8 +740,12 @@ export default function TutorPage() {
                   className={[
                     "max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed",
                     m.role === "user"
-                      ? "rounded-br-sm bg-indigo-500/85 text-white"
-                      : "rounded-bl-sm bg-white/85 text-slate-700 shadow-sm",
+                      ? dark
+                        ? "rounded-br-sm bg-violet-600/80 text-white"
+                        : "rounded-br-sm bg-indigo-500/85 text-white"
+                      : dark
+                        ? "rounded-bl-sm bg-white/10 text-indigo-100"
+                        : "rounded-bl-sm bg-white/85 text-slate-700 shadow-sm",
                   ].join(" ")}
                 >
                   {m.text}
@@ -498,7 +754,9 @@ export default function TutorPage() {
             ))}
             {phase === "thinking" && (
               <div className="flex justify-start">
-                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-white/85 px-3 py-2 text-[13px] text-indigo-400 shadow-sm">
+                <div
+                  className={`flex items-center gap-2 rounded-2xl rounded-bl-sm px-3 py-2 text-[13px] ${dark ? "bg-white/10 text-indigo-300" : "bg-white/85 text-indigo-400 shadow-sm"}`}
+                >
                   <SpinnerIcon className="h-3.5 w-3.5" /> Aanya is thinking…
                 </div>
               </div>
@@ -510,7 +768,9 @@ export default function TutorPage() {
       {/* live subtitle while she speaks */}
       {phase === "speaking" && subtitle && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[min(46rem,90vw)] -translate-x-1/2 text-center">
-          <p className="mx-auto line-clamp-3 rounded-xl bg-white/65 px-4 py-2 text-sm italic leading-relaxed text-indigo-900/90 backdrop-blur-sm">
+          <p
+            className={`mx-auto line-clamp-3 rounded-xl px-4 py-2 text-sm italic leading-relaxed backdrop-blur-sm ${dark ? "bg-black/45 text-violet-100/90" : "bg-white/65 text-indigo-900/90"}`}
+          >
             “{subtitle}”
           </p>
         </div>
@@ -519,7 +779,9 @@ export default function TutorPage() {
       {/* interim voice text */}
       {phase === "listening" && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[min(40rem,90vw)] -translate-x-1/2 text-center">
-          <p className="mx-auto rounded-xl bg-white/65 px-4 py-2 text-sm text-sky-800 backdrop-blur-sm">
+          <p
+            className={`mx-auto rounded-xl px-4 py-2 text-sm backdrop-blur-sm ${dark ? "bg-black/45 text-sky-200" : "bg-white/65 text-sky-800"}`}
+          >
             {interim || "I'm listening… speak your question."}
           </p>
         </div>
@@ -532,7 +794,7 @@ export default function TutorPage() {
             e.preventDefault();
             void ask(draft);
           }}
-          className="flex items-center gap-2 rounded-2xl border border-white/70 bg-white/65 p-2 shadow-lg shadow-indigo-300/30 backdrop-blur-md"
+          className={`flex items-center gap-2 rounded-2xl border p-2 backdrop-blur-md ${dark ? "border-white/10 bg-black/50 shadow-lg shadow-violet-900/40" : "border-white/70 bg-white/65 shadow-lg shadow-indigo-300/30"}`}
         >
           {/* mic — one click for a hands-free conversation */}
           <button
@@ -550,7 +812,9 @@ export default function TutorPage() {
               "relative grid h-12 w-12 shrink-0 place-items-center rounded-full transition-all",
               conversation
                 ? "bg-amber-400 text-white shadow-[0_0_24px_rgba(245,185,66,0.75)]"
-                : "bg-indigo-900/10 text-indigo-800 hover:bg-indigo-900/20",
+                : dark
+                  ? "bg-white/10 text-indigo-100 hover:bg-white/20"
+                  : "bg-indigo-900/10 text-indigo-800 hover:bg-indigo-900/20",
               !micSupported && "cursor-not-allowed opacity-40",
             ]
               .filter(Boolean)
@@ -576,7 +840,7 @@ export default function TutorPage() {
             value={interim && phase === "listening" ? interim : draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder={conversation ? "Conversation on — just speak…" : "Ask Aanya anything…"}
-            className="min-w-0 flex-1 bg-transparent px-2 text-sm text-indigo-950 placeholder:text-indigo-400 focus:outline-none"
+            className={`min-w-0 flex-1 bg-transparent px-2 text-sm focus:outline-none ${dark ? "text-indigo-50 placeholder:text-indigo-400" : "text-indigo-950 placeholder:text-indigo-400"}`}
           />
 
           {phase === "speaking" ? (
@@ -586,7 +850,7 @@ export default function TutorPage() {
                 stopSpeaking();
                 if (conversationRef.current) startListeningRef.current();
               }}
-              className="shrink-0 rounded-xl bg-indigo-900/10 px-4 py-2.5 text-sm text-indigo-800 transition-colors hover:bg-indigo-900/20"
+              className={`shrink-0 rounded-xl px-4 py-2.5 text-sm transition-colors ${dark ? "bg-white/10 text-indigo-100 hover:bg-white/20" : "bg-indigo-900/10 text-indigo-800 hover:bg-indigo-900/20"}`}
             >
               Stop
             </button>
@@ -594,7 +858,7 @@ export default function TutorPage() {
             <button
               type="submit"
               disabled={!draft.trim() || phase === "thinking"}
-              className="shrink-0 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${dark ? "bg-violet-600 hover:bg-violet-500" : "bg-amber-500 hover:bg-amber-400"}`}
             >
               {phase === "thinking" ? <SpinnerIcon className="h-4 w-4" /> : "Ask"}
             </button>
@@ -603,7 +867,8 @@ export default function TutorPage() {
       </div>
 
       <style>{`
-        .tutor-title { text-shadow: 0 0 18px rgba(255, 214, 110, 0.85), 0 1px 2px rgba(255,255,255,0.9); }
+        .tutor-title-angel { text-shadow: 0 0 18px rgba(255, 214, 110, 0.85), 0 1px 2px rgba(255,255,255,0.9); }
+        .tutor-title-galaxy { text-shadow: 0 0 20px rgba(150, 120, 255, 0.9), 0 0 3px rgba(220, 210, 255, 0.6); }
       `}</style>
     </div>
   );

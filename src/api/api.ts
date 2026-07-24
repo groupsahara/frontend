@@ -3073,9 +3073,59 @@ export interface TutorTurn {
   text: string;
 }
 
+export type TutorSpeechLang = "hi-IN" | "en-IN";
+
+// Whiteboard scene primitives — mirrors the backend sanitizer's whitelist.
+// Coordinates: x 0-100 (left→right), y 0-75 (top→bottom); drawing is
+// cumulative across steps.
+export type TutorVisualColor = "ink" | "gold" | "sky" | "rose" | "mint";
+export type TutorVisualItem =
+  | { type: "text"; x: number; y: number; text: string; size: number; color: TutorVisualColor }
+  | { type: "line"; x1: number; y1: number; x2: number; y2: number; color: TutorVisualColor; dashed: boolean }
+  | { type: "arrow"; x1: number; y1: number; x2: number; y2: number; color: TutorVisualColor }
+  | { type: "circle"; x: number; y: number; r: number; color: TutorVisualColor; fill: boolean }
+  | { type: "rect"; x: number; y: number; w: number; h: number; color: TutorVisualColor; fill: boolean }
+  | { type: "polygon"; points: [number, number][]; color: TutorVisualColor; fill: boolean }
+  | { type: "polyline"; points: [number, number][]; color: TutorVisualColor }
+  | { type: "point"; x: number; y: number; label: string }
+  | { type: "number-line"; y: number; from: number; to: number; highlights: number[] }
+  | { type: "fraction-circle"; x: number; y: number; r: number; num: number; den: number }
+  | { type: "angle"; x: number; y: number; start: number; end: number; r: number; label: string };
+export interface TutorVisualStep {
+  caption: string;
+  items: TutorVisualItem[];
+}
+export type TutorVisual =
+  | { applicable: false }
+  | { applicable: true; title: string; steps: TutorVisualStep[] };
+
+// "Mirror me": stylized avatar traits scanned from one webcam frame. Enums
+// only — the photo itself is analyzed in memory server-side and never stored.
+export interface TutorLook {
+  person: true;
+  skinTone: "fair" | "light" | "medium" | "tan" | "brown" | "deep";
+  hairColor: "black" | "darkbrown" | "brown" | "auburn" | "red" | "blonde" | "gray" | "white";
+  hairLength: "bald" | "short" | "medium" | "long";
+  hairStyle: "straight" | "wavy" | "curly";
+  eyeColor: "black" | "brown" | "hazel" | "green" | "blue" | "gray";
+  eyebrows: "thin" | "medium" | "thick";
+  glasses: boolean;
+  facialHair: "none" | "stubble" | "mustache" | "beard";
+}
+
 export const aiTutorApi = {
   ask: (body: { question: string; history?: TutorTurn[] }) =>
     apiClient.post<{ answer: string }>("/v1/ai-tutor/ask", body),
-  speak: (text: string) =>
-    apiClient.post<{ audio: string; mimeType: string }>("/v1/ai-tutor/speak", { text }),
+  /** Mirror-me scan — image is a JPEG/PNG data URL of one webcam frame. */
+  appearance: (image: string) =>
+    apiClient.post<TutorLook | { person: false }>("/v1/ai-tutor/appearance", { image }),
+  /** languageCode locks the accent — send the same value for every chunk of one answer. */
+  speak: (text: string, languageCode?: TutorSpeechLang) =>
+    apiClient.post<{ audio: string; mimeType: string }>("/v1/ai-tutor/speak", {
+      text,
+      languageCode,
+    }),
+  /** Step-by-step whiteboard scene for the question, or applicable:false. */
+  visualize: (body: { question: string; answer?: string }) =>
+    apiClient.post<TutorVisual>("/v1/ai-tutor/visualize", body),
 };
