@@ -181,8 +181,8 @@ export default function MyBookingsPage() {
               Browse services
             </Link>
           </div>
-        ) : (
-          <div className="space-y-4">
+        ) : ( 
+          <div className="space-y-4"> 
             {filtered.map((b) => {
               const id = Number(b.bookingId ?? b.id);
               if (!id) return null;
