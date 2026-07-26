@@ -3113,18 +3113,38 @@ export interface TutorLook {
   facialHair: "none" | "stubble" | "mustache" | "beard";
 }
 
+/** Expert badge keys — must mirror the backend's TUTOR_PERSONAS whitelist. */
+export type TutorPersona =
+  | "doctor"
+  | "electrician"
+  | "technician"
+  | "developer"
+  | "scientist"
+  | "astrologer"
+  | "student"
+  | "chef"
+  | "lawyer"
+  | "fitness";
+
+/** One live tutor turn: answer text + natively spoken base64 PCM audio. */
+export interface TutorConverseResult {
+  answer: string;
+  audio: string;
+  mimeType: string;
+  languageCode: string;
+}
+
 export const aiTutorApi = {
-  ask: (body: { question: string; history?: TutorTurn[] }) =>
-    apiClient.post<{ answer: string }>("/v1/ai-tutor/ask", body),
+  /** POST /v1/ai-tutor/converse — one Gemini Live turn (text + voice together). */
+  converse: (body: {
+    question: string;
+    history?: TutorTurn[];
+    persona?: TutorPersona;
+    languageCode?: TutorSpeechLang;
+  }) => apiClient.post<TutorConverseResult>("/v1/ai-tutor/converse", body),
   /** Mirror-me scan — image is a JPEG/PNG data URL of one webcam frame. */
   appearance: (image: string) =>
     apiClient.post<TutorLook | { person: false }>("/v1/ai-tutor/appearance", { image }),
-  /** languageCode locks the accent — send the same value for every chunk of one answer. */
-  speak: (text: string, languageCode?: TutorSpeechLang) =>
-    apiClient.post<{ audio: string; mimeType: string }>("/v1/ai-tutor/speak", {
-      text,
-      languageCode,
-    }),
   /** Step-by-step whiteboard scene for the question, or applicable:false. */
   visualize: (body: { question: string; answer?: string }) =>
     apiClient.post<TutorVisual>("/v1/ai-tutor/visualize", body),

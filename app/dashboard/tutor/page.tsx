@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import {
   aiTutorApi,
   type TutorLook,
+  type TutorPersona,
   type TutorSpeechLang,
   type TutorTurn,
   type TutorVisual,
@@ -67,36 +68,6 @@ function getAudioCtxCtor(): typeof AudioContext {
 }
 
 /**
- * Split an answer for pipelined TTS: a short first chunk so her voice starts
- * almost immediately, and AT MOST one more with everything else. Two calls
- * max per answer — more parallel calls were tripping the TTS model's tight
- * per-minute quota, forcing the browser-voice fallback mid-answer.
- */
-function chunkForSpeech(text: string): string[] {
-  const sentences = text.match(/[^.!?।…]+[.!?।…]+["'”]?|[^.!?।…]+$/g) ?? [text];
-  let first = "";
-  let i = 0;
-  while (i < sentences.length && (first === "" || (first + sentences[i]).length <= 120)) {
-    first += sentences[i];
-    i++;
-  }
-  const rest = sentences.slice(i).join("").trim();
-  first = first.trim();
-  if (!first) return [text];
-  return rest ? [first, rest] : [first];
-}
-
-/** One retry with a breather before giving a chunk up — rides out 429s. */
-function fetchSpeech(text: string, lang: TutorSpeechLang) {
-  return aiTutorApi
-    .speak(text, lang)
-    .catch(
-      () =>
-        new Promise((res) => window.setTimeout(res, 1400)).then(() => aiTutorApi.speak(text, lang)),
-    );
-}
-
-/**
  * Fallback browser voice: Indian accent only. Prefer a real hi-IN/en-IN
  * voice, then UK English (closest to Indian English on most systems) —
  * never a US voice while any alternative exists.
@@ -109,13 +80,20 @@ function pickBrowserVoice(voices: SpeechSynthesisVoice[], lang: TutorSpeechLang)
     /female|lekha|swara|veena|heera|kalpana|neerja|isha/i.test(`${v.name} ${v.voiceURI}`);
   const exact = voices.filter((v) => norm(v.lang) === lang.toLowerCase());
   const sameLang = voices.filter((v) => norm(v.lang).startsWith(primary) && !isUS(v));
+  const enIN = voices.filter((v) => norm(v.lang) === "en-in");
   const ukFemale = voices.filter((v) => norm(v.lang) === "en-gb" && female(v));
+  const nonUsEnglish = voices.filter((v) => norm(v.lang).startsWith("en") && !isUS(v));
+  // For Hindi with no Hindi voice installed, still land on an Indian/UK
+  // English voice — never let the browser default (usually US) read Hindi.
   return (
     exact.find(female) ??
     exact[0] ??
-    (lang === "en-IN" ? ukFemale[0] : undefined) ??
     sameLang.find(female) ??
     sameLang[0] ??
+    enIN.find(female) ??
+    enIN[0] ??
+    ukFemale[0] ??
+    nonUsEnglish[0] ??
     voices.find((v) => norm(v.lang).startsWith(primary))
   );
 }
@@ -126,15 +104,33 @@ function pickBrowserVoice(voices: SpeechSynthesisVoice[], lang: TutorSpeechLang)
  * romanized text with enough Hindi cue-words → Hinglish (the hi-IN voice
  * code-switches naturally); anything else → Indian English.
  */
+const HINDI_CUES =
+  /\b(hai|hain|nahi|nahin|kya|kyu|kyun|aap|tum|hum|mein|mera|meri|acha|accha|theek|thik|bahut|bohot|karo|karna|hota|hoti|wala|wali|aur|lekin|matlab|samajh|seekho|bilkul|zaroor|shukriya|chalo|dekho|suno|jaise|kaise|kitna|kuch|yeh|woh)\b/g;
+
+function hindiCueCount(text: string): number {
+  return text.toLowerCase().match(HINDI_CUES)?.length ?? 0;
+}
+
 function detectSpeechLang(text: string): TutorSpeechLang {
   if (/[ऀ-ॿ]/.test(text)) return "hi-IN";
-  const cues = text
-    .toLowerCase()
-    .match(
-      /\b(hai|hain|nahi|nahin|kya|kyu|kyun|aap|tum|hum|mein|mera|meri|acha|accha|theek|thik|bahut|bohot|karo|karna|hota|hoti|wala|wali|aur|lekin|matlab|samajh|seekho|bilkul|zaroor|shukriya|chalo|dekho|suno|jaise|kaise|kitna|kuch|yeh|woh)\b/g,
-    );
-  return (cues?.length ?? 0) >= 2 ? "hi-IN" : "en-IN";
+  return hindiCueCount(text) >= 2 ? "hi-IN" : "en-IN";
 }
+
+/* ----------------------------- expert badges ------------------------------ */
+// Selecting a badge locks Aanya into that expert role for every answer.
+
+const BADGES: { key: TutorPersona; label: string; emoji: string }[] = [
+  { key: "doctor", label: "Doctor", emoji: "🩺" },
+  { key: "electrician", label: "Electrician", emoji: "⚡" },
+  { key: "technician", label: "Technician", emoji: "🔧" },
+  { key: "developer", label: "Developer", emoji: "💻" },
+  { key: "scientist", label: "Scientist", emoji: "🔬" },
+  { key: "astrologer", label: "Astrologer", emoji: "✨" },
+  { key: "student", label: "Study Buddy", emoji: "📚" },
+  { key: "chef", label: "Chef", emoji: "🍳" },
+  { key: "lawyer", label: "Lawyer", emoji: "⚖️" },
+  { key: "fitness", label: "Fitness Coach", emoji: "💪" },
+];
 
 /* --------------------------- "mirror me" store ---------------------------- */
 // Only the derived traits persist (localStorage); the photo itself never
@@ -221,6 +217,8 @@ export default function TutorPage() {
   const [visual, setVisual] = useState<Extract<TutorVisual, { applicable: true }> | null>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [persona, setPersona] = useState<TutorPersona | null>(null);
+  const personaRef = useRef<TutorPersona | null>(null);
   // The student's scanned look — she transforms whenever this changes.
   const look = useSyncExternalStore(subscribeLook, getLookSnapshot, () => null);
   // Scene theme: galaxy (default) or angel, switched by the side tab.
@@ -240,6 +238,9 @@ export default function TutorPage() {
   const playTokenRef = useRef(0);
   // Ties a background visualize() result to the question it belongs to.
   const askSeqRef = useRef(0);
+  // Accent stickiness: an ongoing Hindi/Hinglish conversation stays hi-IN
+  // through turns whose text alone would look ambiguous.
+  const lastLangRef = useRef<TutorSpeechLang | null>(null);
   // Lets speak/ask re-arm the mic without a circular useCallback dependency.
   const startListeningRef = useRef<() => void>(() => {});
   const logRef = useRef<HTMLDivElement | null>(null);
@@ -342,27 +343,20 @@ export default function TutorPage() {
     [finishSpeaking, updatePhase],
   );
 
-  const speak = useCallback(
-    async (text: string) => {
+  /** Play one live turn's audio (single PCM buffer) through the lip-sync tap. */
+  const playAnswer = useCallback(
+    async (turn: { answer: string; audio: string; mimeType: string; languageCode: string }) => {
       stopSpeaking();
       const token = ++playTokenRef.current;
-      setSubtitle(text);
+      setSubtitle(turn.answer);
+      const browserLang: TutorSpeechLang = turn.languageCode.toLowerCase().startsWith("hi")
+        ? "hi-IN"
+        : "en-IN";
+      if (!turn.audio) {
+        speakWithBrowser(turn.answer, browserLang);
+        return;
+      }
 
-      // One language for the whole answer, decided over the full text — every
-      // chunk carries the same lock so the accent can't flip mid-reply.
-      const lang = detectSpeechLang(text);
-
-      // Fire every chunk's TTS request up front; play them back in order.
-      // Wrapped so a late chunk failing never surfaces as an unhandled rejection.
-      const chunks = chunkForSpeech(text);
-      const fetches = chunks.map((c) =>
-        fetchSpeech(c, lang).then(
-          (r) => ({ ok: true as const, r }),
-          () => ({ ok: false as const }),
-        ),
-      );
-
-      let next = 0;
       let analyser: AnalyserNode | null = null;
       try {
         const ctx = (audioCtxRef.current ??= new (getAudioCtxCtor())());
@@ -372,33 +366,26 @@ export default function TutorPage() {
         analyser.smoothingTimeConstant = 0.5;
         analyser.connect(ctx.destination);
         analyserDataRef.current = new Uint8Array(analyser.fftSize);
-
-        for (; next < fetches.length; next++) {
-          const result = await fetches[next];
-          if (playTokenRef.current !== token) return;
-          if (!result.ok) throw new Error("tts chunk failed");
-          const buffer = pcmToAudioBuffer(ctx, result.r.audio, result.r.mimeType);
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(analyser);
-          analyserRef.current = analyser;
-          sourceRef.current = source;
-          if (phaseRef.current !== "speaking") updatePhase("speaking");
-          await new Promise<void>((resolve) => {
-            source.onended = () => resolve();
-            source.start();
-          });
-          if (playTokenRef.current !== token) return;
-        }
+        const buffer = pcmToAudioBuffer(ctx, turn.audio, turn.mimeType);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+        sourceRef.current = source;
+        updatePhase("speaking");
+        await new Promise<void>((resolve) => {
+          source.onended = () => resolve();
+          source.start();
+        });
+        if (playTokenRef.current !== token) return;
         finishSpeaking();
       } catch {
         if (playTokenRef.current !== token) return;
-        // Server TTS unavailable — browser voice covers whatever wasn't spoken.
-        speakWithBrowser(chunks.slice(next).join(" "), lang);
+        // Audio failed to decode/play — the browser voice still answers.
+        speakWithBrowser(turn.answer, browserLang);
       } finally {
-        // The playback loop is over by the time we get here (every chunk is
-        // awaited), so releasing the tap is always safe — even doubly so after
-        // stopSpeaking/finishSpeaking already disconnected it.
+        // Playback is over by the time we get here, so releasing the tap is
+        // always safe — doubly so after stopSpeaking/finishSpeaking.
         try {
           analyser?.disconnect();
         } catch {
@@ -410,6 +397,18 @@ export default function TutorPage() {
   );
 
   /* -------------------------------- ask flow ------------------------------- */
+
+  /**
+   * Which accent this turn should use, resolved BEFORE the live call from the
+   * question + conversation stickiness: Hindi wins on any Hindi signal, an
+   * ongoing Hindi conversation stays Hindi through ambiguous turns, and when
+   * nothing is conclusive the server's env default decides (undefined).
+   */
+  const resolveSpeechLang = useCallback((question: string): TutorSpeechLang | undefined => {
+    if (detectSpeechLang(question) === "hi-IN") return "hi-IN";
+    if (lastLangRef.current === "hi-IN" && hindiCueCount(question) >= 1) return "hi-IN";
+    return lastLangRef.current ?? undefined;
+  }, []);
 
   const ask = useCallback(
     async (question: string) => {
@@ -425,8 +424,18 @@ export default function TutorPage() {
       const seq = ++askSeqRef.current;
       setVisual(null);
       try {
-        const { answer } = await aiTutorApi.ask({ question: q, history });
+        const turn = await aiTutorApi.converse({
+          question: q,
+          history,
+          persona: personaRef.current ?? undefined,
+          languageCode: resolveSpeechLang(q),
+        });
+        const answer = turn.answer || "…";
         setMessages((prev) => [...prev, { role: "tutor", text: answer }]);
+        // The accent the server actually used becomes the sticky one.
+        lastLangRef.current = turn.languageCode.toLowerCase().startsWith("hi")
+          ? "hi-IN"
+          : "en-IN";
         // Whiteboard runs in the background while she starts speaking — the
         // board pops in whenever it's ready, and only for the latest question.
         aiTutorApi
@@ -435,7 +444,7 @@ export default function TutorPage() {
             if (askSeqRef.current === seq && v.applicable) setVisual(v);
           })
           .catch(() => undefined);
-        await speak(answer);
+        await playAnswer(turn);
       } catch (err) {
         updatePhase("idle");
         toast.error(err instanceof Error ? err.message : "The tutor could not answer — try again");
@@ -443,7 +452,7 @@ export default function TutorPage() {
         if (conversationRef.current) window.setTimeout(() => startListeningRef.current(), 600);
       }
     },
-    [speak, stopSpeaking, updatePhase],
+    [playAnswer, resolveSpeechLang, stopSpeaking, updatePhase],
   );
 
   /* ------------------------------- microphone ------------------------------ */
@@ -543,6 +552,14 @@ export default function TutorPage() {
       startListening();
     }
   }, [startListening, stopListening, stopSpeaking]);
+
+  /* ---------------------------- expert badges ------------------------------ */
+
+  const togglePersona = useCallback((key: TutorPersona) => {
+    const next = personaRef.current === key ? null : key;
+    personaRef.current = next;
+    setPersona(next);
+  }, []);
 
   /* ------------------------------ mirror me -------------------------------- */
 
@@ -789,6 +806,32 @@ export default function TutorPage() {
 
       {/* controls */}
       <div className="absolute bottom-5 left-1/2 z-30 w-[min(42rem,92vw)] -translate-x-1/2">
+        {/* expert badges — click one and she answers in that role */}
+        <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {BADGES.map((b) => {
+            const active = persona === b.key;
+            return (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => togglePersona(b.key)}
+                title={active ? "Back to the general tutor" : `Ask her as a ${b.label.toLowerCase()}`}
+                className={[
+                  "flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs backdrop-blur transition-colors",
+                  active
+                    ? dark
+                      ? "border-violet-400/60 bg-violet-600 text-white shadow-[0_0_12px_rgba(140,110,255,0.5)]"
+                      : "border-amber-300 bg-amber-400 text-white shadow-[0_0_12px_rgba(245,185,66,0.5)]"
+                    : dark
+                      ? "border-white/10 bg-white/10 text-indigo-100 hover:bg-white/20"
+                      : "border-white/60 bg-white/60 text-indigo-900/70 hover:bg-white/90",
+                ].join(" ")}
+              >
+                <span aria-hidden>{b.emoji}</span> {b.label}
+              </button>
+            );
+          })}
+        </div>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -839,7 +882,13 @@ export default function TutorPage() {
           <input
             value={interim && phase === "listening" ? interim : draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder={conversation ? "Conversation on — just speak…" : "Ask Aanya anything…"}
+            placeholder={
+              conversation
+                ? "Conversation on — just speak…"
+                : persona
+                  ? `Ask your ${BADGES.find((b) => b.key === persona)?.label.toLowerCase()}…`
+                  : "Ask Aanya anything…"
+            }
             className={`min-w-0 flex-1 bg-transparent px-2 text-sm focus:outline-none ${dark ? "text-indigo-50 placeholder:text-indigo-400" : "text-indigo-950 placeholder:text-indigo-400"}`}
           />
 
