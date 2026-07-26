@@ -260,6 +260,35 @@ export interface PayoutStatusCounts {
   ALL: number;
 }
 
+/** One online→offline session in a partner's activity log. */
+export interface PartnerActivitySession {
+  logId: number;
+  onlineAt: string;
+  offlineAt: string | null;
+  /** Session length in seconds (live value for an ongoing session). */
+  durationSeconds: number;
+  ongoing: boolean;
+}
+
+/** Active seconds on a single day — the weekly/monthly report buckets. */
+export interface PartnerActivityDay {
+  date: string;
+  activeSeconds: number;
+}
+
+export interface PartnerActivity {
+  professionalId: number;
+  name: string | null;
+  mobile: string | null;
+  isOnline: boolean;
+  period: "week" | "month" | "custom";
+  range: { from: string; to: string };
+  totalActiveSeconds: number;
+  sessionCount: number;
+  sessions: PartnerActivitySession[];
+  breakdown: PartnerActivityDay[];
+}
+
 export const dispatcherApi = {
   /** GET /v1/admin/partners — service partners (professionals), filterable by onboarding status. */
   listPartners: (search?: string, status?: PartnerOnboardingStatus | "ALL") =>
@@ -278,6 +307,13 @@ export const dispatcherApi = {
   /** GET /v1/admin/partners/:id — a single partner's full profile. */
   getPartner: (professionalId: number) =>
     apiClient.get<PartnerDetail>(`/v1/admin/partners/${professionalId}`),
+
+  /** GET /v1/admin/partners/:id/activity — active hours, login session logs and
+   *  a daily breakdown for the weekly/monthly report. */
+  getPartnerActivity: (professionalId: number, period?: "week" | "month") =>
+    apiClient.get<PartnerActivity>(
+      `/v1/admin/partners/${professionalId}/activity${toQueryString({ period })}`,
+    ),
 
   /** PATCH /v1/admin/partners/:id — edit a partner's basic profile. */
   updatePartner: (professionalId: number, body: UpdatePartnerInput) =>
