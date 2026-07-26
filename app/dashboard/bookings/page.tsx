@@ -10,7 +10,7 @@ import {
   type AdminBookingStatus,
   type PartnerRow,
 } from "@/src/api/api";
-import { ApiError } from "@/src/api/apiClient";
+import { ApiError, API_BASE_URL } from "@/src/api/apiClient";
 import { hasPermission } from "@/src/lib/auth";
 import { BagIcon, SearchIcon, SpinnerIcon, UsersIcon } from "@/src/components/icons";
 
@@ -70,6 +70,13 @@ function prettyStatus(status: AdminBookingStatus): string {
 /** A booking is allocatable when no partner has taken it and it isn't finished. */
 function canAllocate(b: AdminBooking): boolean {
   return !b.professionalId && b.status !== "COMPLETED" && b.status !== "CANCELLED";
+}
+
+/** Completed bookings — old or new — can have their invoice downloaded. The
+ *  invoice is rendered on demand from the booking, so no stored document or
+ *  creation date is required. */
+function openInvoice(bookingId: number): void {
+  window.open(`${API_BASE_URL}/v1/booking/${bookingId}/invoice`, "_blank", "noopener,noreferrer");
 }
 
 export default function BookingsPage() {
@@ -204,7 +211,7 @@ export default function BookingsPage() {
                   <th className="px-5 py-3 font-medium">Partner</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 font-medium">Date</th>
-                  {showActions && <th className="px-5 py-3 text-right font-medium">Action</th>}
+                  <th className="px-5 py-3 text-right font-medium">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -299,9 +306,18 @@ export default function BookingsPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{b.date}</td>
-                    {showActions && (
-                      <td className="px-5 py-3 text-right">
-                        {canAllocate(b) ? (
+                    <td className="px-5 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {b.status === "COMPLETED" && (
+                          <button
+                            onClick={() => openInvoice(b.bookingId)}
+                            title="Download the invoice (PDF)"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-accent"
+                          >
+                            🧾 Invoice
+                          </button>
+                        )}
+                        {showActions && canAllocate(b) ? (
                           <button
                             onClick={() => {
                               setNotice(null);
@@ -311,11 +327,11 @@ export default function BookingsPage() {
                           >
                             Allocate
                           </button>
-                        ) : (
+                        ) : b.status !== "COMPLETED" ? (
                           <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    )}
+                        ) : null}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -190,6 +190,7 @@ export default function MyBookingsPage() {
               const variantName = b.variant?.name || b.variantName || "Variant";
               const step = progressStep(b.status);
               const cancelled = b.status?.toLowerCase().includes("cancel");
+              const completed = statusLabel(b.status) === "Completed";
               const proName = b.professional?.user?.name?.trim();
               const proMobile = b.professional?.user?.mobile?.trim();
               const accepted = isAccepted(b.status) && Boolean(b.professionalId || b.professional);
@@ -264,21 +265,23 @@ export default function MyBookingsPage() {
                     </span>
                   </div>
 
-                  {/* Invoice */}
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      onClick={() =>
-                        openInvoice(b, {
-                          name: user?.name,
-                          email: user?.email,
-                          mobile: user?.mobile,
-                        })
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
-                    >
-                      🧾 Download Invoice
-                    </button>
-                  </div>
+                  {/* Invoice — only for completed orders (incl. older ones). */}
+                  {completed && (
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        onClick={() =>
+                          openInvoice(b, {
+                            name: user?.name,
+                            email: user?.email,
+                            mobile: user?.mobile,
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        🧾 Download Invoice
+                      </button>
+                    </div>
+                  )}
 
                   {/* Who accepted the booking */}
                   {accepted && (
