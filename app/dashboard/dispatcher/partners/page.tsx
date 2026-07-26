@@ -12,7 +12,9 @@ import {
 import { ApiError } from "@/src/api/apiClient";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import { PartnerStatusBadge } from "@/src/components/dashboard/partner-status";
+import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
 import {
+  ClockIcon,
   PencilIcon,
   SearchIcon,
   SpinnerIcon,
@@ -42,6 +44,7 @@ export default function ServicePartnersPage() {
   const [statusTab, setStatusTab] = useState<StatusTab>("PENDING");
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartnerRow | null>(null);
+  const [activityTarget, setActivityTarget] = useState<PartnerRow | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.partners(search.trim(), statusTab),
@@ -250,6 +253,14 @@ export default function ServicePartnersPage() {
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setActivityTarget(p)}
+                          aria-label="Active hours & login logs"
+                          title="Active hours & login logs"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-accent hover:text-primary"
+                        >
+                          <ClockIcon className="h-4 w-4" />
+                        </button>
                         <Link
                           href={`/dashboard/dispatcher/partners/${p.professionalId}`}
                           aria-label="Edit partner"
@@ -321,6 +332,14 @@ export default function ServicePartnersPage() {
               irreversible.
             </>
           }
+        />
+      )}
+
+      {activityTarget && (
+        <PartnerActivityModal
+          professionalId={activityTarget.professionalId}
+          partnerName={activityTarget.name}
+          onClose={() => setActivityTarget(null)}
         />
       )}
     </div>
