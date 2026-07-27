@@ -141,6 +141,9 @@ export interface AdminBookingListParams {
   search?: string;
   /** true = only out-of-zone demand bookings; false = only in-zone; omit = all. */
   outOfServiceArea?: boolean;
+  /** Filter by booking date (inclusive), "YYYY-MM-DD". */
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 }
@@ -679,6 +682,8 @@ export const dashboardApi = {
         status: params.status,
         search: params.search,
         outOfServiceArea: params.outOfServiceArea,
+        from: params.from,
+        to: params.to,
         page: params.page,
         limit: params.limit,
       })}`,

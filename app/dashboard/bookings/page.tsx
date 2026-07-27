@@ -86,19 +86,24 @@ export default function BookingsPage() {
   const [page, setPage] = useState(1);
   const [allocating, setAllocating] = useState<AdminBooking | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Date-range filter (by booking date), "YYYY-MM-DD" or "" when unset.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [canManage, setCanManage] = useState(false);
   useEffect(() => setCanManage(hasPermission("bookings.update")), []);
 
-  // Reset to the first page whenever the filter or search changes.
+  // Reset to the first page whenever the filter, search or date range changes.
   useEffect(() => {
     setPage(1);
-  }, [tab, search]);
+  }, [tab, search, dateFrom, dateTo]);
 
   const params = {
     status: tab === "ALL" || tab === "OUT_OF_ZONE" ? undefined : tab,
     outOfServiceArea: tab === "OUT_OF_ZONE" ? true : undefined,
     search: search.trim() || undefined,
+    from: dateFrom || undefined,
+    to: dateTo || undefined,
     page,
     limit: PAGE_SIZE,
   };
@@ -118,7 +123,7 @@ export default function BookingsPage() {
   const to = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6">
+    <div className="mx-auto max-w-10xl space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bookings</h1>
@@ -159,15 +164,65 @@ export default function BookingsPage() {
           })}
         </div>
 
-        <div className="relative w-full max-w-xs pb-2">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative w-full max-w-sm pb-2">
+          <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, mobile, booking ID or date"
-            className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+            className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
           />
         </div>
+      </div>
+
+      {/* Date-range filter (by booking date) */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="date-from" className="text-xs font-medium text-muted-foreground">
+            From date
+          </label>
+          <input
+            id="date-from"
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="date-to" className="text-xs font-medium text-muted-foreground">
+            To date
+          </label>
+          <input
+            id="date-to"
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+          />
+        </div>
+        {(dateFrom || dateTo) && (
+          <>
+            <button
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+              }}
+              className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              Clear dates
+            </button>
+            <span className="pb-2 text-xs text-muted-foreground">
+              {dateFrom && dateTo
+                ? `Showing bookings from ${dateFrom} to ${dateTo}`
+                : dateFrom
+                  ? `Showing bookings on/after ${dateFrom}`
+                  : `Showing bookings on/before ${dateTo}`}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Table */}
