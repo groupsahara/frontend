@@ -382,6 +382,13 @@ function OnboardingReview({
   ];
   const uploaded = docs.filter((d) => d.url);
 
+  const grooming: { label: string; url: string | null }[] = [
+    { label: "Passport size", url: partner.grooming.passportPhoto },
+    { label: "Hands & nails", url: partner.grooming.nailsPhoto },
+    { label: "Full size", url: partner.grooming.fullPhoto },
+  ];
+  const groomingUploaded = grooming.filter((g) => g.url);
+
   const identity: { label: string; value: string | null }[] = [
     { label: "Aadhaar no.", value: partner.aadharNo },
     { label: "Licence no.", value: partner.licenseNo },
@@ -478,6 +485,27 @@ function OnboardingReview({
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {docs.map((d) => (
               <DocumentTile key={d.label} label={d.label} url={d.url} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Grooming photos */}
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-foreground">
+          Grooming photos{" "}
+          <span className="font-normal text-muted-foreground">
+            ({groomingUploaded.length}/{grooming.length} uploaded)
+          </span>
+        </p>
+        {groomingUploaded.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+            This partner hasn’t uploaded any grooming photos.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {grooming.map((g) => (
+              <DocumentTile key={g.label} label={g.label} url={g.url} />
             ))}
           </div>
         )}

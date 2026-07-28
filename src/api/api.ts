@@ -189,6 +189,12 @@ export interface PartnerDocuments {
   bankPassbook: string | null;
 }
 
+export interface PartnerGrooming {
+  passportPhoto: string | null;
+  nailsPhoto: string | null;
+  fullPhoto: string | null;
+}
+
 export interface PartnerDetail extends PartnerRow {
   categoryId: number | null;
   joinedAt: string;
@@ -200,6 +206,7 @@ export interface PartnerDetail extends PartnerRow {
   vehicleType: string | null;
   vehicleColor: string | null;
   documents: PartnerDocuments;
+  grooming: PartnerGrooming;
 }
 
 export interface PartnerStatusCounts {
