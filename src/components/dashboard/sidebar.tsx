@@ -56,6 +56,14 @@ const ADMIN_NAV: NavEntry[] = [
   { label: "Banner", href: "/dashboard/banners", icon: ImageIcon, permission: "banners.view" },
   { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon, permission: "bookings.view" },
   {
+    label: "Tasks",
+    icon: ClipboardIcon,
+    children: [
+      { label: "All Tasks", href: "/dashboard/tasks", icon: ClipboardIcon, permission: "tasks.view" },
+      { label: "Task Reports", href: "/dashboard/tasks/reports", icon: ChartIcon, permission: "tasks.report" },
+    ],
+  },
+  {
     label: "Dispatcher",
     icon: MapPinIcon,
     children: [
@@ -129,6 +137,7 @@ const MY_SPACE_NAV: NavGroup = {
     { label: "Increments", href: "/dashboard/crm/my-increments", icon: ChartIcon, permission: "ess.view" },
     { label: "Holidays", href: "/dashboard/crm/my-holidays", icon: CalendarIcon, permission: "ess.view" },
     { label: "Open positions", href: "/dashboard/crm/my-positions", icon: BriefcaseIcon, permission: "ess.view" },
+    { label: "My Tasks", href: "/dashboard/crm/my-tasks", icon: ClipboardIcon, permission: "ess.view" },
   ],
 };
 

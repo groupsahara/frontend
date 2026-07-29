@@ -8,8 +8,18 @@
  * Higher-level, typed endpoint functions live in `./api.ts`.
  */
 
-export const API_BASE_URL =
-"https://api.restocare.in/api"
+function resolveApiBaseUrl(): string {
+  // Local development must always talk to the local backend, so it works even
+  // if a production URL was baked into the build.
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000/api";
+  }
+  // Everywhere else: the env-configured URL, falling back to production.
+  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.restocare.in/api";
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const ACCESS_TOKEN_KEY = "rc.accessToken";
 const REFRESH_TOKEN_KEY = "rc.refreshToken";
