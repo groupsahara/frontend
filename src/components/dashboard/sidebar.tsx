@@ -80,6 +80,12 @@ const ADMIN_NAV: NavEntry[] = [
       { label: "Referrals", href: "/dashboard/dispatcher/referrals", icon: TagIcon, permission: "referrals.view" },
     ],
   },
+  {
+    label: "Workspaces",
+    href: "/dashboard/workspaces",
+    icon: BuildingIcon,
+    permission: "workspaces.view",
+  },
   { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
   { label: "Vendors", href: "/dashboard/vendors", icon: CartIcon, permission: "vendors.view" },
   { label: "Payments", href: "/dashboard/payments", icon: WalletIcon, permission: "payments.view" },

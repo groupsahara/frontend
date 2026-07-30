@@ -567,6 +567,9 @@ export function RolesPermissionsPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncKey, setSyncKey] = useState("");
   const [showNewRole, setShowNewRole] = useState(false);
+  // Built-in (product-shipped) roles start hidden — the list should lead with
+  // the roles this panel created.
+  const [showBuiltIn, setShowBuiltIn] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
@@ -578,9 +581,16 @@ export function RolesPermissionsPanel() {
 
   // The backend already omits super_admin for non-super-admin callers; this
   // client-side filter is belt-and-braces for cached/stale query data.
-  const roles = useMemo(
+  const allRoles = useMemo(
     () => (rolesQuery.data ?? []).filter((r) => r.name !== "super_admin" || isSuperAdmin()),
     [rolesQuery.data],
+  );
+  // Built-in roles are hidden by default so the list leads with the ones this
+  // panel actually created; the toggle below brings them back when needed.
+  const builtInCount = allRoles.filter((r) => r.isSeeded).length;
+  const roles = useMemo(
+    () => (showBuiltIn ? allRoles : allRoles.filter((r) => !r.isSeeded)),
+    [allRoles, showBuiltIn],
   );
   const catalog = useMemo(() => catalogQuery.data ?? [], [catalogQuery.data]);
 
@@ -706,6 +716,18 @@ export function RolesPermissionsPanel() {
   }
 
   if (loadError) {
+    // A 403 here means the signed-in role simply lacks roles.view — reporting
+    // that as "couldn't load" sends people hunting for a bug that isn't there.
+    const err = rolesQuery.error ?? catalogQuery.error;
+    if (err instanceof ApiError && (err.status === 403 || err.status === 401)) {
+      return (
+        <Notice kind="error">
+          Your role doesn’t have access to Roles &amp; Permissions
+          {err.message?.includes("Missing permissions") ? ` — ${err.message.toLowerCase()}` : ""}.
+          Ask a super admin to grant it.
+        </Notice>
+      );
+    }
     return <Notice kind="error">Couldn’t load roles or the permission catalog.</Notice>;
   }
 
@@ -736,8 +758,18 @@ export function RolesPermissionsPanel() {
           ))}
           {roles.length === 0 && (
             <span className="text-sm text-muted-foreground">
-              No roles yet. Create one to get started.
+              {builtInCount > 0
+                ? "No roles of your own yet — create one, or show the built-in roles."
+                : "No roles yet. Create one to get started."}
             </span>
+          )}
+          {builtInCount > 0 && (
+            <button
+              onClick={() => setShowBuiltIn((v) => !v)}
+              className="rounded-full border border-dashed border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              {showBuiltIn ? "Hide built-in" : `Show built-in (${builtInCount})`}
+            </button>
           )}
         </div>
 
