@@ -299,6 +299,33 @@ export interface PartnerActivity {
   breakdown: PartnerActivityDay[];
 }
 
+/** Platform switch for the grooming module, with its blast radius. */
+export interface GroomingSetting {
+  enforced: boolean;
+  enforcedAt: string | null;
+  updatedBy: { userId: number; name: string | null } | null;
+  updatedAt: string;
+  impact: {
+    totalPartners: number;
+    activePartners: number;
+    compliant: number;
+    nonCompliant: number;
+  };
+}
+
+export const groomingApi = {
+  /** GET /v1/service-professional-manage/grooming/settings */
+  getSetting: () =>
+    apiClient.get<GroomingSetting>("/v1/service-professional-manage/grooming/settings"),
+
+  /** PATCH /v1/service-professional-manage/grooming/settings — activate/deactivate. */
+  setSetting: (enforced: boolean) =>
+    apiClient.patch<{ message: string; enforced: boolean }>(
+      "/v1/service-professional-manage/grooming/settings",
+      { enforced },
+    ),
+};
+
 export const dispatcherApi = {
   /** GET /v1/admin/partners — service partners (professionals), filterable by onboarding status. */
   listPartners: (search?: string, status?: PartnerOnboardingStatus | "ALL") =>
