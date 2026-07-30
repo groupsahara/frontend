@@ -43,7 +43,9 @@ type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 // `permission` gates visibility for STAFF users (admins hold "*"). Leaves
 // without a permission are visible to every panel session.
 type NavLeaf = { label: string; href: string; icon: IconType; permission?: string };
-type NavGroup = { label: string; icon: IconType; children: NavLeaf[] };
+// `permission` on a group is the PARENT switch: when set and not granted, the
+// whole group is hidden even if individual children are still granted.
+type NavGroup = { label: string; icon: IconType; permission?: string; children: NavLeaf[] };
 type NavEntry = NavLeaf | NavGroup;
 
 const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
@@ -128,16 +130,21 @@ const CRM_NAV: NavGroup = {
 const MY_SPACE_NAV: NavGroup = {
   label: "My Space",
   icon: UsersIcon,
+  // Parent switch — off hides the employee's whole self-service section.
+  permission: "ess.view",
   children: [
-    { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.view" },
-    { label: "My Attendance", href: "/dashboard/crm/my-attendance", icon: ClockIcon, permission: "ess.view" },
-    { label: "My Leaves", href: "/dashboard/crm/my-leaves", icon: CalendarIcon, permission: "ess.view" },
-    { label: "Payslips", href: "/dashboard/crm/my-payslips", icon: WalletIcon, permission: "ess.view" },
-    { label: "Offer Letters", href: "/dashboard/crm/my-offer-letters", icon: FileTextIcon, permission: "ess.view" },
-    { label: "Increments", href: "/dashboard/crm/my-increments", icon: ChartIcon, permission: "ess.view" },
-    { label: "Holidays", href: "/dashboard/crm/my-holidays", icon: CalendarIcon, permission: "ess.view" },
-    { label: "Open positions", href: "/dashboard/crm/my-positions", icon: BriefcaseIcon, permission: "ess.view" },
-    { label: "My Tasks", href: "/dashboard/crm/my-tasks", icon: ClipboardIcon, permission: "ess.view" },
+    // One permission per tab (ess.<tab>) so a role can be given the whole
+    // section or just part of it. "ess.view" is the parent switch — the super
+    // admin flips it in Roles & Permissions to show/hide My Space wholesale.
+    { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.portal" },
+    { label: "My Attendance", href: "/dashboard/crm/my-attendance", icon: ClockIcon, permission: "ess.attendance" },
+    { label: "My Leaves", href: "/dashboard/crm/my-leaves", icon: CalendarIcon, permission: "ess.leaves" },
+    { label: "Payslips", href: "/dashboard/crm/my-payslips", icon: WalletIcon, permission: "ess.payslips" },
+    { label: "Offer Letters", href: "/dashboard/crm/my-offer-letters", icon: FileTextIcon, permission: "ess.offer-letters" },
+    { label: "Increments", href: "/dashboard/crm/my-increments", icon: ChartIcon, permission: "ess.increments" },
+    { label: "Holidays", href: "/dashboard/crm/my-holidays", icon: CalendarIcon, permission: "ess.holidays" },
+    { label: "Open positions", href: "/dashboard/crm/my-positions", icon: BriefcaseIcon, permission: "ess.positions" },
+    { label: "My Tasks", href: "/dashboard/crm/my-tasks", icon: ClipboardIcon, permission: "ess.tasks" },
   ],
 };
 
@@ -194,7 +201,10 @@ function buildNav(): NavEntry[] {
   const perms = getPermissions();
   const allowed = (leaf: NavLeaf) =>
     !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
+  const groupAllowed = (g: NavGroup) =>
+    !g.permission || perms.includes("*") || perms.includes(g.permission);
   const groups = [MY_SPACE_NAV, CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
+    .filter(groupAllowed)
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
   if (user?.role === "STAFF") {
