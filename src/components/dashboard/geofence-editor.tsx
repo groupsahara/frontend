@@ -15,7 +15,7 @@ import {
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { GeofenceMapEditor, type FenceOverlay } from "@/src/components/dashboard/google-geofence-map";
-import { SearchIcon, SpinnerIcon } from "@/src/components/icons";
+import { SpinnerIcon } from "@/src/components/icons";
 
 const ZONE_COLORS = ["#6366f1", "#ef4444", "#f59e0b", "#10b981", "#0ea5e9", "#d946ef"];
 
@@ -35,8 +35,12 @@ function polygonAreaKm2(points: LatLng[]): number {
 }
 
 /**
- * Shared create/edit form for a geofence: details + team + partner assignment
- * on the left, the polygon map editor on the right.
+ * Shared create/edit form for a geofence: details + team assignment on the left,
+ * the polygon map editor on the right.
+ *
+ * A zone is scoped to a TEAM only — there is no per-service-partner assignment.
+ * Whoever is on the team covers the zone, so the members list below the team
+ * picker is read-only (manage membership in Dispatcher → Teams).
  */
 export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) {
   const router = useRouter();
@@ -48,10 +52,6 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [teamId, setTeamId] = useState<number | null>(initial?.teamId ?? null);
   const [polygon, setPolygon] = useState<LatLng[]>(initial?.polygon ?? []);
-  const [selectedPartners, setSelectedPartners] = useState<Set<number>>(
-    () => new Set(initial?.partners.map((p) => p.professionalId) ?? []),
-  );
-  const [partnerSearch, setPartnerSearch] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
   const { data: teams } = useQuery({
@@ -59,7 +59,7 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
     queryFn: () => dispatchApi.listTeams(),
   });
 
-  // Active partners only — the operational pool a zone can be assigned to.
+  // Active partners, used only to preview who is on the selected team.
   const { data: partners, isLoading: partnersLoading } = useQuery({
     queryKey: queryKeys.partners("", "ACTIVE"),
     queryFn: () => dispatcherApi.listPartners(undefined, "ACTIVE"),
@@ -79,44 +79,16 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
     [allFences, initial?.geofenceId],
   );
 
-  const teamNameById = useMemo(
-    () => new Map((teams ?? []).map((t) => [t.teamId, t.name])),
-    [teams],
+  const teamName = useMemo(
+    () => (teamId != null ? (teams ?? []).find((t) => t.teamId === teamId)?.name : undefined),
+    [teams, teamId],
   );
 
-  const visiblePartners = useMemo(() => {
-    const q = partnerSearch.trim().toLowerCase();
-    const list = partners ?? [];
-    if (!q) return list;
-    return list.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.city ?? "").toLowerCase().includes(q) ||
-        (p.mobile ?? "").includes(q),
-    );
-  }, [partners, partnerSearch]);
-
-  const allVisibleSelected =
-    visiblePartners.length > 0 &&
-    visiblePartners.every((p) => selectedPartners.has(p.professionalId));
-
-  const toggleAllVisible = () => {
-    setSelectedPartners((prev) => {
-      const next = new Set(prev);
-      if (allVisibleSelected) visiblePartners.forEach((p) => next.delete(p.professionalId));
-      else visiblePartners.forEach((p) => next.add(p.professionalId));
-      return next;
-    });
-  };
-
-  const togglePartner = (id: number) => {
-    setSelectedPartners((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  // Members of the selected team — the partners who will cover this zone.
+  const teamMembers = useMemo(
+    () => (teamId == null ? [] : (partners ?? []).filter((p) => p.teamId === teamId)),
+    [partners, teamId],
+  );
 
   const saveMutation = useMutation({
     mutationFn: (body: GeofenceInput) =>
@@ -143,7 +115,6 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
       color,
       polygon,
       teamId,
-      partnerIds: [...selectedPartners],
       isActive,
     });
   };
@@ -233,6 +204,11 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {teamId == null
+                  ? "Without a team this zone doesn’t route leads — bookings inside it fall back to the service radius."
+                  : "Bookings inside this zone go to this team’s members only."}
+              </p>
             </div>
 
             <div>
@@ -273,54 +249,47 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
             </label>
           </div>
 
-          {/* Partner assignment */}
+          {/* Zone coverage — the team's members, read-only */}
           <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-foreground">
-                <input
-                  type="checkbox"
-                  checked={allVisibleSelected}
-                  onChange={toggleAllVisible}
-                  className="h-4 w-4 rounded border-border accent-[var(--primary)]"
-                />
-                Select All Service Partner
-              </label>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {selectedPartners.size} selected
-              </span>
-            </div>
-
-            <div className="relative mb-3">
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={partnerSearch}
-                onChange={(e) => setPartnerSearch(e.target.value)}
-                placeholder="Search"
-                className="w-full rounded-xl border border-border bg-background py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
-              />
-            </div>
-
-            <div className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
-              {partnersLoading ? (
-                <div className="flex h-24 items-center justify-center text-muted-foreground">
-                  <SpinnerIcon className="h-5 w-5" />
-                </div>
-              ) : visiblePartners.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  {partnerSearch ? "No partners match your search." : "No active partners yet."}
-                </p>
-              ) : (
-                visiblePartners.map((p) => (
-                  <PartnerPickRow
-                    key={p.professionalId}
-                    partner={p}
-                    teamName={p.teamId != null ? teamNameById.get(p.teamId) : undefined}
-                    checked={selectedPartners.has(p.professionalId)}
-                    onToggle={() => togglePartner(p.professionalId)}
-                  />
-                ))
+            <div className="mb-1 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-foreground">Zone coverage</p>
+              {teamId != null && (
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {teamMembers.length} member{teamMembers.length === 1 ? "" : "s"}
+                </span>
               )}
             </div>
+            <p className="mb-3 text-xs text-muted-foreground">
+              {teamId == null
+                ? "Pick a team above to see who covers this zone."
+                : `Members of ${teamName ?? "this team"} cover this zone. Add or remove members in Dispatcher → Teams.`}
+            </p>
+
+            {teamId == null ? (
+              <p className="rounded-xl border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
+                No team assigned.
+              </p>
+            ) : partnersLoading ? (
+              <div className="flex h-24 items-center justify-center text-muted-foreground">
+                <SpinnerIcon className="h-5 w-5" />
+              </div>
+            ) : teamMembers.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center">
+                <p className="text-sm text-muted-foreground">This team has no active members yet.</p>
+                <Link
+                  href="/dashboard/dispatcher/teams"
+                  className="mt-1 inline-block text-sm font-medium text-primary hover:underline"
+                >
+                  Manage team members →
+                </Link>
+              </div>
+            ) : (
+              <div className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
+                {teamMembers.map((p) => (
+                  <TeamMemberRow key={p.professionalId} partner={p} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -372,17 +341,8 @@ export function GeofenceEditor({ initial }: { initial: GeofenceDetail | null }) 
   );
 }
 
-function PartnerPickRow({
-  partner,
-  teamName,
-  checked,
-  onToggle,
-}: {
-  partner: PartnerRow;
-  teamName?: string;
-  checked: boolean;
-  onToggle: () => void;
-}) {
+/** Read-only row: a member of the zone's team (membership is managed in Teams). */
+function TeamMemberRow({ partner }: { partner: PartnerRow }) {
   const initials = partner.name
     .split(" ")
     .map((w) => w[0])
@@ -390,13 +350,7 @@ function PartnerPickRow({
     .join("")
     .toUpperCase();
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 transition hover:border-primary/40">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onToggle}
-        className="h-4 w-4 rounded border-border accent-[var(--primary)]"
-      />
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
       {partner.profileImage ? (
         // eslint-disable-next-line @next/next/no-img-element -- external partner image
         <img
@@ -412,13 +366,12 @@ function PartnerPickRow({
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-foreground">{partner.name}</span>
         <span className="block truncate text-xs text-muted-foreground">
-          {teamName ?? "No Team Alloted"}
-          {partner.city ? ` · ${partner.city}` : ""}
+          {partner.city || partner.mobile || "—"}
         </span>
       </span>
       {partner.isOnline && (
         <span className="h-2 w-2 shrink-0 rounded-full bg-success" title="Online" />
       )}
-    </label>
+    </div>
   );
 }
