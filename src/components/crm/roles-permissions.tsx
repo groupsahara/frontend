@@ -69,6 +69,9 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
   departments: { icon: ClipboardIcon, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", desc: "Departments & designations" },
   offices: { icon: MapPinIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Office locations" },
   payments: { icon: WalletIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "Payments & payouts" },
+  tasks: { icon: ClipboardIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Task board & reports" },
+  workspaces: { icon: BuildingIcon, color: "#6366f1", bg: "rgba(99,102,241,0.12)", desc: "Workspace access & ownership" },
+  ess: { icon: UserCircleIcon, color: "#2dd4bf", bg: "rgba(45,212,191,0.12)", desc: "Tabs in the employee's panel" },
   settings: { icon: SettingsIcon, color: "#94a3b8", bg: "rgba(148,163,184,0.12)", desc: "Panel settings & password" },
   configure: { icon: WrenchIcon, color: "#fb923c", bg: "rgba(251,146,60,0.12)", desc: "Platform credentials" },
   // SaaS platform (the /real-estate section) — its feature modules, so a panel
@@ -81,6 +84,112 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
   reports: { icon: ChartIcon, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", desc: "SaaS · reports & analytics" },
 };
 
+/* ── Parent tabs ──────────────────────────────────────────────────────────
+   Mirrors the sidebar's top-level groups so a super admin toggles access the
+   same way it appears to the user. Every backend module is listed exactly once;
+   anything the backend adds later that isn't mapped falls into "Other modules"
+   so it is never hidden from this screen. */
+
+const MODULE_GROUPS: { id: string; label: string; desc: string; icon: Icon; modules: string[] }[] = [
+  {
+    id: "my-space",
+    label: "My Space",
+    desc: "The employee's own panel — one tab per switch",
+    icon: UserCircleIcon,
+    modules: ["ess"],
+  },
+  {
+    id: "crm",
+    label: "CRM",
+    desc: "Clients, pipeline, support & revenue",
+    icon: GridIcon,
+    modules: [
+      "crm",
+      "restaurants",
+      "sales-leads",
+      "customers",
+      "bookings",
+      "ops",
+      "finance",
+      "tickets",
+      "campaigns",
+      "crm-reports",
+      "contact",
+    ],
+  },
+  {
+    id: "hr",
+    label: "HR Management",
+    desc: "Employee records, attendance, payroll & hiring",
+    icon: UsersIcon,
+    modules: [
+      "employees",
+      "attendance",
+      "leaves",
+      "appraisals",
+      "payroll",
+      "offer-letters",
+      "positions",
+      "holidays",
+      "departments",
+      "offices",
+    ],
+  },
+  {
+    id: "dispatch",
+    label: "Dispatch & Partners",
+    desc: "Service partners, zones, wallets & payouts",
+    icon: RouteIcon,
+    modules: ["partners", "dispatcher", "wallets", "payouts", "referrals"],
+  },
+  {
+    id: "tasks",
+    label: "Task Management",
+    desc: "Assign work, track progress & pull completion reports",
+    icon: ClipboardIcon,
+    modules: ["tasks"],
+  },
+  {
+    id: "admin",
+    label: "Admin Panel",
+    desc: "Storefront, tools & platform settings",
+    icon: SettingsIcon,
+    modules: [
+      "analytics",
+      "categories",
+      "banners",
+      "vendors",
+      "payments",
+      "styling",
+      "ai-tutor",
+      "pdf-editor",
+      "resume-builder",
+      "settings",
+    ],
+  },
+  {
+    id: "workspaces",
+    label: "Workspaces",
+    desc: "Hand a self-contained mini-panel to a workspace admin",
+    icon: BuildingIcon,
+    modules: ["workspaces"],
+  },
+  {
+    id: "access",
+    label: "Access Control",
+    desc: "Who may administer roles and panel logins",
+    icon: LockIcon,
+    modules: ["roles", "staff"],
+  },
+  {
+    id: "saas",
+    label: "Real Estate (SaaS)",
+    desc: "The platform section and its feature modules",
+    icon: BuildingIcon,
+    modules: ["saas", "users", "forms", "leads", "projects", "reports", "configure"],
+  },
+];
+
 const ACTION_META: Record<string, { icon: Icon; cls: string }> = {
   view: { icon: EyeIcon, cls: "text-[#4f7cff] border-[rgba(79,124,255,0.25)]" },
   create: { icon: PlusIcon, cls: "text-[#3dd68c] border-[rgba(61,214,140,0.25)]" },
@@ -90,9 +199,49 @@ const ACTION_META: Record<string, { icon: Icon; cls: string }> = {
   export: { icon: ChartIcon, cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]" },
   manage: { icon: SettingsIcon, cls: "text-[#fb923c] border-[rgba(251,146,60,0.25)]" },
   approve: { icon: ShieldIcon, cls: "text-[#2dd4bf] border-[rgba(45,212,191,0.25)]" },
+  assign: { icon: UsersIcon, cls: "text-[#a78bfa] border-[rgba(167,139,250,0.25)]" },
+  report: { icon: ChartIcon, cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]" },
   "manage-types": { icon: SettingsIcon, cls: "text-[#fb923c] border-[rgba(251,146,60,0.25)]" },
   "adjust-balance": { icon: WalletIcon, cls: "text-[#34d399] border-[rgba(52,211,153,0.25)]" },
+  // My Space tabs — each action is one sidebar entry in the employee's panel.
+  portal: { icon: GridIcon, cls: "text-[#4f7cff] border-[rgba(79,124,255,0.25)]" },
+  attendance: { icon: ClockIcon, cls: "text-[#2dd4bf] border-[rgba(45,212,191,0.25)]" },
+  leaves: { icon: CalendarIcon, cls: "text-[#f472b6] border-[rgba(244,114,182,0.25)]" },
+  payslips: { icon: WalletIcon, cls: "text-[#34d399] border-[rgba(52,211,153,0.25)]" },
+  "offer-letters": { icon: MailIcon, cls: "text-[#fb7185] border-[rgba(251,113,133,0.25)]" },
+  increments: { icon: ChartIcon, cls: "text-[#a78bfa] border-[rgba(167,139,250,0.25)]" },
+  holidays: { icon: CalendarIcon, cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]" },
+  positions: { icon: BriefcaseIcon, cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]" },
+  tasks: { icon: ClipboardIcon, cls: "text-[#818cf8] border-[rgba(129,140,248,0.25)]" },
 };
+
+/* Where an action maps to a literal sidebar tab, label it as the user sees it
+   rather than as the raw permission verb. */
+const ACTION_LABEL: Record<string, Record<string, string>> = {
+  ess: {
+    view: "Show My Space",
+    portal: "My Portal",
+    attendance: "My Attendance",
+    leaves: "My Leaves",
+    payslips: "Payslips",
+    "offer-letters": "Offer Letters",
+    increments: "Increments",
+    holidays: "Holidays",
+    positions: "Open positions",
+    tasks: "My Tasks",
+  },
+  tasks: {
+    view: "All Tasks (tab)",
+    report: "Task Reports (tab)",
+    create: "Create task",
+    update: "Edit task",
+    assign: "Assign to employee",
+    delete: "Delete task",
+  },
+};
+
+const actionLabel = (module: string, action: string) =>
+  ACTION_LABEL[module]?.[action] ?? titleCase(action);
 
 const moduleMeta = (id: string) =>
   MODULE_META[id] ?? {
@@ -223,7 +372,7 @@ function ModuleCard({
                   <ActionIcon className="h-3.5 w-3.5" />
                 </span>
                 <span className="text-xs font-medium text-muted-foreground">
-                  {titleCase(action)}
+                  {actionLabel(module, action)}
                 </span>
               </span>
               <Switch
@@ -245,6 +394,100 @@ function ModuleCard({
         </span>
       </div>
     </div>
+  );
+}
+
+/* ──────────────────────── Parent-tab section ───────────────────────── */
+
+function GroupSection({
+  group,
+  mods,
+  selected,
+  canEdit,
+  onToggleKey,
+  onToggleModule,
+}: {
+  group: { id: string; label: string; desc: string; icon: Icon };
+  mods: { module: string; actions: string[]; keys: string[] }[];
+  selected: Set<string>;
+  canEdit: boolean;
+  onToggleKey: (key: string, on: boolean) => void;
+  onToggleModule: (keys: string[], on: boolean) => void;
+}) {
+  const GroupIcon = group.icon;
+  const groupKeys = mods.flatMap((m) => m.keys);
+  const onCount = groupKeys.filter((k) => selected.has(k)).length;
+  // "Highlight parent tab": lit whenever anything inside it is granted.
+  const active = onCount > 0;
+  const activeModules = mods.filter((m) => m.keys.some((k) => selected.has(k))).length;
+
+  return (
+    <section
+      className={`overflow-hidden rounded-2xl border transition ${
+        active ? "border-primary/40 bg-primary/[0.04]" : "border-border bg-card/40"
+      }`}
+    >
+      {/* Parent header — one switch flips every module inside. */}
+      <header
+        className={`flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4 transition ${
+          active ? "border-primary/25 bg-primary/[0.06]" : "border-border"
+        }`}
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition ${
+              active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            <GroupIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3
+                className={`truncate text-sm font-semibold ${
+                  active ? "text-primary" : "text-foreground"
+                }`}
+              >
+                {group.label}
+              </h3>
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                {activeModules}/{mods.length} modules
+              </span>
+            </div>
+            <p className="truncate text-xs text-muted-foreground">{group.desc}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[11px] text-muted-foreground">
+            <span className="font-semibold text-primary">{onCount}</span>/{groupKeys.length}
+          </span>
+          <Switch
+            checked={active}
+            disabled={!canEdit}
+            onChange={(on) => onToggleModule(groupKeys, on)}
+            label={`Toggle every permission under ${group.label}`}
+          />
+        </div>
+      </header>
+
+      {/* Every module of this parent tab, shown inside it. */}
+      <div
+        className="grid gap-4 p-5"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}
+      >
+        {mods.map((mod) => (
+          <ModuleCard
+            key={mod.module}
+            module={mod.module}
+            actions={mod.actions.map((action, i) => ({ action, key: mod.keys[i] }))}
+            selected={selected}
+            canEdit={canEdit}
+            onToggleKey={onToggleKey}
+            onToggleModule={onToggleModule}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -378,6 +621,42 @@ export function RolesPermissionsPanel() {
       keys.forEach((k) => (on ? next.add(k) : next.delete(k)));
       return next;
     });
+
+  // Bucket the backend catalog into the sidebar's parent tabs. Modules the map
+  // doesn't know about still render, under "Other modules", so a newly added
+  // backend module is never invisible here.
+  const groupedCatalog = useMemo(() => {
+    type Section = {
+      group: { id: string; label: string; desc: string; icon: Icon };
+      mods: (typeof catalog)[number][];
+    };
+    const byModule = new Map(catalog.map((m) => [m.module, m]));
+    const taken = new Set<string>();
+    const sections: Section[] = MODULE_GROUPS.map((group) => {
+      const mods = group.modules
+        .map((id) => byModule.get(id))
+        .filter((m): m is (typeof catalog)[number] => {
+          if (!m) return false;
+          taken.add(m.module);
+          return true;
+        });
+      return { group, mods };
+    }).filter((s) => s.mods.length > 0);
+
+    const leftovers = catalog.filter((m) => !taken.has(m.module));
+    if (leftovers.length) {
+      sections.push({
+        group: {
+          id: "other",
+          label: "Other modules",
+          desc: "Not yet mapped to a parent tab",
+          icon: GridIcon,
+        },
+        mods: leftovers,
+      });
+    }
+    return sections;
+  }, [catalog]);
 
   const allKeys = useMemo(() => catalog.flatMap((m) => m.keys), [catalog]);
   const allEnabled = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
@@ -539,16 +818,13 @@ export function RolesPermissionsPanel() {
         )}
       </div>
 
-      {/* Modules grid */}
-      <div
-        className="grid gap-4"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}
-      >
-        {catalog.map((mod) => (
-          <ModuleCard
-            key={mod.module}
-            module={mod.module}
-            actions={mod.actions.map((action, i) => ({ action, key: mod.keys[i] }))}
+      {/* Modules, grouped under the parent tab they appear in */}
+      <div className="flex flex-col gap-5">
+        {groupedCatalog.map(({ group, mods }) => (
+          <GroupSection
+            key={group.id}
+            group={group}
+            mods={mods}
             selected={selected}
             canEdit={canEditRoles && !!activeRole}
             onToggleKey={toggleKey}
