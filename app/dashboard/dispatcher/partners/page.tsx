@@ -37,11 +37,22 @@ const STATUS_TABS: { key: StatusTab; label: string }[] = [
   { key: "ALL", label: "All" },
 ];
 
+// Duty filter, applied on top of the onboarding tab: onboarding status says
+// whether a partner may work, `isOnline` says whether they are on duty now.
+type DutyFilter = "ALL" | "ONLINE" | "OFFLINE";
+
+const DUTY_FILTERS: { key: DutyFilter; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "ONLINE", label: "Online" },
+  { key: "OFFLINE", label: "Offline" },
+];
+
 export default function ServicePartnersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   // Default to the pending queue — the applications awaiting admin review.
   const [statusTab, setStatusTab] = useState<StatusTab>("PENDING");
+  const [duty, setDuty] = useState<DutyFilter>("ALL");
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartnerRow | null>(null);
   const [activityTarget, setActivityTarget] = useState<PartnerRow | null>(null);
@@ -83,7 +94,17 @@ export default function ServicePartnersPage() {
   });
 
   const busy = blockMutation.isPending;
-  const partners = data ?? [];
+  const allPartners = data ?? [];
+  // Online/offline is filtered client-side: the list endpoint returns every
+  // partner for the tab, so no extra request is needed and counts stay exact.
+  const onlineCount = allPartners.filter((p) => p.isOnline).length;
+  const dutyCounts: Record<DutyFilter, number> = {
+    ALL: allPartners.length,
+    ONLINE: onlineCount,
+    OFFLINE: allPartners.length - onlineCount,
+  };
+  const partners =
+    duty === "ALL" ? allPartners : allPartners.filter((p) => (duty === "ONLINE" ? p.isOnline : !p.isOnline));
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -148,6 +169,47 @@ export default function ServicePartnersPage() {
         })}
       </div>
 
+      {/* Duty filter — who is on duty right now, within the tab above. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Duty
+        </span>
+        <div className="inline-flex rounded-xl border border-border bg-card p-0.5">
+          {DUTY_FILTERS.map((f) => {
+            const active = duty === f.key;
+            return (
+              <button
+                key={f.key}
+                onClick={() => setDuty(f.key)}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  active
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {f.key !== "ALL" && (
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      f.key === "ONLINE"
+                        ? active
+                          ? "bg-primary-foreground"
+                          : "bg-success"
+                        : active
+                          ? "bg-primary-foreground"
+                          : "bg-muted-foreground/50"
+                    }`}
+                  />
+                )}
+                {f.label}
+                <span className={`text-xs ${active ? "opacity-80" : "opacity-70"}`}>
+                  ({dutyCounts[f.key]})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {notice ? (
         <div className="flex items-center justify-between gap-3 rounded-xl bg-accent px-4 py-2.5 text-sm text-foreground">
           <span>{notice}</span>
@@ -179,11 +241,13 @@ export default function ServicePartnersPage() {
             <p className="text-muted-foreground">
               {search
                 ? "No partners match your search."
-                : statusTab === "PENDING"
-                  ? "No partners awaiting review."
-                  : statusTab === "ALL"
-                    ? "No service partners yet."
-                    : `No ${statusTab.toLowerCase()} partners.`}
+                : duty !== "ALL"
+                  ? `No ${duty.toLowerCase()} partners${statusTab === "ALL" ? "" : ` in ${statusTab.toLowerCase()}`}.`
+                  : statusTab === "PENDING"
+                    ? "No partners awaiting review."
+                    : statusTab === "ALL"
+                      ? "No service partners yet."
+                      : `No ${statusTab.toLowerCase()} partners.`}
             </p>
           </div>
         ) : (
@@ -243,12 +307,21 @@ export default function ServicePartnersPage() {
                             Blocked
                           </span>
                         )}
-                        {p.onboardingStatus === "ACTIVE" && !p.isBlocked && p.isOnline && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                            <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                            Online
-                          </span>
-                        )}
+                        {/* Once active, always show whether they're on duty —
+                            an offline partner previously showed nothing. */}
+                        {p.onboardingStatus === "ACTIVE" &&
+                          !p.isBlocked &&
+                          (p.isOnline ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                              Online
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />
+                              Offline
+                            </span>
+                          ))}
                       </div>
                     </td>
                     <td className="px-5 py-3">
