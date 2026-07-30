@@ -5,6 +5,7 @@ import Link from "next/link";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   dispatcherApi,
+  groomingApi,
   queryKeys,
   type PartnerOnboardingStatus,
   type PartnerRow,
@@ -25,6 +26,105 @@ import {
 
 function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
+}
+
+/**
+ * Platform switch for the grooming module.
+ *
+ * While OFF, grooming photos are still collected and reviewable — they just
+ * don't gate anything. Turning it ON makes grooming approval a requirement:
+ * from then on a partner whose three photos aren't all approved stops receiving
+ * leads. Flipping it does NOT retroactively block anyone, so it's reversible.
+ */
+function GroomingModuleCard() {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["grooming", "setting"],
+    queryFn: () => groomingApi.getSetting(),
+  });
+
+  const toggle = useMutation({
+    mutationFn: (enforced: boolean) => groomingApi.setSetting(enforced),
+    onSuccess: () => {
+      setConfirming(false);
+      setErr(null);
+      queryClient.invalidateQueries({ queryKey: ["grooming", "setting"] });
+    },
+    onError: (e) => {
+      setConfirming(false);
+      setErr(e instanceof ApiError ? e.message : "Could not change the grooming module.");
+    },
+  });
+
+  if (isLoading || !data) return null;
+  const on = data.enforced;
+
+  return (
+    <div
+      className={`rounded-2xl border p-5 transition ${
+        on ? "border-success/40 bg-success/[0.05]" : "border-border bg-card"
+      }`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-foreground">Grooming module</h2>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                on ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {on ? "Active" : "Inactive"}
+            </span>
+          </div>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            {on
+              ? "Partners must have all three grooming photos approved to receive leads. Photos they re-upload go back to pending review."
+              : "Grooming photos are collected and can be reviewed, but they don’t affect who receives leads yet."}
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">{data.impact.compliant}</span> of{" "}
+            {data.impact.totalPartners} partners fully approved ·{" "}
+            <span className="font-semibold text-warning">{data.impact.nonCompliant}</span> would
+            stop receiving leads while active
+            {data.updatedBy?.name ? ` · last changed by ${data.updatedBy.name}` : ""}
+          </p>
+        </div>
+        <button
+          onClick={() => (on ? toggle.mutate(false) : setConfirming(true))}
+          disabled={toggle.isPending}
+          className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
+            on
+              ? "border border-border text-foreground hover:bg-accent"
+              : "bg-primary text-primary-foreground hover:opacity-90"
+          }`}
+        >
+          {toggle.isPending && <SpinnerIcon className="h-4 w-4" />}
+          {on ? "Deactivate module" : "Activate module"}
+        </button>
+      </div>
+
+      {err && <p className="mt-3 text-sm text-danger">{err}</p>}
+
+      {confirming && (
+        <ConfirmDialog
+          title="Activate the grooming module?"
+          message={
+            `From now on, only partners whose passport, hands & nails and full-size photos are ALL approved will receive leads. ` +
+            `Right now ${data.impact.nonCompliant} of ${data.impact.totalPartners} partners are not fully approved and would stop getting leads until you review them. ` +
+            `Nobody is blocked or deactivated by this — you can switch it off again at any time.`
+          }
+          confirmLabel="Activate module"
+          onCancel={() => setConfirming(false)}
+          onConfirm={() => toggle.mutate(true)}
+          busy={toggle.isPending}
+        />
+      )}
+    </div>
+  );
 }
 
 type StatusTab = PartnerOnboardingStatus | "ALL";
@@ -115,6 +215,8 @@ export default function ServicePartnersPage() {
           Service professionals onboarded on the platform.
         </p>
       </div>
+
+      <GroomingModuleCard />
 
       {/* Search */}
       <div className="flex items-center justify-between gap-3">
