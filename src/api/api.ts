@@ -1622,10 +1622,11 @@ export interface GeofenceInput {
   description?: string;
   color?: string;
   polygon: LatLng[];
-  /** null clears the team assignment; omit to leave it unchanged. */
+  /**
+   * The team that covers this zone — a zone is scoped to a team, never to
+   * individual service partners. null clears it; omit to leave it unchanged.
+   */
   teamId?: number | null;
-  /** Full assignment list — replaces the current partners when sent. */
-  partnerIds?: number[];
   isActive?: boolean;
 }
 
@@ -1774,7 +1775,7 @@ export const dispatchApi = {
   createGeofence: (body: GeofenceInput) =>
     apiClient.post<GeofenceDetail>(`/v1/admin/dispatch/geofences`, body),
 
-  /** PATCH /v1/admin/dispatch/geofences/:id — partnerIds (when sent) replaces assignments. */
+  /** PATCH /v1/admin/dispatch/geofences/:id */
   updateGeofence: (geofenceId: number, body: Partial<GeofenceInput>) =>
     apiClient.patch<GeofenceDetail>(`/v1/admin/dispatch/geofences/${geofenceId}`, body),
 
@@ -2262,7 +2263,33 @@ export type RestaurantBody = Partial<Omit<RestaurantRow, "restaurantId" | "creat
   name?: string;
 };
 
+/**
+ * A restaurant as the customer identified it while booking. These are the only
+ * restaurant details actually captured (stored on the customer's User row at
+ * first checkout) — the CRM Restaurant table is a separate, manually-entered
+ * entity.
+ */
+export interface CustomerRestaurantRow {
+  userId: number;
+  restaurantName: string | null;
+  ownerName: string | null;
+  gstNumber: string | null;
+  mobile: string | null;
+  email: string | null;
+  bookingsCount: number;
+  /** The same login also works for us as a service partner (a user can be both). */
+  isAlsoPartner: boolean;
+  joinedAt: string;
+}
+export type CustomerRestaurantList = CrmPage & { restaurants: CustomerRestaurantRow[] };
+
 export const crmRestaurantsApi = {
+  /** GET /v1/crm/restaurants/from-customers — restaurant name / owner / GST as
+   *  entered by the customer at their first booking. */
+  fromCustomers: (params: { search?: string; page?: number; limit?: number }) =>
+    apiClient.get<CustomerRestaurantList>(
+      `/v1/crm/restaurants/from-customers${toQueryString(params)}`,
+    ),
   list: (params: { search?: string; status?: string; city?: string; page?: number; limit?: number }) =>
     apiClient.get<RestaurantList>(`/v1/crm/restaurants${toQueryString(params)}`),
   get: (id: number) => apiClient.get<RestaurantDetail>(`/v1/crm/restaurants/${id}`),

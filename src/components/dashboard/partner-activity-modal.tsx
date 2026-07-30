@@ -22,12 +22,16 @@ function fmtHms(totalSeconds: number): { h: number; m: number; s: number } {
   return { h: Math.floor(s / 3600), m: Math.floor((s % 3600) / 60), s: s % 60 };
 }
 
+// Session times render in IST (Asia/Kolkata) — the business timezone the backend
+// buckets days in — so the clock, date and per-day bars always agree regardless
+// of the admin's own timezone.
 function fmtClock(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
+    timeZone: "Asia/Kolkata",
   });
 }
 
@@ -36,13 +40,19 @@ function fmtDay(iso: string | null): string {
   return new Date(iso).toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",
+    timeZone: "Asia/Kolkata",
   });
 }
 
-/** "2026-07-24" → "Fri 24 Jul". */
+/** "2026-07-24" (an IST calendar date) → "Fri 24 Jul". */
 function fmtDayLabel(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+  const d = new Date(`${dateStr}T00:00:00+05:30`);
+  return d.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+  });
 }
 
 const PERIODS: { key: "week" | "month"; label: string }[] = [
