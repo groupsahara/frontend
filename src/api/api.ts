@@ -133,6 +133,15 @@ export interface AdminBooking {
   /** True when the booking fell outside every active service zone — recorded as
    *  demand (customer saw "Coming soon in your area"), not dispatched to a partner. */
   outOfServiceArea: boolean;
+  /** Partners who declined this lead — explains why a booking is still unassigned. */
+  rejectionCount: number;
+  rejections: {
+    rejectionId: number;
+    professionalId: number | null;
+    professionalName: string;
+    reason: string | null;
+    rejectedAt: string;
+  }[];
   date: string;
 }
 
