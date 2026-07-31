@@ -352,6 +352,24 @@ export default function BookingsPage() {
                       ) : (
                         <span className="text-xs font-medium text-warning">Unassigned</span>
                       )}
+                      {/* Declines explain WHY a lead is still unassigned, instead
+                          of it looking like nobody was ever asked. */}
+                      {b.rejectionCount > 0 && (
+                        <div
+                          className="mt-1 cursor-help text-[11px] font-medium text-danger"
+                          title={b.rejections
+                            .map(
+                              (r) =>
+                                `${r.professionalName}${r.reason ? ` — ${r.reason}` : ""} (${new Date(
+                                  r.rejectedAt,
+                                ).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })})`,
+                            )
+                            .join("\n")}
+                        >
+                          ✕ Rejected by {b.rejectionCount}{" "}
+                          {b.rejectionCount === 1 ? "partner" : "partners"}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-3">
                       <span
