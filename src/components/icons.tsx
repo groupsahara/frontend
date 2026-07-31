@@ -392,3 +392,13 @@ export const GraduationCapIcon = (p: IconProps) => (
     <path d="M22 9v5" />
   </svg>
 );
+
+/** Aura — concentric rings around a core, the life-tracker brand mark. */
+export const AuraIcon = (p: IconProps) => (
+  <svg {...base} {...p}>
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M12 5.5a6.5 6.5 0 0 1 0 13" />
+    <path d="M12 5.5a6.5 6.5 0 0 0 0 13" opacity="0.45" />
+    <path d="M12 2a10 10 0 0 1 0 20" opacity="0.7" />
+  </svg>
+);

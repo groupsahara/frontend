@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  AuraIcon,
   BagIcon,
   BriefcaseIcon,
   BuildingIcon,
@@ -107,6 +108,19 @@ const ADMIN_NAV: NavEntry[] = [
   },
   // Immersive AI teacher — grantable per role (admins hold "*").
   { label: "AI Tutor", href: "/dashboard/tutor", icon: GraduationCapIcon, permission: "ai-tutor.view" },
+  // Aura — the AI life tracker's control room (its own React Native app).
+  {
+    label: "Aura",
+    icon: AuraIcon,
+    permission: "aura.view",
+    children: [
+      { label: "Overview", href: "/dashboard/aura", icon: GridIcon, permission: "aura.view" },
+      { label: "Users", href: "/dashboard/aura/users", icon: UsersIcon, permission: "aura.view" },
+      { label: "App Catalog", href: "/dashboard/aura/catalog", icon: SmartphoneIcon, permission: "aura.view" },
+      { label: "Scoring", href: "/dashboard/aura/scoring", icon: ChartIcon, permission: "aura.manage" },
+      { label: "Settings", href: "/dashboard/aura/settings", icon: SettingsIcon, permission: "aura.manage" },
+    ],
+  },
   // Platform credentials page — visible to staff only when their role holds
   // configure.view (the super admin grants it per role; admins always see it).
   { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon, permission: "configure.view" },
