@@ -3743,6 +3743,8 @@ export interface AuraSettings {
   weeklyReportWeekday: number;
   maxRemindersPerUser: number;
   defaultTimezone: string;
+  /** Advance warnings before every reminder, in minutes (furthest-out first). */
+  leadAlertMinutes: number[];
   registrationOpen: boolean;
   updatedAt: string;
   updatedBy?: { userId: number; name: string | null; email: string | null } | null;

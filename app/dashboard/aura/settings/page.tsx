@@ -128,6 +128,16 @@ export default function AuraSettingsPage() {
         </div>
       </Section>
 
+      <Section
+        title="Advance warnings"
+        description="Every reminder also alerts this many minutes beforehand, so nothing arrives without notice. Applies to all users; changes take effect as reminders are next scheduled."
+      >
+        <LeadAlerts
+          value={form.leadAlertMinutes ?? []}
+          onChange={(leadAlertMinutes) => patch({ leadAlertMinutes })}
+        />
+      </Section>
+
       <Section title="Limits and access">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
@@ -181,6 +191,7 @@ export default function AuraSettingsPage() {
               maxRemindersPerUser: form.maxRemindersPerUser,
               defaultTimezone: form.defaultTimezone,
               registrationOpen: form.registrationOpen,
+              leadAlertMinutes: form.leadAlertMinutes,
             })
           }
         >
@@ -260,4 +271,110 @@ function Toggle({
       </span>
     </label>
   );
+}
+
+/** Preset offsets an admin can toggle, plus a free-form field for anything else. */
+const LEAD_PRESETS = [
+  { minutes: 1440, label: "1 day" },
+  { minutes: 240, label: "4 hours" },
+  { minutes: 120, label: "2 hours" },
+  { minutes: 60, label: "1 hour" },
+  { minutes: 30, label: "30 min" },
+  { minutes: 15, label: "15 min" },
+  { minutes: 10, label: "10 min" },
+  { minutes: 5, label: "5 min" },
+];
+
+function LeadAlerts({
+  value,
+  onChange,
+}: {
+  value: number[];
+  onChange: (next: number[]) => void;
+}) {
+  const [custom, setCustom] = useState("");
+  // Always furthest-out first: that is the order the warnings actually fire.
+  const sorted = [...value].sort((a, b) => b - a);
+
+  const toggle = (minutes: number) =>
+    onChange(
+      value.includes(minutes)
+        ? value.filter((v) => v !== minutes)
+        : [...value, minutes].sort((a, b) => b - a),
+    );
+
+  const addCustom = () => {
+    const parsed = Number(custom);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 10080) {
+      toast.error("Enter a whole number of minutes between 1 and 10080");
+      return;
+    }
+    if (value.includes(parsed)) return;
+    onChange([...value, parsed].sort((a, b) => b - a));
+    setCustom("");
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        {LEAD_PRESETS.map((preset) => {
+          const active = value.includes(preset.minutes);
+          return (
+            <button
+              key={preset.minutes}
+              type="button"
+              onClick={() => toggle(preset.minutes)}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={custom}
+          onChange={(event) => setCustom(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addCustom();
+            }
+          }}
+          inputMode="numeric"
+          placeholder="Other (minutes)"
+          className="w-40 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30"
+        />
+        <Btn tone="ghost" small onClick={addCustom}>
+          Add
+        </Btn>
+      </div>
+
+      <p className="text-sm text-muted-foreground">
+        {sorted.length === 0 ? (
+          <>No advance warnings — reminders fire only at the moment itself.</>
+        ) : (
+          <>
+            A 10:00 AM reminder will also alert at{" "}
+            <span className="font-medium text-foreground">
+              {sorted.map((m) => previewTime(m)).join(", ")}
+            </span>
+            .
+          </>
+        )}
+      </p>
+    </div>
+  );
+}
+
+/** Renders what a 10:00 reminder's warning times would look like. */
+function previewTime(minutesBefore: number): string {
+  const base = new Date(2000, 0, 1, 10, 0);
+  base.setMinutes(base.getMinutes() - minutesBefore);
+  return base.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 }
