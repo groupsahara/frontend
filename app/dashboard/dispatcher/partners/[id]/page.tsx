@@ -18,11 +18,14 @@ import {
   ONBOARDING_STATUS_META,
   PartnerStatusBadge,
 } from "@/src/components/dashboard/partner-status";
-import { SpinnerIcon, StarIcon } from "@/src/components/icons";
+import { ClockIcon, SpinnerIcon, StarIcon } from "@/src/components/icons";
+import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
 
 export default function PartnerDetailPage() {
   const params = useParams<{ id: string }>();
   const professionalId = Number(params?.id);
+  // Online/offline session log — the same modal the partners list opens.
+  const [showActivity, setShowActivity] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.partner(professionalId),
@@ -32,12 +35,30 @@ export default function PartnerDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Link
-        href="/dashboard/dispatcher/partners"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-      >
-        ← Back to Service Partners
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/dashboard/dispatcher/partners"
+          className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          ← Back to Service Partners
+        </Link>
+        <button
+          onClick={() => setShowActivity(true)}
+          title="When this partner went online and offline, with durations"
+          className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-accent"
+        >
+          <ClockIcon className="h-4 w-4" />
+          Activity &amp; time logs
+        </button>
+      </div>
+
+      {showActivity && (
+        <PartnerActivityModal
+          professionalId={professionalId}
+          partnerName={data?.name ?? null}
+          onClose={() => setShowActivity(false)}
+        />
+      )}
 
       {isLoading ? (
         <div className="flex h-60 items-center justify-center text-muted-foreground">
