@@ -111,7 +111,11 @@ export interface AdminBooking {
   customer: string;
   mobile: string | null;
   service: string;
+  /** What the customer pays, GST included. */
   amount: number;
+  /** GST split — null on bookings taken before tax was stored server-side. */
+  baseAmount: number | null;
+  taxAmount: number | null;
   status: AdminBookingStatus;
   paymentMode: string;
   /** Assigned service partner, or null when nobody has accepted the lead yet. */

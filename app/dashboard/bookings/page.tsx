@@ -326,6 +326,15 @@ export default function BookingsPage() {
                     </td>
                     <td className="px-5 py-3 font-medium text-foreground">
                       ₹{b.amount.toLocaleString("en-IN")}
+                      {/* Older bookings stored a pre-tax total and have no split. */}
+                      {b.taxAmount != null && b.baseAmount != null && (
+                        <div
+                          className="text-[11px] font-normal text-muted-foreground"
+                          title={`Base ₹${b.baseAmount.toLocaleString("en-IN")} + GST ₹${b.taxAmount.toLocaleString("en-IN")}`}
+                        >
+                          incl. GST ₹{b.taxAmount.toLocaleString("en-IN")}
+                        </div>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-muted-foreground">{b.paymentMode}</td>
                     <td className="px-5 py-3">
