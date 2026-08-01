@@ -110,6 +110,10 @@ export interface AdminBooking {
   bookingId: number;
   customer: string;
   mobile: string | null;
+  /** Business profile the customer entered at checkout — the restaurant this
+   *  booking is for; `customer` is the owner's name. */
+  restaurantName: string | null;
+  gstNumber: string | null;
   service: string;
   /** What the customer pays, GST included. */
   amount: number;
@@ -137,6 +141,11 @@ export interface AdminBooking {
   /** True when the booking fell outside every active service zone — recorded as
    *  demand (customer saw "Coming soon in your area"), not dispatched to a partner. */
   outOfServiceArea: boolean;
+  /** When the customer placed the booking (ISO). */
+  createdAt: string;
+  /** Set only on cancelled bookings: when and why the customer cancelled. */
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   /** Partners who declined this lead — explains why a booking is still unassigned. */
   rejectionCount: number;
   rejections: {
@@ -2365,8 +2374,10 @@ export const crmApi = {
     page?: number;
     limit?: number;
   }) => apiClient.get<CrmBookingList>(`/v1/crm/bookings${toQueryString(params)}`),
-  updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED") =>
-    apiClient.patch(`/v1/crm/bookings/${id}/status`, { status }),
+  /** Cancel/complete a booking from the panel. `reason` is recorded on cancel
+   *  so the bookings table can show WHY it was cancelled. */
+  updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED", reason?: string) =>
+    apiClient.patch(`/v1/crm/bookings/${id}/status`, { status, reason }),
 };
 
 /* ----------------------- CRM: Restaurant clients ----------------------- */
