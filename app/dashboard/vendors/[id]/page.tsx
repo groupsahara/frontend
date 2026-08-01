@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   queryKeys,
   serviceApi,
@@ -35,7 +35,21 @@ export default function VendorProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tab, setTab] = useState<Tab>("catalog");
-  const [search, setSearch] = useState("");
+  const [search, setSearchState] = useState("");
+  const [page, setPage] = useState(1);
+  // Rows per page — the admin picks; 10 keeps big catalogs scannable.
+  const [pageSize, setPageSizeState] = useState(10);
+
+  // A new search or page size starts from the first page — page 3 of the old
+  // results would often not exist under the new filter.
+  const setSearch = (v: string) => {
+    setSearchState(v);
+    setPage(1);
+  };
+  const setPageSize = (n: number) => {
+    setPageSizeState(n);
+    setPage(1);
+  };
   const [editVendor, setEditVendor] = useState(false);
   const [serviceFormOpen, setServiceFormOpen] = useState(false);
   const [editingService, setEditingService] = useState<CatalogService | null>(null);
@@ -48,11 +62,24 @@ export default function VendorProfilePage() {
     enabled: Number.isFinite(vendorId),
   });
 
-  const serviceParams = { vendorId, search: search.trim() || undefined };
+  // Server-side pagination — the backend's silent 50-row default used to hide
+  // everything past the first 50 services of large vendors.
+  const serviceParams = { vendorId, search: search.trim() || undefined, page, limit: pageSize };
   const servicesQuery = useQuery({
     queryKey: queryKeys.services(serviceParams),
     queryFn: () => serviceApi.list(serviceParams),
     enabled: Number.isFinite(vendorId),
+    placeholderData: keepPreviousData,
+  });
+
+  // The Categories tab groups the ENTIRE catalog by category, so it needs the
+  // full list — a single page of it would group incompletely. Fetched only when
+  // that tab is open.
+  const allServicesParams = { vendorId, limit: 1000 };
+  const allServicesQuery = useQuery({
+    queryKey: queryKeys.services(allServicesParams),
+    queryFn: () => serviceApi.list(allServicesParams),
+    enabled: Number.isFinite(vendorId) && tab === "categories",
   });
 
   const deleteService = useMutation({
@@ -135,6 +162,10 @@ export default function VendorProfilePage() {
   }
 
   const services = servicesQuery.data?.services ?? [];
+  const pagination = servicesQuery.data?.pagination;
+  const totalPages = pagination?.totalPages ?? 1;
+  const shownFrom = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
+  const shownTo = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -380,11 +411,54 @@ export default function VendorProfilePage() {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pager — server-side, with an admin-chosen page size. */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span>
+                    Showing {shownFrom}–{shownTo} of {pagination?.total ?? services.length}
+                  </span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    aria-label="Services per page"
+                    className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground"
+                  >
+                    {[10, 20, 30, 40, 50].map((n) => (
+                      <option key={n} value={n}>
+                        {n} / page
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span>
+                    Page {pagination?.page ?? page} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1 || servicesQuery.isFetching}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages || servicesQuery.isFetching}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-accent disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
       ) : (
-        <CategoriesTab services={services} onManageAddOns={setVariantsService} />
+        <CategoriesTab
+          services={allServicesQuery.data?.services ?? []}
+          onManageAddOns={setVariantsService}
+        />
       )}
 
       {editVendor && (

@@ -1140,6 +1140,10 @@ export interface ServiceListParams {
   vendorId?: number;
   categoryId?: number;
   search?: string;
+  /** The backend defaults to 50 per page — pass a higher limit to show a whole
+   *  catalog (a category can hold 100+ services). */
+  limit?: number;
+  page?: number;
 }
 
 export const serviceApi = {
@@ -1149,6 +1153,8 @@ export const serviceApi = {
         vendorId: params.vendorId,
         categoryId: params.categoryId,
         search: params.search,
+        limit: params.limit,
+        page: params.page,
       })}`,
     ),
   get: (id: number) => apiClient.get<CatalogService>(`/v1/service/${id}`),
@@ -2680,6 +2686,16 @@ export interface TicketRow {
   priority: TicketPriority;
   restaurantId: number | null;
   restaurant?: { restaurantId: number; name: string; contactNumber?: string | null } | null;
+  /** Booking customer the ticket is about — their restaurantName is the
+   *  restaurant shown in the panel (the CRM Restaurant table is separate). */
+  customerId?: number | null;
+  customer?: {
+    userId: number;
+    name: string | null;
+    restaurantName: string | null;
+    mobile: string | null;
+    gstNumber?: string | null;
+  } | null;
   raisedByName: string | null;
   raisedByContact: string | null;
   assignedToId: number | null;
@@ -2710,6 +2726,7 @@ export type TicketBody = {
   status?: string;
   priority?: string;
   restaurantId?: number;
+  customerId?: number;
   raisedByName?: string;
   raisedByContact?: string;
   assignedToId?: number;
