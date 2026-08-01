@@ -29,6 +29,7 @@ import {
   ChevronDownIcon,
   SearchIcon,
   SpinnerIcon,
+  TrashIcon,
   UsersIcon,
 } from "@/src/components/icons";
 
@@ -107,6 +108,7 @@ export function BookingsView() {
   // Cancelling from the panel captures a reason, which is stored on the booking
   // and shown in the table — otherwise a cancellation has no explanation.
   const [cancelTarget, setCancelTarget] = useState<AdminBooking | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
   const [cancelChoice, setCancelChoice] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
@@ -144,6 +146,19 @@ export function BookingsView() {
     queryKey: queryKeys.adminBookings(params),
     queryFn: () => dashboardApi.listBookings(params),
     placeholderData: keepPreviousData,
+  });
+
+  const deleteBooking = useMutation({
+    mutationFn: (id: number) => crmApi.deleteBooking(id),
+    onSuccess: () => {
+      setDeleteTarget(null);
+      setNotice("Booking deleted.");
+      queryClient.invalidateQueries({ queryKey: ["admin", "bookings"] });
+    },
+    onError: (e) => {
+      setDeleteTarget(null);
+      setNotice(e instanceof ApiError ? e.message : "Could not delete the booking.");
+    },
   });
 
   const cancelBooking = useMutation({
@@ -314,8 +329,10 @@ export function BookingsView() {
                   <th className="px-5 py-3 font-medium">Payment</th>
                   <th className="px-5 py-3 font-medium">Partner</th>
                   <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Date</th>
-                  <th className="px-5 py-3 text-right font-medium">Action</th>
+                  <th className="w-px whitespace-nowrap px-5 py-3 font-medium">Date</th>
+                  <th className="w-px whitespace-nowrap py-3 pl-2 pr-5 text-right font-medium">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -339,14 +356,14 @@ export function BookingsView() {
                         />
                       </button>
                     </td>
-                    <td className="px-5 py-3 font-medium text-foreground">{b.id}</td>
+                    <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">{b.id}</td>
                     {/* Business profile captured at checkout, split into its own
                         columns: the restaurant, who owns it, and its GST. */}
-                    <td className="px-5 py-3 text-foreground">{b.restaurantName ?? "—"}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.customer}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.gstNumber ?? "—"}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.mobile ?? "—"}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.service}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-foreground">{b.restaurantName ?? "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.customer}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.gstNumber ?? "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.mobile ?? "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.service}</td>
                     <td className="px-5 py-3">
                       {b.startTime || b.shift ? (
                         <div className="flex max-w-[15rem] flex-col gap-1">
@@ -392,7 +409,7 @@ export function BookingsView() {
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3 font-medium text-foreground">
+                    <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
                       ₹{b.amount.toLocaleString("en-IN")}
                       {/* Older bookings stored a pre-tax total and have no split. */}
                       {b.taxAmount != null && b.baseAmount != null && (
@@ -448,16 +465,16 @@ export function BookingsView() {
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 align-top">
                       <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
+                        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
                       >
                         {prettyStatus(b.status)}
                       </span>
                       {b.status === "CANCELLED" && (
-                        <div className="mt-1 max-w-[180px] text-[11px] text-danger">
+                        <div className="mt-1 max-w-[200px] text-[11px] text-danger">
                           {b.cancelledAt && (
-                            <div>
+                            <div className="whitespace-nowrap">
                               {new Date(b.cancelledAt).toLocaleString("en-IN", {
                                 day: "2-digit",
                                 month: "short",
@@ -468,14 +485,17 @@ export function BookingsView() {
                             </div>
                           )}
                           {b.cancellationReason && (
-                            <div className="text-muted-foreground" title={b.cancellationReason}>
+                            <div
+                              className="line-clamp-2 text-muted-foreground"
+                              title={b.cancellationReason}
+                            >
                               “{b.cancellationReason}”
                             </div>
                           )}
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-muted-foreground">
+                    <td className="w-px whitespace-nowrap px-5 py-3 text-muted-foreground">
                       <div>{b.date}</div>
                       <div className="text-[11px]">
                         Created{" "}
@@ -486,8 +506,8 @@ export function BookingsView() {
                         })}
                       </div>
                     </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="w-px py-3 pl-2 pr-5">
+                      <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                         {b.status === "COMPLETED" && (
                           <button
                             onClick={() => openInvoice(b.bookingId)}
@@ -508,6 +528,18 @@ export function BookingsView() {
                             Allocate
                           </button>
                         ) : null}
+                        {showActions && (
+                          <button
+                            onClick={() => {
+                              setNotice(null);
+                              setDeleteTarget(b);
+                            }}
+                            title="Delete this booking"
+                            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
                         {/* Cancelling asks for a reason, stored on the booking
                             and shown in this table. */}
                         {showActions && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
@@ -567,6 +599,45 @@ export function BookingsView() {
           </div>
         )}
       </div>
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setDeleteTarget(null)}
+            aria-hidden
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-foreground">Delete {deleteTarget.id}?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {deleteTarget.restaurantName ? `${deleteTarget.restaurantName} · ` : ""}
+              {deleteTarget.customer} · ₹{deleteTarget.amount.toLocaleString("en-IN")}
+            </p>
+            <p className="mt-3 text-sm text-danger">
+              This permanently removes the booking and its rejection history. It cannot be undone.
+              {deleteTarget.status === "COMPLETED"
+                ? " Completed bookings are refused — cancel it instead."
+                : ""}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Keep it
+              </button>
+              <button
+                onClick={() => deleteBooking.mutate(deleteTarget.bookingId)}
+                disabled={deleteBooking.isPending}
+                className="flex items-center gap-2 rounded-xl bg-danger px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {deleteBooking.isPending && <SpinnerIcon className="h-4 w-4" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cancelTarget && (
         <CancelBookingDialog

@@ -1672,8 +1672,11 @@ export const bookingApi = {
     ),
 
   /** POST /v1/booking/cancel — cancel a booking by id. */
-  cancel: (bookingId: number) =>
-    apiClient.post<unknown>("/v1/booking/cancel", { bookingId }).then(normalizeBookingResponse),
+  /** `reason` is required by the UI and stored on the booking for the admin panel. */
+  cancel: (bookingId: number, reason?: string) =>
+    apiClient
+      .post<unknown>("/v1/booking/cancel", { bookingId, reason })
+      .then(normalizeBookingResponse),
 };
 
 /* =============================== Payments =============================== */
@@ -2376,6 +2379,23 @@ export const crmApi = {
   }) => apiClient.get<CrmBookingList>(`/v1/crm/bookings${toQueryString(params)}`),
   /** Cancel/complete a booking from the panel. `reason` is recorded on cancel
    *  so the bookings table can show WHY it was cancelled. */
+  /** PATCH /v1/admin/bookings/:id — edit date, slot, address or amount. */
+  updateBooking: (
+    id: number,
+    body: {
+      bookingDate?: string;
+      startTime?: string;
+      endTime?: string;
+      serviceAddress?: string;
+      serviceCity?: string;
+      baseAmount?: number;
+    },
+  ) => apiClient.patch<{ message: string }>(`/v1/admin/bookings/${id}`, body),
+
+  /** DELETE /v1/admin/bookings/:id — refused for completed bookings. */
+  deleteBooking: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/admin/bookings/${id}`),
+
   updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED", reason?: string) =>
     apiClient.patch(`/v1/crm/bookings/${id}/status`, { status, reason }),
 };

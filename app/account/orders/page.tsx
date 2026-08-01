@@ -57,6 +57,18 @@ function statusLabel(status?: string): string {
   return "Pending";
 }
 
+// Preset cancellation reasons, mirroring the customer app. One must be chosen —
+// a cancellation with no explanation tells operations nothing.
+const CANCEL_REASONS = [
+  "Booked by mistake",
+  "Price is too high",
+  "Change of plan",
+  "Booked wrong date or time",
+  "Found a better option",
+  "Service no longer needed",
+  "Other",
+] as const;
+
 export default function MyBookingsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -78,14 +90,41 @@ export default function MyBookingsPage() {
     refetchInterval: 10000, // surface professional status changes without a manual refresh
   });
 
+  // Cancelling requires a reason — same presets as the customer app, so
+  // cancellations from web and app read the same in the admin panel.
+  const [cancelTarget, setCancelTarget] = useState<number | null>(null);
+  const [cancelChoice, setCancelChoice] = useState<string | null>(null);
+  const [cancelNote, setCancelNote] = useState("");
+
   const cancelMutation = useMutation({
-    mutationFn: (bookingId: number) => bookingApi.cancel(bookingId),
+    mutationFn: ({ bookingId, reason }: { bookingId: number; reason: string }) =>
+      bookingApi.cancel(bookingId, reason),
     onSuccess: () => {
+      setCancelTarget(null);
       setTab("PAST");
       if (user?.id) queryClient.invalidateQueries({ queryKey: queryKeys.userBookings(user.id) });
     },
-    onError: (e) => setNotice(e instanceof Error ? e.message : "Unable to cancel booking."),
+    onError: (e) => {
+      setCancelTarget(null);
+      setNotice(e instanceof Error ? e.message : "Unable to cancel booking.");
+    },
   });
+
+  // "Other" carries only the typed note, so it must not be empty.
+  const cancelNoteTrimmed = cancelNote.trim();
+  const cancelReasonValid =
+    cancelChoice != null && (cancelChoice !== "Other" || cancelNoteTrimmed.length > 0);
+
+  const confirmCancel = () => {
+    if (cancelTarget == null || !cancelReasonValid) return;
+    const reason =
+      cancelChoice === "Other"
+        ? cancelNoteTrimmed
+        : cancelNoteTrimmed
+          ? `${cancelChoice} — ${cancelNoteTrimmed}`
+          : String(cancelChoice);
+    cancelMutation.mutate({ bookingId: cancelTarget, reason });
+  };
 
   const handleRepeat = async (b: BookingRecord) => {
     const serviceId = b.serviceId ?? b.service?.serviceId;
@@ -238,7 +277,11 @@ export default function MyBookingsPage() {
                     <p className="text-sm font-semibold text-gray-900">Total items: 1</p>
                     {tab === "ACTIVE" ? (
                       <button
-                        onClick={() => cancelMutation.mutate(id)}
+                        onClick={() => {
+                          setCancelChoice(null);
+                          setCancelNote("");
+                          setCancelTarget(id);
+                        }}
                         disabled={cancelMutation.isPending}
                         className="rounded-md border border-gray-300 bg-gray-50 px-3.5 py-1.5 text-xs font-bold text-red-600 hover:bg-gray-100 disabled:opacity-60"
                       >
@@ -360,6 +403,71 @@ export default function MyBookingsPage() {
           </div>
         )}
       </main>
+
+      {/* Cancel: irreversible, so confirm and capture WHY in one step. */}
+      {cancelTarget != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setCancelTarget(null)}
+            aria-hidden
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <h3 className="text-base font-bold text-gray-900">Cancel this booking?</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              This cannot be undone. Please pick a reason so we can improve.
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {CANCEL_REASONS.map((r) => {
+                const on = cancelChoice === r;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setCancelChoice(r)}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      on
+                        ? "border-red-500 bg-red-50 text-red-700"
+                        : "border-gray-300 bg-gray-50 text-gray-700 hover:bg-gray-100"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                );
+              })}
+            </div>
+
+            <textarea
+              value={cancelNote}
+              onChange={(e) => setCancelNote(e.target.value)}
+              rows={3}
+              maxLength={300}
+              placeholder={
+                cancelChoice === "Other" ? "Tell us what happened" : "Anything to add? (optional)"
+              }
+              className="mt-3 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none focus:border-gray-900"
+            />
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setCancelTarget(null)}
+                className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                No, keep it
+              </button>
+              <button
+                onClick={confirmCancel}
+                disabled={!cancelReasonValid || cancelMutation.isPending}
+                title={cancelReasonValid ? undefined : "Pick a reason first"}
+                className="rounded-xl bg-red-600 px-5 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-45"
+              >
+                Yes, cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>
