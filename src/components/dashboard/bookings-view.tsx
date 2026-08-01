@@ -11,24 +11,28 @@
  * added here shows up in both places automatically.
  */
 
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   crmApi,
+  customersApi,
   dashboardApi,
   dispatcherApi,
   queryKeys,
   type AdminBooking,
   type AdminBookingStatus,
+  type CreateBookingInput,
+  type CustomerRow,
   type PartnerRow,
 } from "@/src/api/api";
-import { ApiError, API_BASE_URL } from "@/src/api/apiClient";
+import { ApiError, API_BASE_URL, getToken } from "@/src/api/apiClient";
 import { hasPermission } from "@/src/lib/auth";
 import {
   BagIcon,
   ChevronDownIcon,
   SearchIcon,
   SpinnerIcon,
+  TrashIcon,
   UsersIcon,
 } from "@/src/components/icons";
 
@@ -93,6 +97,63 @@ function canAllocate(b: AdminBooking): boolean {
 /** Completed bookings — old or new — can have their invoice downloaded. The
  *  invoice is rendered on demand from the booking, so no stored document or
  *  creation date is required. */
+/** Save a fetched blob under `filename` — used by both downloads below. */
+function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** The .xlsx an admin fills in before a bulk import. */
+async function downloadImportTemplate(): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/v1/admin/bookings/import-template`, {
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+  });
+  if (!res.ok) throw new Error(`Could not download the template (${res.status})`);
+  saveBlob(await res.blob(), "booking-import-template.xlsx");
+}
+
+/** Upload a filled template; returns a per-row result so failures are visible. */
+async function uploadImportFile(file: File): Promise<{
+  message: string;
+  importedCount: number;
+  failedCount: number;
+  errors: { row: number; reason: string }[];
+}> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE_URL}/v1/admin/bookings/import`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.message ?? `Import failed (${res.status})`);
+  return data;
+}
+
+/**
+ * Download the CSV of every booking matching the current filters.
+ *
+ * A plain link can't carry the bearer token, so this fetches the file and
+ * saves the blob. Filters are forwarded so the export matches what's on screen.
+ */
+async function downloadBookingsCsv(params: Record<string, string | undefined>): Promise<void> {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v != null && v !== "") as [string, string][],
+  );
+  const res = await fetch(`${API_BASE_URL}/v1/admin/bookings/export?${qs}`, {
+    headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+  });
+  if (!res.ok) throw new Error(`Export failed (${res.status})`);
+  saveBlob(await res.blob(), `bookings-${new Date().toISOString().slice(0, 10)}.csv`);
+}
+
 function openInvoice(bookingId: number): void {
   window.open(`${API_BASE_URL}/v1/booking/${bookingId}/invoice`, "_blank", "noopener,noreferrer");
 }
@@ -107,6 +168,64 @@ export function BookingsView() {
   // Cancelling from the panel captures a reason, which is stored on the booking
   // and shown in the table — otherwise a cancellation has no explanation.
   const [cancelTarget, setCancelTarget] = useState<AdminBooking | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
+  // Manual booking creation — phone orders and walk-ins that never came
+  // through the app.
+  const [creating, setCreating] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    message: string;
+    importedCount: number;
+    failedCount: number;
+    errors: { row: number; reason: string }[];
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTemplate = async () => {
+    setNotice(null);
+    try {
+      await downloadImportTemplate();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Could not download the template.");
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    setImporting(true);
+    setNotice(null);
+    setImportResult(null);
+    try {
+      const result = await uploadImportFile(file);
+      setImportResult(result);
+      queryClient.invalidateQueries({ queryKey: ["admin", "bookings"] });
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setImporting(false);
+      // Reset so re-uploading the same file still fires onChange.
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    setNotice(null);
+    try {
+      // Same filters as the table, so the file matches what's on screen.
+      await downloadBookingsCsv({
+        status: tab === "ALL" || tab === "OUT_OF_ZONE" ? undefined : tab,
+        outOfServiceArea: tab === "OUT_OF_ZONE" ? "true" : undefined,
+        search: search.trim() || undefined,
+        from: dateFrom || undefined,
+        to: dateTo || undefined,
+      });
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Could not export bookings.");
+    } finally {
+      setExporting(false);
+    }
+  };
   const [cancelChoice, setCancelChoice] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
@@ -123,7 +242,13 @@ export function BookingsView() {
   const [dateTo, setDateTo] = useState("");
 
   const [canManage, setCanManage] = useState(false);
-  useEffect(() => setCanManage(hasPermission("bookings.update")), []);
+  // Creating is its own grant, so a role that may edit bookings isn't
+  // automatically offered a button the backend would refuse.
+  const [canCreate, setCanCreate] = useState(false);
+  useEffect(() => {
+    setCanManage(hasPermission("bookings.update"));
+    setCanCreate(hasPermission("bookings.create"));
+  }, []);
 
   // Reset to the first page whenever the filter, search or date range changes.
   useEffect(() => {
@@ -144,6 +269,19 @@ export function BookingsView() {
     queryKey: queryKeys.adminBookings(params),
     queryFn: () => dashboardApi.listBookings(params),
     placeholderData: keepPreviousData,
+  });
+
+  const deleteBooking = useMutation({
+    mutationFn: (id: number) => crmApi.deleteBooking(id),
+    onSuccess: () => {
+      setDeleteTarget(null);
+      setNotice("Booking deleted.");
+      queryClient.invalidateQueries({ queryKey: ["admin", "bookings"] });
+    },
+    onError: (e) => {
+      setDeleteTarget(null);
+      setNotice(e instanceof ApiError ? e.message : "Could not delete the booking.");
+    },
   });
 
   const cancelBooking = useMutation({
@@ -171,12 +309,100 @@ export function BookingsView() {
   return (
     <div className="mx-auto max-w-10xl space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bookings</h1>
-        <p className="text-sm text-muted-foreground">
-          The complete booking history across all customers and services.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bookings</h1>
+          <p className="text-sm text-muted-foreground">
+            The complete booking history across all customers and services.
+          </p>
+        </div>
+        {/* Exports every booking matching the current filters — not just this page. */}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            title="Download these bookings as a CSV file"
+            className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent disabled:opacity-50"
+          >
+            {exporting ? <SpinnerIcon className="h-4 w-4" /> : <span>⬇</span>}
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
+          {canCreate && (
+            <button
+              onClick={() => setCreating(true)}
+              title="Create a booking for a customer (phone order, walk-in)"
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent"
+            >
+              <span>＋</span>
+              Create booking
+            </button>
+          )}
+          {showActions && (
+            <>
+              <button
+                onClick={handleTemplate}
+                title="Download the Excel template to fill in"
+                className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground transition hover:bg-accent"
+              >
+                📄 Template
+              </button>
+              {/* The button proxies to a hidden input so the file picker is styled. */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleImport(f);
+                }}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                title="Upload a filled template to create bookings in bulk"
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+              >
+                {importing ? <SpinnerIcon className="h-4 w-4" /> : <span>⬆</span>}
+                {importing ? "Importing…" : "Bulk import"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Import outcome: a hand-filled sheet usually has a few bad rows, so every
+          failure is listed with its row number instead of a bare count. */}
+      {importResult && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            importResult.failedCount > 0
+              ? "border-warning/40 bg-warning/10 text-foreground"
+              : "border-success/40 bg-success/10 text-foreground"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold">{importResult.message}</p>
+              {importResult.errors.length > 0 && (
+                <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto text-xs text-muted-foreground">
+                  {importResult.errors.map((e) => (
+                    <li key={e.row}>
+                      Row {e.row}: {e.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button
+              onClick={() => setImportResult(null)}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {notice ? (
         <div className="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">{notice}</div>
@@ -314,8 +540,10 @@ export function BookingsView() {
                   <th className="px-5 py-3 font-medium">Payment</th>
                   <th className="px-5 py-3 font-medium">Partner</th>
                   <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium">Date</th>
-                  <th className="px-5 py-3 text-right font-medium">Action</th>
+                  <th className="w-px whitespace-nowrap px-5 py-3 font-medium">Date</th>
+                  <th className="w-px whitespace-nowrap py-3 pl-2 pr-5 text-right font-medium">
+                    Action
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -339,14 +567,14 @@ export function BookingsView() {
                         />
                       </button>
                     </td>
-                    <td className="px-5 py-3 font-medium text-foreground">{b.id}</td>
+                    <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">{b.id}</td>
                     {/* Business profile captured at checkout, split into its own
                         columns: the restaurant, who owns it, and its GST. */}
-                    <td className="px-5 py-3 text-foreground">{b.restaurantName ?? "—"}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.customer}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.gstNumber ?? "—"}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.mobile ?? "—"}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.service}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-foreground">{b.restaurantName ?? "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.customer}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.gstNumber ?? "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.mobile ?? "—"}</td>
+                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.service}</td>
                     <td className="px-5 py-3">
                       {b.startTime || b.shift ? (
                         <div className="flex max-w-[15rem] flex-col gap-1">
@@ -392,7 +620,7 @@ export function BookingsView() {
                         )}
                       </div>
                     </td>
-                    <td className="px-5 py-3 font-medium text-foreground">
+                    <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
                       ₹{b.amount.toLocaleString("en-IN")}
                       {/* Older bookings stored a pre-tax total and have no split. */}
                       {b.taxAmount != null && b.baseAmount != null && (
@@ -448,16 +676,16 @@ export function BookingsView() {
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 align-top">
                       <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
+                        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
                       >
                         {prettyStatus(b.status)}
                       </span>
                       {b.status === "CANCELLED" && (
-                        <div className="mt-1 max-w-[180px] text-[11px] text-danger">
+                        <div className="mt-1 max-w-[200px] text-[11px] text-danger">
                           {b.cancelledAt && (
-                            <div>
+                            <div className="whitespace-nowrap">
                               {new Date(b.cancelledAt).toLocaleString("en-IN", {
                                 day: "2-digit",
                                 month: "short",
@@ -468,14 +696,17 @@ export function BookingsView() {
                             </div>
                           )}
                           {b.cancellationReason && (
-                            <div className="text-muted-foreground" title={b.cancellationReason}>
+                            <div
+                              className="line-clamp-2 text-muted-foreground"
+                              title={b.cancellationReason}
+                            >
                               “{b.cancellationReason}”
                             </div>
                           )}
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-muted-foreground">
+                    <td className="w-px whitespace-nowrap px-5 py-3 text-muted-foreground">
                       <div>{b.date}</div>
                       <div className="text-[11px]">
                         Created{" "}
@@ -486,8 +717,8 @@ export function BookingsView() {
                         })}
                       </div>
                     </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="w-px py-3 pl-2 pr-5">
+                      <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                         {b.status === "COMPLETED" && (
                           <button
                             onClick={() => openInvoice(b.bookingId)}
@@ -508,6 +739,18 @@ export function BookingsView() {
                             Allocate
                           </button>
                         ) : null}
+                        {showActions && (
+                          <button
+                            onClick={() => {
+                              setNotice(null);
+                              setDeleteTarget(b);
+                            }}
+                            title="Delete this booking"
+                            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
                         {/* Cancelling asks for a reason, stored on the booking
                             and shown in this table. */}
                         {showActions && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
@@ -568,6 +811,45 @@ export function BookingsView() {
         )}
       </div>
 
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setDeleteTarget(null)}
+            aria-hidden
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-foreground">Delete {deleteTarget.id}?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {deleteTarget.restaurantName ? `${deleteTarget.restaurantName} · ` : ""}
+              {deleteTarget.customer} · ₹{deleteTarget.amount.toLocaleString("en-IN")}
+            </p>
+            <p className="mt-3 text-sm text-danger">
+              This permanently removes the booking and its rejection history. It cannot be undone.
+              {deleteTarget.status === "COMPLETED"
+                ? " Completed bookings are refused — cancel it instead."
+                : ""}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Keep it
+              </button>
+              <button
+                onClick={() => deleteBooking.mutate(deleteTarget.bookingId)}
+                disabled={deleteBooking.isPending}
+                className="flex items-center gap-2 rounded-xl bg-danger px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {deleteBooking.isPending && <SpinnerIcon className="h-4 w-4" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cancelTarget && (
         <CancelBookingDialog
           booking={cancelTarget}
@@ -598,6 +880,587 @@ export function BookingsView() {
           }}
         />
       )}
+      {creating && (
+        <NewBookingModal
+          onClose={() => setCreating(false)}
+          onDone={(msg) => {
+            setCreating(false);
+            setNotice(msg);
+            queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* --------------------------- Manual booking ------------------------------ */
+
+/** Must match the backend's GST_RATE — used only to preview the total. */
+const GST_RATE = 0.18;
+
+/** One labelled field, so the form's rows line up without repeating classes. */
+function Field({
+  label,
+  required,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label} {required && <span className="text-danger">*</span>}
+      </span>
+      {children}
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+    </label>
+  );
+}
+
+const inputClass =
+  "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30";
+
+/**
+ * Create a booking for a customer from the panel — phone orders and walk-ins
+ * that never came through the app.
+ *
+ * The amount entered is PRE-GST: tax and the inclusive total are added by the
+ * backend, so a manual booking is priced exactly like an app one (the total is
+ * previewed here so the admin isn't surprised by it).
+ */
+function NewBookingModal({
+  onClose,
+  onDone,
+}: {
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  // Customer: an existing account, or a new one created from the mobile number.
+  const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customer, setCustomer] = useState<CustomerRow | null>(null);
+  const [mobile, setMobile] = useState("");
+  const [name, setName] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+
+  // Category first, then its services — picking from 260+ services in one flat
+  // list is unusable, and it mirrors how the customer app asks for a service.
+  const [categoryId, setCategoryId] = useState("");
+  const [serviceId, setServiceId] = useState("");
+  const [variantId, setVariantId] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
+  const [startTime, setStartTime] = useState("11:00");
+  const [endTime, setEndTime] = useState("");
+  const [baseAmount, setBaseAmount] = useState("");
+  const [paymentMode, setPaymentMode] = useState<"COD" | "RAZORPAY">("COD");
+  const [serviceCity, setServiceCity] = useState("");
+  const [serviceAddress, setServiceAddress] = useState("");
+  const [lat, setLat] = useState("");
+  const [lng, setLng] = useState("");
+
+  // Optional immediate assignment — otherwise the lead is broadcast as usual.
+  const [assign, setAssign] = useState(false);
+  const [partnerSearch, setPartnerSearch] = useState("");
+  const [professionalId, setProfessionalId] = useState("");
+
+  const [err, setErr] = useState<string | null>(null);
+
+  const { data: customers, isLoading: loadingCustomers } = useQuery({
+    queryKey: queryKeys.customers(customerSearch.trim()),
+    queryFn: () => customersApi.list(customerSearch.trim() || undefined),
+    enabled: mode === "existing",
+    placeholderData: keepPreviousData,
+  });
+
+  const { data: services } = useQuery({
+    queryKey: ["admin", "bookable-services"],
+    queryFn: () => dashboardApi.bookableServices(),
+  });
+
+  const { data: partners } = useQuery({
+    queryKey: queryKeys.partners(partnerSearch.trim(), "ACTIVE"),
+    queryFn: () => dispatcherApi.listPartners(partnerSearch.trim() || undefined, "ACTIVE"),
+    enabled: assign,
+    placeholderData: keepPreviousData,
+  });
+
+  const selectedService = services?.find((s) => String(s.serviceId) === serviceId) ?? null;
+
+  // Categories in the order the backend sorted them, de-duplicated.
+  const categories: { id: string; name: string }[] = [];
+  for (const s of services ?? []) {
+    const id = String(s.categoryId ?? "");
+    if (!id || categories.some((c) => c.id === id)) continue;
+    categories.push({ id, name: s.category ?? "Uncategorised" });
+  }
+  const servicesInCategory = (services ?? []).filter(
+    (s) => String(s.categoryId ?? "") === categoryId,
+  );
+
+  // Changing the category invalidates whatever service was chosen under the old
+  // one, so clear it rather than leave a mismatched selection behind.
+  const chooseCategory = (id: string) => {
+    setCategoryId(id);
+    setServiceId("");
+    setVariantId("");
+  };
+
+  // Picking a service (or one of its shifts) pre-fills the price, which is what
+  // the admin would otherwise have to look up. It stays editable.
+  const chooseService = (id: string) => {
+    setServiceId(id);
+    setVariantId("");
+    const svc = services?.find((s) => String(s.serviceId) === id);
+    if (svc?.basePrice != null) setBaseAmount(String(svc.basePrice));
+  };
+  const chooseVariant = (id: string) => {
+    setVariantId(id);
+    const v = selectedService?.variants.find((x) => String(x.variantId) === id);
+    if (v?.price != null) setBaseAmount(String(v.price));
+  };
+
+  const base = Number(baseAmount);
+  const validAmount = Number.isFinite(base) && base > 0;
+  const tax = validAmount ? Math.round(base * GST_RATE * 100) / 100 : 0;
+  const total = validAmount ? Math.round((base + tax) * 100) / 100 : 0;
+
+  const digits = mobile.replace(/\D/g, "");
+  const customerOk = mode === "existing" ? customer != null : digits.length >= 10;
+  const canSubmit =
+    customerOk &&
+    serviceId !== "" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(bookingDate) &&
+    /^\d{1,2}:\d{2}$/.test(startTime) &&
+    validAmount &&
+    serviceCity.trim() !== "" &&
+    serviceAddress.trim() !== "" &&
+    (!assign || professionalId !== "");
+
+  const create = useMutation({
+    mutationFn: () => {
+      const body: CreateBookingInput = {
+        ...(mode === "existing"
+          ? { userId: customer!.userId }
+          : {
+              customerMobile: digits,
+              customerName: name.trim() || undefined,
+              restaurantName: restaurantName.trim() || undefined,
+              gstNumber: gstNumber.trim() || undefined,
+            }),
+        serviceId: Number(serviceId),
+        variantId: variantId ? Number(variantId) : undefined,
+        bookingDate,
+        startTime,
+        endTime: endTime || undefined,
+        baseAmount: base,
+        paymentMode,
+        serviceCity: serviceCity.trim(),
+        serviceAddress: serviceAddress.trim(),
+        serviceLat: lat.trim() ? Number(lat) : undefined,
+        serviceLng: lng.trim() ? Number(lng) : undefined,
+        professionalId: assign && professionalId ? Number(professionalId) : undefined,
+      };
+      return dashboardApi.createBooking(body);
+    },
+    // The note explains what happened to the lead (broadcast, assigned, or
+    // demand-only), which the admin can't tell from the booking id alone.
+    onSuccess: (res) => onDone(`${res.message}. ${res.note}`),
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not create the booking."),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={create.isPending ? undefined : onClose}
+        aria-hidden
+      />
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="border-b border-border p-5">
+          <h3 className="text-lg font-semibold text-foreground">Create booking</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Create a booking on a customer&apos;s behalf. GST is added automatically, exactly as in
+            the app.
+          </p>
+        </div>
+
+        <div className="flex-1 space-y-6 overflow-y-auto p-5">
+          {/* Customer */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="text-sm font-semibold text-foreground">Customer</h4>
+              <div className="flex gap-1 rounded-lg bg-muted/60 p-0.5">
+                {(["existing", "new"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMode(m)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                      mode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                    }`}
+                  >
+                    {m === "existing" ? "Existing" : "New"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {mode === "existing" ? (
+              <>
+                <div className="relative">
+                  <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch(e.target.value)}
+                    placeholder="Search customers by name, mobile or restaurant"
+                    className={`${inputClass} pl-10`}
+                  />
+                </div>
+                <div className="max-h-44 overflow-y-auto rounded-xl border border-border">
+                  {loadingCustomers ? (
+                    <div className="flex h-24 items-center justify-center text-muted-foreground">
+                      <SpinnerIcon className="h-5 w-5" />
+                    </div>
+                  ) : (customers ?? []).length === 0 ? (
+                    <p className="p-4 text-center text-sm text-muted-foreground">
+                      No customer found. Switch to <span className="font-medium">New</span> to
+                      create one.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-border">
+                      {(customers ?? []).slice(0, 50).map((c) => {
+                        const on = customer?.userId === c.userId;
+                        return (
+                          <li key={c.userId}>
+                            <button
+                              type="button"
+                              onClick={() => setCustomer(c)}
+                              className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition ${
+                                on ? "bg-primary/5" : "hover:bg-muted/50"
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-medium text-foreground">
+                                  {c.name || "Unnamed"}
+                                </span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {[c.mobile, c.restaurantName].filter(Boolean).join(" · ") || "—"}
+                                </span>
+                              </span>
+                              {on && (
+                                <span className="shrink-0 text-xs font-semibold text-primary">
+                                  Selected
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Mobile" required hint="An existing account with this number is reused.">
+                  <input
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="9876543210"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Customer name">
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ravi Mehta"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Restaurant name">
+                  <input
+                    value={restaurantName}
+                    onChange={(e) => setRestaurantName(e.target.value)}
+                    placeholder="Spice Garden"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="GST number">
+                  <input
+                    value={gstNumber}
+                    onChange={(e) => setGstNumber(e.target.value)}
+                    placeholder="27AABCU9603R1ZX"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            )}
+          </section>
+
+          {/* Service + money */}
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-foreground">Service</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Category" required>
+                <select
+                  value={categoryId}
+                  onChange={(e) => chooseCategory(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Service"
+                required
+                hint={
+                  categoryId && servicesInCategory.length === 0
+                    ? "This category has no services yet."
+                    : undefined
+                }
+              >
+                <select
+                  value={serviceId}
+                  onChange={(e) => chooseService(e.target.value)}
+                  disabled={!categoryId}
+                  className={`${inputClass} disabled:opacity-50`}
+                >
+                  <option value="">
+                    {categoryId ? "Select a service" : "Pick a category first"}
+                  </option>
+                  {servicesInCategory.map((s) => (
+                    <option key={s.serviceId} value={s.serviceId}>
+                      {s.name}
+                      {s.basePrice != null ? ` — ₹${s.basePrice}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Shift"
+                hint={
+                  selectedService && selectedService.variants.length === 0
+                    ? "This service has no shifts."
+                    : undefined
+                }
+              >
+                <select
+                  value={variantId}
+                  onChange={(e) => chooseVariant(e.target.value)}
+                  disabled={!selectedService || selectedService.variants.length === 0}
+                  className={`${inputClass} disabled:opacity-50`}
+                >
+                  <option value="">None</option>
+                  {(selectedService?.variants ?? []).map((v) => (
+                    <option key={v.variantId} value={v.variantId}>
+                      {v.name}
+                      {v.price != null ? ` — ₹${v.price}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                label="Amount (pre-GST)"
+                required
+                hint={
+                  validAmount
+                    ? `+ ₹${tax.toLocaleString("en-IN")} GST = ₹${total.toLocaleString("en-IN")} payable`
+                    : "18% GST is added on top."
+                }
+              >
+                <input
+                  value={baseAmount}
+                  onChange={(e) => setBaseAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="1000"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Payment mode">
+                <select
+                  value={paymentMode}
+                  onChange={(e) => setPaymentMode(e.target.value as "COD" | "RAZORPAY")}
+                  className={inputClass}
+                >
+                  <option value="COD">COD</option>
+                  <option value="RAZORPAY">Razorpay</option>
+                </select>
+              </Field>
+            </div>
+          </section>
+
+          {/* Schedule */}
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-foreground">Schedule</h4>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Booking date" required>
+                <input
+                  type="date"
+                  value={bookingDate}
+                  onChange={(e) => setBookingDate(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Start time" required>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="End time" hint="Defaults to the start time.">
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+          </section>
+
+          {/* Location */}
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold text-foreground">Location</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="City" required>
+                <input
+                  value={serviceCity}
+                  onChange={(e) => setServiceCity(e.target.value)}
+                  placeholder="Delhi"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Address" required>
+                <input
+                  value={serviceAddress}
+                  onChange={(e) => setServiceAddress(e.target.value)}
+                  placeholder="12 MG Road, Pitampura"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Latitude">
+                <input
+                  value={lat}
+                  onChange={(e) => setLat(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="28.6983"
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Longitude">
+                <input
+                  value={lng}
+                  onChange={(e) => setLng(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="77.1421"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+            {/* Said up front, because a booking that reaches nobody looks like a
+                bug rather than a choice. */}
+            <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              {lat.trim() && lng.trim()
+                ? "The lead will be sent to matching partners in this area."
+                : "Without coordinates the booking is saved as demand and NOT sent to partners — allocate it manually from the table."}
+            </p>
+          </section>
+
+          {/* Optional direct assignment */}
+          <section className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <input
+                type="checkbox"
+                checked={assign}
+                onChange={(e) => {
+                  setAssign(e.target.checked);
+                  if (!e.target.checked) setProfessionalId("");
+                }}
+                className="h-4 w-4 rounded border-border"
+              />
+              Assign a partner now
+            </label>
+            {assign && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Find partner">
+                  <input
+                    value={partnerSearch}
+                    onChange={(e) => setPartnerSearch(e.target.value)}
+                    placeholder="Name, mobile or city"
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Partner" required hint="₹30 lead fee is charged, as on allocation.">
+                  <select
+                    value={professionalId}
+                    onChange={(e) => setProfessionalId(e.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">Select a partner</option>
+                    {(partners ?? [])
+                      .filter((p) => !p.isBlocked)
+                      .map((p) => (
+                        <option key={p.professionalId} value={p.professionalId}>
+                          {p.name}
+                          {p.city ? ` · ${p.city}` : ""}
+                          {p.isOnline ? " · online" : ""}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {err ? (
+          <div className="border-t border-border px-5 py-3 text-sm text-danger">{err}</div>
+        ) : null}
+
+        <div className="flex items-center justify-between gap-2 border-t border-border p-4">
+          <span className="text-sm text-muted-foreground">
+            {validAmount ? `Payable ₹${total.toLocaleString("en-IN")} (incl. GST)` : ""}
+          </span>
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={create.isPending}
+              className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-accent disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!canSubmit || create.isPending}
+              onClick={() => {
+                setErr(null);
+                create.mutate();
+              }}
+              title={canSubmit ? undefined : "Fill in every required field first"}
+              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            >
+              {create.isPending ? <SpinnerIcon className="h-4 w-4" /> : null}
+              Create booking
+            </button>
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

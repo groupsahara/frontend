@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
-import { crmApi, crmQueryKeys } from "@/src/api/api";
+import { crmApi, crmQueryKeys, type CrmPartnerRow } from "@/src/api/api";
 import {
   Badge,
   Btn,
@@ -17,8 +17,9 @@ import {
   inputCls,
   statusTone,
 } from "@/src/components/crm/ui";
-import { SearchIcon } from "@/src/components/icons";
+import { ClockIcon, SearchIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
+import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
 
 const PAGE_SIZE = 20;
 const STATUS_TABS = [
@@ -35,6 +36,8 @@ export default function CrmPartnersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
+  // Online/offline session log — same modal the dispatcher partners list opens.
+  const [activityTarget, setActivityTarget] = useState<CrmPartnerRow | null>(null);
   const params = {
     search: search || undefined,
     status: tab === "ALL" ? undefined : tab,
@@ -112,35 +115,45 @@ export default function CrmPartnersPage() {
               </td>
               <td className="px-4 py-3 text-muted-foreground">{fmtDate(p.createdAt)}</td>
               <td className="px-4 py-3">
-                {canUpdate && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground"
-                      value={p.onboardingStatus}
-                      onChange={(e) =>
-                        update.mutate({
-                          id: p.professionalId,
-                          body: { onboardingStatus: e.target.value },
-                        })
-                      }
-                    >
-                      {["PENDING", "VERIFIED", "ACTIVE", "REJECTED"].map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <Btn
-                      small
-                      tone={p.isBlocked ? "success" : "danger"}
-                      onClick={() =>
-                        update.mutate({ id: p.professionalId, body: { isBlocked: !p.isBlocked } })
-                      }
-                    >
-                      {p.isBlocked ? "Unblock" : "Block"}
-                    </Btn>
-                  </div>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setActivityTarget(p)}
+                    aria-label="Active hours & login logs"
+                    title="When this partner went online and offline, with durations"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-accent hover:text-primary"
+                  >
+                    <ClockIcon className="h-4 w-4" />
+                  </button>
+                  {canUpdate && (
+                    <>
+                      <select
+                        className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground"
+                        value={p.onboardingStatus}
+                        onChange={(e) =>
+                          update.mutate({
+                            id: p.professionalId,
+                            body: { onboardingStatus: e.target.value },
+                          })
+                        }
+                      >
+                        {["PENDING", "VERIFIED", "ACTIVE", "REJECTED"].map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                      <Btn
+                        small
+                        tone={p.isBlocked ? "success" : "danger"}
+                        onClick={() =>
+                          update.mutate({ id: p.professionalId, body: { isBlocked: !p.isBlocked } })
+                        }
+                      >
+                        {p.isBlocked ? "Unblock" : "Block"}
+                      </Btn>
+                    </>
+                  )}
+                </div>
               </td>
             </tr>
           ))}
@@ -159,6 +172,14 @@ export default function CrmPartnersPage() {
           </div>
         </div>
       </Card>
+
+      {activityTarget && (
+        <PartnerActivityModal
+          professionalId={activityTarget.professionalId}
+          partnerName={activityTarget.name}
+          onClose={() => setActivityTarget(null)}
+        />
+      )}
     </div>
   );
 }
