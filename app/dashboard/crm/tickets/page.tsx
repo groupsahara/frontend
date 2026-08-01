@@ -7,6 +7,8 @@ import {
   crmQueryKeys,
   crmRestaurantsApi,
   crmTicketsApi,
+  customersApi,
+  queryKeys,
   rbacApi,
   type TicketBody,
   type TicketCategory,
@@ -256,10 +258,10 @@ export default function CrmTicketsPage() {
 
       <Card>
         <TableShell
-          head={["#", "Subject", "Category", "Priority", "Status", "Restaurant", "Assigned", "Messages", "Created"]}
+          head={["#", "Subject", "Category", "Priority", "Status", "Restaurant", "Raised by", "Assigned", "Messages", "Created"]}
         >
-          {isLoading && <EmptyRow cols={9} label="Loading…" />}
-          {!isLoading && !data?.tickets.length && <EmptyRow cols={9} label="No tickets found" />}
+          {isLoading && <EmptyRow cols={10} label="Loading…" />}
+          {!isLoading && !data?.tickets.length && <EmptyRow cols={10} label="No tickets found" />}
           {data?.tickets.map((t) => (
             <tr key={t.ticketId} className="transition-colors hover:bg-accent/50">
               <td className="px-4 py-3 text-muted-foreground">#{t.ticketId}</td>
@@ -281,8 +283,13 @@ export default function CrmTicketsPage() {
               <td className="px-4 py-3">
                 <Badge tone={ticketStatusTone(t.status)}>{pretty(t.status)}</Badge>
               </td>
+              {/* The actual restaurant only — the raiser gets their own column,
+                  so a person's name never masquerades as a restaurant. */}
               <td className="px-4 py-3 text-muted-foreground">
-                {t.restaurant?.name ?? t.raisedByName ?? "—"}
+                {t.restaurant?.name ?? t.customer?.restaurantName ?? "—"}
+              </td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {t.raisedByName ?? t.customer?.name ?? "—"}
               </td>
               <td className="px-4 py-3 text-muted-foreground">{t.assignedTo?.name ?? "—"}</td>
               <td className="px-4 py-3 text-foreground">{t._count?.messages ?? 0}</td>
@@ -351,6 +358,15 @@ function CreateTicketModal({
     queryFn: () => crmRestaurantsApi.list({ limit: 100 }),
     retry: false,
   });
+  // Booking customers ARE the restaurants in practice — their restaurantName is
+  // captured at first booking. The CRM Restaurant table (above) is the separate
+  // sales-pipeline list, which is often empty, so this is the picker's main source.
+  const customersQ = useQuery({
+    queryKey: queryKeys.customers(""),
+    queryFn: () => customersApi.list(),
+    retry: false,
+  });
+  const customerRestaurants = (customersQ.data ?? []).filter((c) => c.restaurantName);
   const staffQ = useQuery({
     queryKey: crmQueryKeys.rbacStaff,
     queryFn: rbacApi.staff,
@@ -376,12 +392,19 @@ function CreateTicketModal({
           setErr("");
           if (!subject.trim()) return setErr("Subject is required.");
           if (!description.trim()) return setErr("Description is required.");
+          // The picker mixes two sources: "c:<userId>" is a booking customer
+          // (their restaurantName is the restaurant), "r:<id>" a CRM client.
           create.mutate({
             subject: subject.trim(),
             description: description.trim(),
             category,
             priority,
-            restaurantId: restaurantId ? Number(restaurantId) : undefined,
+            customerId: restaurantId.startsWith("c:")
+              ? Number(restaurantId.slice(2))
+              : undefined,
+            restaurantId: restaurantId.startsWith("r:")
+              ? Number(restaurantId.slice(2))
+              : undefined,
             raisedByName: raisedByName.trim() || undefined,
             raisedByContact: raisedByContact.trim() || undefined,
             assignedToId: assignedToId ? Number(assignedToId) : undefined,
@@ -433,16 +456,25 @@ function CreateTicketModal({
             </select>
           </Field>
         </div>
-        {!restaurantsQ.isError && (
-          <Field label="Restaurant" hint="Optional — link this ticket to a restaurant client.">
+        {!(restaurantsQ.isError && customersQ.isError) && (
+          <Field label="Restaurant" hint="Optional — link this ticket to the restaurant it is about.">
             <select
               className={inputCls}
               value={restaurantId}
               onChange={(e) => setRestaurantId(e.target.value)}
             >
               <option value="">No restaurant</option>
+              {/* Booking customers — restaurantName captured at first booking. */}
+              {customerRestaurants.map((c) => (
+                <option key={`c:${c.userId}`} value={`c:${c.userId}`}>
+                  {c.restaurantName}
+                  {c.name ? ` — ${c.name}` : ""}
+                  {c.mobile ? ` (${c.mobile})` : ""}
+                </option>
+              ))}
+              {/* CRM client list (sales pipeline) — kept for tickets about those. */}
               {restaurantsQ.data?.restaurants.map((r) => (
-                <option key={r.restaurantId} value={r.restaurantId}>
+                <option key={`r:${r.restaurantId}`} value={`r:${r.restaurantId}`}>
                   {r.name}
                 </option>
               ))}
@@ -573,8 +605,14 @@ function TicketDetailModal({
               <Badge tone={priorityTone(t.priority)}>{pretty(t.priority)}</Badge>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              {t.restaurant?.name ?? "No restaurant"} · Raised by {t.raisedByName ?? "—"}
-              {t.raisedByContact ? ` (${t.raisedByContact})` : ""} · Assigned to{" "}
+              {t.restaurant?.name ?? t.customer?.restaurantName ?? "No restaurant"} · Raised by{" "}
+              {t.raisedByName ?? t.customer?.name ?? "—"}
+              {t.raisedByContact
+                ? ` (${t.raisedByContact})`
+                : t.customer?.mobile
+                  ? ` (${t.customer.mobile})`
+                  : ""}{" "}
+              · Assigned to{" "}
               {t.assignedTo?.name ?? "—"} · Created {fmtDate(t.createdAt)} {fmtTime(t.createdAt)}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -642,7 +680,7 @@ function TicketDetailModal({
               <div className="rounded-xl border border-border bg-accent/30 p-3">
                 <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span className="font-medium text-foreground">
-                    {t.raisedByName ?? t.restaurant?.name ?? "Reporter"}
+                    {t.raisedByName ?? t.customer?.name ?? t.restaurant?.name ?? "Reporter"}
                   </span>
                   <span>
                     {fmtDate(t.createdAt)} {fmtTime(t.createdAt)}
