@@ -177,6 +177,59 @@ export interface AdminBookingListResponse {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
+/** A service the manual-booking form can be filled against, with its shifts. */
+export interface BookableService {
+  serviceId: number;
+  name: string;
+  /** Lets the form narrow the service list to one category. */
+  categoryId: number | null;
+  category: string | null;
+  basePrice: number | null;
+  variants: { variantId: number; name: string; price: number | null }[];
+}
+
+/**
+ * A booking created from the admin panel.
+ *
+ * The customer is either an existing `userId` or a `customerMobile` we match on
+ * (creating the account when it's new) — an admin taking a phone order usually
+ * has a number, not an id.
+ */
+export interface CreateBookingInput {
+  userId?: number;
+  customerMobile?: string;
+  customerName?: string;
+  restaurantName?: string;
+  gstNumber?: string;
+  serviceId: number;
+  variantId?: number;
+  /** YYYY-MM-DD */
+  bookingDate: string;
+  /** HH:mm */
+  startTime: string;
+  endTime?: string;
+  /** Pre-GST — the backend adds tax and stores the inclusive total. */
+  baseAmount: number;
+  paymentMode?: "COD" | "RAZORPAY";
+  serviceCity: string;
+  serviceAddress: string;
+  serviceLat?: number;
+  serviceLng?: number;
+  /** Assign this partner immediately instead of broadcasting the lead. */
+  professionalId?: number;
+}
+
+export interface CreateBookingResult {
+  message: string;
+  bookingId: number;
+  status: AdminBookingStatus;
+  /** True when the lead actually reached at least one partner. */
+  dispatched: boolean;
+  partnersAlerted: number | null;
+  /** Plain-language outcome — shown to the admin verbatim. */
+  note: string;
+}
+
 /* ----------------------------- Dispatcher ------------------------------- */
 
 export type PartnerOnboardingStatus = "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
@@ -853,6 +906,16 @@ export const dashboardApi = {
         limit: params.limit,
       })}`,
     ),
+
+  /** GET /v1/admin/bookings/services — the services (and their shifts) a manual
+   *  booking can be created against. */
+  bookableServices: () => apiClient.get<BookableService[]>("/v1/admin/bookings/services"),
+
+  /** POST /v1/admin/bookings — create a booking on a customer's behalf (phone
+   *  orders, walk-ins). `baseAmount` is pre-GST; tax and the total are added by
+   *  the backend so a manual booking is priced like an app one. */
+  createBooking: (body: CreateBookingInput) =>
+    apiClient.post<CreateBookingResult>("/v1/admin/bookings", body),
 
   /** PATCH /v1/admin/bookings/:id/allocate — manually assign a partner to a
    *  booking nobody accepted. Sets the booking ACCEPTED with a fresh start-OTP. */
