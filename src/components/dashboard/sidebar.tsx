@@ -71,6 +71,7 @@ const ADMIN_NAV: NavEntry[] = [
     icon: MapPinIcon,
     children: [
       { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon, permission: "partners.view" },
+      { label: "Partner Progress", href: "/dashboard/dispatcher/partner-progress", icon: RouteIcon, permission: "partner-progress.view" },
       { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon, permission: "dispatcher.view" },
       { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon, permission: "dispatcher.view" },
       { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon, permission: "dispatcher.view" },

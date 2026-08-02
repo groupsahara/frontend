@@ -122,6 +122,19 @@ export interface AdminBooking {
   taxAmount: number | null;
   status: AdminBookingStatus;
   paymentMode: string;
+  /** Partner tapped "Payment received" in the app — customer's money confirmed
+   *  in hand, stamped when they tapped. */
+  paymentCollected: boolean;
+  paymentCollectedAt: string | null;
+  /** Extra services the partner added on site before starting (more work
+   *  found). The amount fields already include them. */
+  addons: {
+    addonId: number;
+    name: string;
+    unitPrice: number;
+    quantity: number;
+    amount: number;
+  }[];
   /** Assigned service partner, or null when nobody has accepted the lead yet. */
   professionalId: number | null;
   professionalName: string | null;
@@ -175,6 +188,39 @@ export interface AdminBookingListResponse {
   /** Count per status plus an `all` total, for the filter tabs. */
   counts: Record<string, number>;
   pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+/** One partner in the pipeline: Onboarding → 15-day Training → Deployment. */
+export interface PartnerProgressRow {
+  professionalId: number;
+  name: string | null;
+  mobile: string | null;
+  city: string | null;
+  category: string | null;
+  stage: 1 | 2 | 3;
+  stageName: "ONBOARDING" | "TRAINING" | "DEPLOYMENT" | "DEPLOYED";
+  live: boolean;
+  onboardingStatus: "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+  rejectionReason: string | null;
+  registeredAt: string;
+  verifiedAt: string | null;
+  trainingStartedAt: string | null;
+  trainingCompletedAt: string | null;
+  trainingNote: string | null;
+  trainingDay: number;
+  trainingDays: number;
+  groomingApproved: number;
+  groomingTotal: number;
+  groomingEnforced: boolean;
+  deployedAt: string | null;
+}
+
+export interface PartnerProgressList {
+  partners: PartnerProgressRow[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: { all: number; onboarding: number; training: number; deployment: number; live: number };
 }
 
 /** A service the manual-booking form can be filled against, with its shifts. */
@@ -916,6 +962,31 @@ export const dashboardApi = {
    *  the backend so a manual booking is priced like an app one. */
   createBooking: (body: CreateBookingInput) =>
     apiClient.post<CreateBookingResult>("/v1/admin/bookings", body),
+
+  /* ── Partner pipeline (Onboarding → Training → Deployment) ─────────────── */
+
+  /** GET /v1/admin/partner-progress — pipeline list with training + grooming state. */
+  partnerProgress: (params: { search?: string; stage?: string; page?: number; limit?: number } = {}) =>
+    apiClient.get<PartnerProgressList>(
+      `/v1/admin/partner-progress${toQueryString({
+        search: params.search,
+        stage: params.stage,
+        page: params.page,
+        limit: params.limit,
+      })}`,
+    ),
+  /** Start the partner's 15-day training clock. */
+  startTraining: (professionalId: number) =>
+    apiClient.patch<{ message: string }>(`/v1/admin/partner-progress/${professionalId}/training/start`, {}),
+  /** Trainer signs off the completed 15-day training. */
+  completeTraining: (professionalId: number, note?: string) =>
+    apiClient.patch<{ message: string }>(
+      `/v1/admin/partner-progress/${professionalId}/training/complete`,
+      { note },
+    ),
+  /** Final activation — partner goes live. */
+  deployPartner: (professionalId: number) =>
+    apiClient.patch<{ message: string }>(`/v1/admin/partner-progress/${professionalId}/deploy`, {}),
 
   /** PATCH /v1/admin/bookings/:id/allocate — manually assign a partner to a
    *  booking nobody accepted. Sets the booking ACCEPTED with a fresh start-OTP. */

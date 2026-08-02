@@ -632,7 +632,22 @@ export function BookingsView() {
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-muted-foreground">{b.paymentMode}</td>
+                    <td className="px-5 py-3">
+                      <div className="text-muted-foreground">{b.paymentMode}</div>
+                      {/* Partner's in-app confirmation that the money is in hand. */}
+                      {b.paymentCollected && (
+                        <span
+                          className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success"
+                          title={
+                            b.paymentCollectedAt
+                              ? `Partner confirmed on ${new Date(b.paymentCollectedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+                              : "Partner confirmed payment received"
+                          }
+                        >
+                          ✓ Collected
+                        </span>
+                      )}
+                    </td>
                     <td className="px-5 py-3">
                       {b.professionalName ? (
                         <div className="flex items-center gap-2">
@@ -1643,6 +1658,25 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
             {b.slotPeriod ? ` · ${b.slotPeriod}` : ""}
           </Detail>
           <Detail label="Payment">{b.paymentMode}</Detail>
+          {b.addons.length > 0 && (
+            <div className="sm:col-span-2 lg:col-span-4">
+              <Detail label={`Added on site (${b.addons.length})`}>
+                <span className="flex flex-col gap-0.5">
+                  {b.addons.map((a) => (
+                    <span key={a.addonId}>
+                      {a.quantity} × {a.name} — ₹{a.amount.toLocaleString("en-IN")}
+                      {a.quantity > 1 ? ` (₹${a.unitPrice.toLocaleString("en-IN")} each)` : ""}
+                    </span>
+                  ))}
+                </span>
+              </Detail>
+            </div>
+          )}
+          <Detail label="Payment collected">
+            {b.paymentCollected
+              ? `Yes — partner confirmed${b.paymentCollectedAt ? ` on ${istDateTime(b.paymentCollectedAt)}` : ""}`
+              : "Not confirmed by partner yet"}
+          </Detail>
 
           <Detail label="Amount paid">₹{b.amount.toLocaleString("en-IN")}</Detail>
           <Detail label="Base (pre-GST)">
