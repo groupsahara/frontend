@@ -19,6 +19,7 @@ const COMPANY = {
   address: "KD-180 Kohat Enclave, Pitampura, Delhi",
   phone: "+91 98993 00646",
   email: "support@restocare.in",
+  gstin: "07AAOCR0865M1ZR",
 };
 
 function inr(n: number): string {
@@ -91,6 +92,7 @@ export function buildInvoiceHtml(
         <div class="muted">${esc(COMPANY.legal)}</div>
         <div class="muted">${esc(COMPANY.address)}</div>
         <div class="muted">${esc(COMPANY.phone)} · ${esc(COMPANY.email)}</div>
+        <div class="muted">GSTIN: ${esc(COMPANY.gstin)}</div>
       </div>
       <div class="right">
         <div style="font-size:20px;font-weight:800;">INVOICE</div>
