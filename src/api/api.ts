@@ -190,6 +190,132 @@ export interface AdminBookingListResponse {
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 
+/* Bank & Payout MIS report — the money-side view of every partner. */
+export interface BankPayoutMisParams {
+  from?: string;
+  to?: string;
+  city?: string;
+  teamId?: number;
+  categoryId?: number;
+  verification?: string;
+  payoutStatus?: string;
+  search?: string;
+}
+
+export interface BankPayoutMisRow {
+  professionalId: number;
+  partnerId: string;
+  name: string | null;
+  mobile: string | null;
+  category: string | null;
+  zone: string | null;
+  accountHolder: string | null;
+  bankName: string | null;
+  /** Always masked server-side: "XXXX XXXX 1234". */
+  accountMasked: string | null;
+  ifsc: string | null;
+  upiId: string | null;
+  bankVerification: "Verified" | "Pending" | "Not Provided";
+  grossEarnings: number;
+  commission: number;
+  otherDeductions: number;
+  netPayable: number;
+  walletBalance: number;
+  payoutRequestId: string | null;
+  payoutStatus: "Paid" | "Pending" | "Failed" | null;
+  payoutDate: string | null;
+  transactionId: string | null;
+}
+
+export interface BankPayoutMisResponse {
+  range: { from: string; to: string };
+  kpis: {
+    totalEarnings: number;
+    earningsDeltaPct: number | null;
+    totalCommission: number;
+    commissionDeltaPct: number | null;
+    netPayable: number;
+    paidAmount: number;
+    paidDeltaPct: number | null;
+    pendingPayouts: number;
+    pendingCount: number;
+    failedPayouts: number;
+    failedDeltaPct: number | null;
+  };
+  partners: BankPayoutMisRow[];
+  charts: {
+    payoutStatus: { paid: number; pending: number; failed: number };
+    byCategory: { basis: "paid" | "netPayable"; bars: { category: string; amount: number }[] };
+    dailyPaid: { date: string; amount: number }[];
+  };
+  filters: {
+    cities: string[];
+    teams: { teamId: number; name: string }[];
+    categories: { categoryId: number; name: string }[];
+  };
+}
+
+/* Partner MIS report — the dispatcher's management-information view. */
+export interface PartnerMisParams {
+  from?: string;
+  to?: string;
+  city?: string;
+  teamId?: number;
+  categoryId?: number;
+  status?: string;
+  search?: string;
+}
+
+export interface PartnerMisRow {
+  professionalId: number;
+  partnerId: string;
+  name: string | null;
+  mobile: string | null;
+  category: string | null;
+  service: string | null;
+  registeredAt: string;
+  verificationStatus: "Verified" | "Pending" | "Rejected";
+  trainingStatus: "Completed" | "In Progress" | "Not Started";
+  zone: string | null;
+  availability: "Available" | "Busy" | "Unavailable";
+  assigned: number;
+  accepted: number;
+  completed: number;
+  cancelled: number;
+  acceptanceRate: number;
+  completionRate: number;
+  rating: number;
+  earnings: number;
+}
+
+export interface PartnerMisResponse {
+  range: { from: string; to: string };
+  kpis: {
+    totalPartners: number;
+    activePartners: number;
+    activePct: number;
+    verifiedPartners: number;
+    verifiedPct: number;
+    availableToday: number;
+    availablePct: number;
+    completionRate: number;
+    completionDelta: number;
+    totalEarnings: number;
+    earningsDeltaPct: number | null;
+  };
+  partners: PartnerMisRow[];
+  charts: {
+    verification: { verified: number; pending: number; rejected: number };
+    availability: { available: number; busy: number; unavailable: number };
+    ordersByCategory: { category: string; count: number }[];
+  };
+  filters: {
+    cities: string[];
+    teams: { teamId: number; name: string }[];
+    categories: { categoryId: number; name: string }[];
+  };
+}
+
 /** One partner in the pipeline: Onboarding → 15-day Training → Deployment. */
 export interface PartnerProgressRow {
   professionalId: number;
@@ -962,6 +1088,37 @@ export const dashboardApi = {
    *  the backend so a manual booking is priced like an app one. */
   createBooking: (body: CreateBookingInput) =>
     apiClient.post<CreateBookingResult>("/v1/admin/bookings", body),
+
+  /* ── Partner MIS report ────────────────────────────────────────────────── */
+
+  /** GET /v1/admin/partner-mis — KPIs, per-partner stats, chart breakdowns. */
+  partnerMis: (params: PartnerMisParams = {}) =>
+    apiClient.get<PartnerMisResponse>(
+      `/v1/admin/partner-mis${toQueryString({
+        from: params.from,
+        to: params.to,
+        city: params.city,
+        teamId: params.teamId,
+        categoryId: params.categoryId,
+        status: params.status,
+        search: params.search,
+      })}`,
+    ),
+
+  /** GET /v1/admin/bank-payout-mis — money-side MIS (bank details masked). */
+  bankPayoutMis: (params: BankPayoutMisParams = {}) =>
+    apiClient.get<BankPayoutMisResponse>(
+      `/v1/admin/bank-payout-mis${toQueryString({
+        from: params.from,
+        to: params.to,
+        city: params.city,
+        teamId: params.teamId,
+        categoryId: params.categoryId,
+        verification: params.verification,
+        payoutStatus: params.payoutStatus,
+        search: params.search,
+      })}`,
+    ),
 
   /* ── Partner pipeline (Onboarding → Training → Deployment) ─────────────── */
 
