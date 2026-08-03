@@ -27,6 +27,7 @@ import {
 } from "@/src/api/api";
 import { ApiError, API_BASE_URL, getToken } from "@/src/api/apiClient";
 import { hasPermission } from "@/src/lib/auth";
+import { fetchPlaceSuggestions, type PlaceSuggestion } from "@/src/lib/google-maps";
 import {
   BagIcon,
   ChevronDownIcon,
@@ -941,6 +942,131 @@ const inputClass =
   "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30";
 
 /**
+ * Google Places search for the booking's service location — the same search
+ * quality as google.com/maps (shared loader with the geofence editor). Picking
+ * a result hands back the exact coordinates plus a best-effort address/city
+ * split; the caller fills the form fields, which stay editable.
+ */
+function LocationSearchField({
+  onPick,
+}: {
+  onPick: (place: { address: string; city: string | null; lat: number; lng: number }) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PlaceSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  const seqRef = useRef(0); // drop responses from superseded keystrokes
+
+  useEffect(() => {
+    const q = query.trim();
+    const seq = ++seqRef.current;
+    if (q.length < 3) {
+      queueMicrotask(() => {
+        if (seq !== seqRef.current) return;
+        setResults([]);
+        setSearching(false);
+        setFailed(false);
+      });
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      setFailed(false);
+      try {
+        const found = await fetchPlaceSuggestions(q);
+        if (seq !== seqRef.current) return;
+        setResults(found);
+        setOpen(true);
+      } catch {
+        if (seq !== seqRef.current) return;
+        setFailed(true);
+        setResults([]);
+        setOpen(true);
+      } finally {
+        if (seq === seqRef.current) setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  const pick = async (s: PlaceSuggestion) => {
+    setOpen(false);
+    setQuery(`${s.label}, ${s.address}`);
+    try {
+      const { lat, lng } = await s.resolve();
+      // The secondary line reads like "Pitampura, Delhi, India" — the part
+      // before "India" is the city more often than not. A guess is fine: the
+      // City field stays editable.
+      const parts = s.address
+        .split(",")
+        .map((p) => p.trim())
+        .filter((p) => p && p.toLowerCase() !== "india");
+      onPick({
+        address: `${s.label}, ${s.address}`,
+        city: parts.length ? parts[parts.length - 1] : null,
+        lat,
+        lng,
+      });
+    } catch {
+      setFailed(true);
+      setOpen(true);
+    }
+  };
+
+  return (
+    <div ref={boxRef} className="relative">
+      <div className="relative">
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder="Search location on Google Maps…"
+          className={`${inputClass} pl-9`}
+        />
+        {searching && (
+          <SpinnerIcon className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        )}
+      </div>
+      {open && query.trim().length >= 3 && (
+        <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
+          {failed ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">
+              Location search is unavailable — enter the coordinates manually below.
+            </p>
+          ) : results.length === 0 && !searching ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">No places found.</p>
+          ) : (
+            results.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => pick(s)}
+                className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left transition hover:bg-accent"
+              >
+                <span className="text-sm font-medium text-foreground">{s.label}</span>
+                <span className="text-xs text-muted-foreground">{s.address}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
  * Create a booking for a customer from the panel — phone orders and walk-ins
  * that never came through the app.
  *
@@ -1351,6 +1477,16 @@ function NewBookingModal({
           {/* Location */}
           <section className="space-y-3">
             <h4 className="text-sm font-semibold text-foreground">Location</h4>
+            {/* Google Places search — picking a result fills address, city and
+                exact coordinates; every field stays editable afterwards. */}
+            <LocationSearchField
+              onPick={({ address, city, lat: la, lng: ln }) => {
+                setServiceAddress(address);
+                if (city) setServiceCity(city);
+                setLat(la.toFixed(6));
+                setLng(ln.toFixed(6));
+              }}
+            />
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="City" required>
                 <input
