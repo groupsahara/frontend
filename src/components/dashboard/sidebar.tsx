@@ -67,6 +67,18 @@ const ADMIN_NAV: NavEntry[] = [
     ],
   },
   {
+    label: "Quick Commerce",
+    icon: StoreIcon,
+    children: [
+      { label: "Vendors", href: "/dashboard/qc/vendors", icon: UsersIcon, permission: "qc-vendors.view" },
+      { label: "QC Orders", href: "/dashboard/qc/orders", icon: BagIcon, permission: "qc-orders.view" },
+      { label: "Delivery Partners", href: "/dashboard/qc/delivery-partners", icon: UsersIcon, permission: "qc-orders.view" },
+      { label: "QC Settings", href: "/dashboard/qc/settings", icon: TagIcon, permission: "qc-settings.manage" },
+      // The vendor's own portal — the only entry a qc_vendor login can see.
+      { label: "My Store", href: "/dashboard/qc/my-store", icon: StoreIcon, permission: "qc-vendor-portal.view" },
+    ],
+  },
+  {
     label: "Dispatcher",
     icon: MapPinIcon,
     children: [

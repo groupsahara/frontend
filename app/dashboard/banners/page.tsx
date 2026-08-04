@@ -47,6 +47,7 @@ export default function BannersPage() {
     () => ({
       WEB: banners.filter((b) => platformOf(b) === "WEB").length,
       MOBILE: banners.filter((b) => platformOf(b) === "MOBILE").length,
+      QC: banners.filter((b) => platformOf(b) === "QC").length,
     }),
     [banners],
   );
@@ -74,7 +75,7 @@ export default function BannersPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Banner</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Manage {platformTab === "WEB" ? "web storefront" : "mobile app"} banners.
+            Manage {platformTab === "WEB" ? "web storefront" : platformTab === "MOBILE" ? "mobile app" : "QC store app"} banners.
             Recommended size {spec.label}.
           </p>
         </div>
@@ -83,7 +84,7 @@ export default function BannersPage() {
           className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
         >
           <PlusIcon className="h-4 w-4" />
-          Add {platformTab === "WEB" ? "Web" : "Mobile"} Banner
+          Add {platformTab === "WEB" ? "Web" : platformTab === "MOBILE" ? "Mobile" : "QC Store"} Banner
         </button>
       </div>
 
@@ -93,6 +94,7 @@ export default function BannersPage() {
           [
             { value: "WEB" as const, label: "🖥️ Web Banners" },
             { value: "MOBILE" as const, label: "📱 Mobile Banners" },
+            { value: "QC" as const, label: "🛍️ QC Store Banners" },
           ]
         ).map((t) => {
           const active = platformTab === t.value;
@@ -137,13 +139,13 @@ export default function BannersPage() {
         <div className="flex h-60 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-card text-center">
           <ImageIcon className="h-10 w-10 text-muted-foreground" />
           <p className="text-muted-foreground">
-            No {platformTab === "WEB" ? "web" : "mobile"} banners yet.
+            No {platformTab === "WEB" ? "web" : platformTab === "MOBILE" ? "mobile" : "QC store"} banners yet.
           </p>
           <button
             onClick={openCreate}
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
-            Add a {platformTab === "WEB" ? "web" : "mobile"} banner
+            Add a {platformTab === "WEB" ? "web" : platformTab === "MOBILE" ? "mobile" : "QC store"} banner
           </button>
         </div>
       ) : (
