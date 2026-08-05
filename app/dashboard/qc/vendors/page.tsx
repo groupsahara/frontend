@@ -173,7 +173,14 @@ function VendorModal({
   const [mobile, setMobile] = useState(vendor?.mobile ?? "");
   const [address, setAddress] = useState(vendor?.address ?? "");
   const [city, setCity] = useState(vendor?.city ?? "");
+  // The store pin. The delivery app draws it as the pickup marker on the lead
+  // alarm and navigates to it — a vendor without coordinates shows up as
+  // "location not set" on every order it feeds.
+  const [lat, setLat] = useState(vendor?.lat != null ? String(vendor.lat) : "");
+  const [lng, setLng] = useState(vendor?.lng != null ? String(vendor.lng) : "");
   const [err, setErr] = useState<string | null>(null);
+
+  const coord = (v: string) => (v.trim() === "" ? undefined : Number(v));
 
   const save = useMutation({
     mutationFn: () =>
@@ -184,6 +191,8 @@ function VendorModal({
             mobile: mobile.trim() || undefined,
             address: address.trim() || undefined,
             city: city.trim() || undefined,
+            lat: coord(lat),
+            lng: coord(lng),
             ...(password.trim() ? { password: password.trim() } : {}),
           }).then(() => "Vendor updated")
         : qcApi
@@ -195,6 +204,8 @@ function VendorModal({
               mobile: mobile.trim() || undefined,
               address: address.trim() || undefined,
               city: city.trim() || undefined,
+              lat: coord(lat),
+              lng: coord(lng),
             })
             .then((r) => r.message),
     onSuccess: (msg) => onDone(msg),
@@ -238,6 +249,16 @@ function VendorModal({
               <input value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} />
             </Field>
           </div>
+          <Field label="Latitude">
+            <input value={lat} onChange={(e) => setLat(e.target.value)} placeholder="28.6862" inputMode="decimal" className={inputCls} />
+          </Field>
+          <Field label="Longitude">
+            <input value={lng} onChange={(e) => setLng(e.target.value)} placeholder="77.1379" inputMode="decimal" className={inputCls} />
+          </Field>
+          <p className="text-xs text-muted-foreground sm:col-span-2">
+            The store pin the delivery partner navigates to. Copy it from Google Maps: right-click
+            the shop → the first row is <span className="font-medium">latitude, longitude</span>.
+          </p>
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent">
@@ -249,6 +270,11 @@ function VendorModal({
               if (!storeName.trim()) return setErr("Store name is required.");
               if (!isEdit && !email.trim()) return setErr("Login email is required.");
               if (!isEdit && password.trim().length < 6) return setErr("Password must be at least 6 characters.");
+              const [latNum, lngNum] = [coord(lat), coord(lng)];
+              if (latNum !== undefined && (!Number.isFinite(latNum) || Math.abs(latNum) > 90))
+                return setErr("Latitude must be a number between -90 and 90.");
+              if (lngNum !== undefined && (!Number.isFinite(lngNum) || Math.abs(lngNum) > 180))
+                return setErr("Longitude must be a number between -180 and 180.");
               save.mutate();
             }}
             disabled={save.isPending}
