@@ -2721,6 +2721,14 @@ export const crmApi = {
   deleteBooking: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/admin/bookings/${id}`),
 
+  /** POST /v1/admin/bookings/bulk-delete — completed bookings are skipped. */
+  bulkDeleteBookings: (bookingIds: number[]) =>
+    apiClient.post<{
+      message: string;
+      deleted: number[];
+      skipped: { bookingId: number; reason: string }[];
+    }>("/v1/admin/bookings/bulk-delete", { bookingIds }),
+
   updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED", reason?: string) =>
     apiClient.patch(`/v1/crm/bookings/${id}/status`, { status, reason }),
 };

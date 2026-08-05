@@ -170,6 +170,10 @@ export function BookingsView() {
   // and shown in the table — otherwise a cancellation has no explanation.
   const [cancelTarget, setCancelTarget] = useState<AdminBooking | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
+  // Checkbox multi-select for bulk delete (ids survive page/filter changes so
+  // an admin can gather a selection across pages).
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [confirmBulk, setConfirmBulk] = useState(false);
   // Manual booking creation — phone orders and walk-ins that never came
   // through the app.
   const [creating, setCreating] = useState(false);
@@ -199,7 +203,7 @@ export function BookingsView() {
     try {
       const result = await uploadImportFile(file);
       setImportResult(result);
-      queryClient.invalidateQueries({ queryKey: ["admin", "bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
     } catch (e) {
       setNotice(e instanceof Error ? e.message : "Import failed.");
     } finally {
@@ -246,9 +250,11 @@ export function BookingsView() {
   // Creating is its own grant, so a role that may edit bookings isn't
   // automatically offered a button the backend would refuse.
   const [canCreate, setCanCreate] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
   useEffect(() => {
     setCanManage(hasPermission("bookings.update"));
     setCanCreate(hasPermission("bookings.create"));
+    setCanDelete(hasPermission("bookings.delete"));
   }, []);
 
   // Reset to the first page whenever the filter, search or date range changes.
@@ -277,11 +283,28 @@ export function BookingsView() {
     onSuccess: () => {
       setDeleteTarget(null);
       setNotice("Booking deleted.");
-      queryClient.invalidateQueries({ queryKey: ["admin", "bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
     },
     onError: (e) => {
       setDeleteTarget(null);
       setNotice(e instanceof ApiError ? e.message : "Could not delete the booking.");
+    },
+  });
+
+  const bulkDelete = useMutation({
+    mutationFn: (ids: number[]) => crmApi.bulkDeleteBookings(ids),
+    onSuccess: (r) => {
+      setConfirmBulk(false);
+      setSelected(new Set());
+      const skippedNote = r.skipped.length
+        ? ` Skipped: ${r.skipped.map((x) => `#RC-${x.bookingId} (${x.reason})`).join("; ")}`
+        : "";
+      setNotice(`${r.message}.${skippedNote}`);
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    },
+    onError: (e) => {
+      setConfirmBulk(false);
+      setNotice(e instanceof ApiError ? e.message : "Could not delete the selection.");
     },
   });
 
@@ -291,7 +314,7 @@ export function BookingsView() {
     onSuccess: () => {
       setCancelTarget(null);
       setNotice("Booking cancelled.");
-      queryClient.invalidateQueries({ queryKey: ["admin", "bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
     },
     onError: (e) => {
       setCancelTarget(null);
@@ -302,6 +325,25 @@ export function BookingsView() {
   const counts = data?.counts;
   const pagination = data?.pagination;
   const bookings = data?.bookings ?? [];
+
+  // Select-all covers the CURRENT page; the set itself accumulates across
+  // pages so a cross-page selection is possible.
+  const pageIds = bookings.map((b: AdminBooking) => b.bookingId);
+  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id: number) => selected.has(id));
+  const toggleRow = (bookingId: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(bookingId)) next.delete(bookingId);
+      else next.add(bookingId);
+      return next;
+    });
+  const toggleAllOnPage = () =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) pageIds.forEach((id: number) => next.delete(id));
+      else pageIds.forEach((id: number) => next.add(id));
+      return next;
+    });
   const showActions = canManage;
 
   const from = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
@@ -496,6 +538,33 @@ export function BookingsView() {
             </span>
           </>
         )}
+        {/* Bulk delete — always visible next to the filters, disabled until at
+            least one row is ticked. */}
+        {canDelete && (
+          <div className="ml-auto flex items-end gap-2">
+            {selected.size > 0 && (
+              <>
+                <span className="pb-2 text-xs font-semibold text-foreground">
+                  {selected.size} selected
+                </span>
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                >
+                  Clear
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setConfirmBulk(true)}
+              disabled={selected.size === 0}
+              title={selected.size === 0 ? "Tick bookings in the table to enable" : undefined}
+              className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              🗑 Delete selected
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -528,6 +597,17 @@ export function BookingsView() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  {canDelete && (
+                    <th className="py-3 pl-4 pr-0 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={allOnPageSelected}
+                        onChange={toggleAllOnPage}
+                        title="Select all on this page"
+                        className="h-4 w-4 accent-primary"
+                      />
+                    </th>
+                  )}
                   <th className="py-3 pl-4 pr-0 font-medium" />
                   <th className="px-5 py-3 font-medium">Booking</th>
                   <th className="px-5 py-3 font-medium">Restaurant</th>
@@ -553,8 +633,18 @@ export function BookingsView() {
                   return (
                   <Fragment key={b.bookingId}>
                   <tr
-                    className="border-t border-border transition-colors hover:bg-muted/40"
+                    className={`border-t border-border transition-colors hover:bg-muted/40 ${selected.has(b.bookingId) ? "bg-primary/5" : ""}`}
                   >
+                    {canDelete && (
+                      <td className="py-3 pl-4 pr-0 align-top">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(b.bookingId)}
+                          onChange={() => toggleRow(b.bookingId)}
+                          className="h-4 w-4 accent-primary"
+                        />
+                      </td>
+                    )}
                     <td className="py-3 pl-4 pr-0 align-top">
                       <button
                         type="button"
@@ -826,6 +916,38 @@ export function BookingsView() {
           </div>
         )}
       </div>
+
+      {confirmBulk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmBulk(false)} aria-hidden />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-foreground">
+              Delete {selected.size} booking{selected.size === 1 ? "" : "s"}?
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This permanently removes the selected bookings and their ratings, invoices and lead
+              records. Completed bookings in the selection are skipped automatically. This cannot
+              be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setConfirmBulk(false)}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => bulkDelete.mutate([...selected])}
+                disabled={bulkDelete.isPending}
+                className="flex items-center gap-2 rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {bulkDelete.isPending && <SpinnerIcon className="h-4 w-4" />}
+                Delete {selected.size}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1780,7 +1902,7 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
   return (
     <tr className="border-t border-border bg-muted/30">
       <td />
-      <td colSpan={14} className="px-5 pb-5 pt-1">
+      <td colSpan={15} className="px-5 pb-5 pt-1">
         <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
           <Detail label="Restaurant">{b.restaurantName ?? "—"}</Detail>
           <Detail label="Owner">{b.customer}</Detail>
