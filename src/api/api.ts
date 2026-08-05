@@ -4233,6 +4233,9 @@ export interface QcVendorRow {
   mobile: string | null;
   address: string | null;
   city: string | null;
+  /** Store pin — the delivery app's pickup marker. */
+  lat: number | null;
+  lng: number | null;
   isActive: boolean;
   createdAt: string;
   user?: { email: string | null };
@@ -4291,8 +4294,10 @@ export const qcApi = {
     mobile?: string;
     address?: string;
     city?: string;
+    lat?: number;
+    lng?: number;
   }) => apiClient.post<{ message: string; vendor: QcVendorRow }>("/v1/qc/admin/vendors", body),
-  updateVendor: (id: number, body: Partial<{ storeName: string; ownerName: string; mobile: string; address: string; city: string; isActive: boolean; password: string }>) =>
+  updateVendor: (id: number, body: Partial<{ storeName: string; ownerName: string; mobile: string; address: string; city: string; lat: number; lng: number; isActive: boolean; password: string }>) =>
     apiClient.patch<QcVendorRow>(`/v1/qc/admin/vendors/${id}`, body),
   adminOrders: (status?: string) =>
     apiClient.get<QcAdminOrder[]>(`/v1/qc/admin/orders${toQueryString({ status })}`),
