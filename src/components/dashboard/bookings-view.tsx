@@ -925,9 +925,8 @@ export function BookingsView() {
               Delete {selected.size} booking{selected.size === 1 ? "" : "s"}?
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              This permanently removes the selected bookings and their ratings, invoices and lead
-              records. Completed bookings in the selection are skipped automatically. This cannot
-              be undone.
+              This permanently removes the selected bookings — completed ones included — along
+              with their ratings, invoices and lead records. This cannot be undone.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button

@@ -2717,11 +2717,11 @@ export const crmApi = {
     },
   ) => apiClient.patch<{ message: string }>(`/v1/admin/bookings/${id}`, body),
 
-  /** DELETE /v1/admin/bookings/:id — refused for completed bookings. */
+  /** DELETE /v1/admin/bookings/:id — completed bookings included. */
   deleteBooking: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/admin/bookings/${id}`),
 
-  /** POST /v1/admin/bookings/bulk-delete — completed bookings are skipped. */
+  /** POST /v1/admin/bookings/bulk-delete — completed bookings included. */
   bulkDeleteBookings: (bookingIds: number[]) =>
     apiClient.post<{
       message: string;
