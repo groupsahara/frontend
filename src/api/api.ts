@@ -720,6 +720,11 @@ export const dispatcherApi = {
   getPartner: (professionalId: number) =>
     apiClient.get<PartnerDetail>(`/v1/admin/partners/${professionalId}`),
 
+  /** POST /v1/admin/partners — register a partner exactly like first-time app
+   *  signup (multipart: photo required, KYC docs optional). */
+  createPartner: (fd: FormData) =>
+    uploadFile<{ message: string; professionalId: number | null }>("/v1/admin/partners", fd),
+
   /** GET /v1/admin/partners/:id/activity — active hours, login session logs and
    *  a daily breakdown for the weekly/monthly report. */
   getPartnerActivity: (professionalId: number, period?: "week" | "month") =>
