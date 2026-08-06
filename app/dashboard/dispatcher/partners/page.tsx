@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  categoryTreeApi,
   dispatcherApi,
   groomingApi,
   queryKeys,
@@ -11,6 +12,7 @@ import {
   type PartnerRow,
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
+import { hasPermission } from "@/src/lib/auth";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import { PartnerStatusBadge } from "@/src/components/dashboard/partner-status";
 import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
@@ -156,6 +158,13 @@ export default function ServicePartnersPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartnerRow | null>(null);
   const [activityTarget, setActivityTarget] = useState<PartnerRow | null>(null);
+  // Panel-side partner registration — same flow as first-time app signup.
+  const [addOpen, setAddOpen] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
+  useEffect(() => {
+    // Deferred so no setState runs synchronously inside the effect body.
+    queueMicrotask(() => setCanCreate(hasPermission("partners.create")));
+  }, []);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.partners(search.trim(), statusTab),
@@ -209,11 +218,21 @@ export default function ServicePartnersPage() {
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Service Partners</h1>
-        <p className="text-sm text-muted-foreground">
-          Service professionals onboarded on the platform.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Service Partners</h1>
+          <p className="text-sm text-muted-foreground">
+            Service professionals onboarded on the platform.
+          </p>
+        </div>
+        {canCreate && (
+          <button
+            onClick={() => setAddOpen(true)}
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+          >
+            ＋ Add partner
+          </button>
+        )}
       </div>
 
       <GroomingModuleCard />
@@ -510,6 +529,17 @@ export default function ServicePartnersPage() {
         />
       )}
 
+      {addOpen && (
+        <AddPartnerModal
+          onClose={() => setAddOpen(false)}
+          onDone={(msg) => {
+            setAddOpen(false);
+            setNotice(msg);
+            invalidate();
+            queryClient.invalidateQueries({ queryKey: queryKeys.partnerStatusCounts });
+          }}
+        />
+      )}
       {activityTarget && (
         <PartnerActivityModal
           professionalId={activityTarget.professionalId}
@@ -541,6 +571,233 @@ function PartnerAvatar({ partner }: { partner: PartnerRow }) {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-xs font-semibold text-white">
       {initials || "?"}
+    </div>
+  );
+}
+
+/* ── Add partner — mirrors the app's first-time registration form ── */
+
+const fieldCls =
+  "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary";
+
+function FileField({
+  label,
+  file,
+  onPick,
+  required,
+}: {
+  label: string;
+  file: File | null;
+  onPick: (f: File | null) => void;
+  required?: boolean;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label} {required && <span className="text-danger">*</span>}
+      </span>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => onPick(e.target.files?.[0] ?? null)}
+      />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className={`${fieldCls} text-left ${file ? "text-foreground" : "text-muted-foreground"}`}
+      >
+        {file ? `📎 ${file.name}` : "Choose image…"}
+      </button>
+    </div>
+  );
+}
+
+function AddPartnerModal({
+  onClose,
+  onDone,
+}: {
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [aadharFront, setAadharFront] = useState<File | null>(null);
+  const [aadharBack, setAadharBack] = useState<File | null>(null);
+  const [licenseDoc, setLicenseDoc] = useState<File | null>(null);
+  const [name, setName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [experience, setExperience] = useState("0");
+  const [description, setDescription] = useState("");
+  const [city, setCity] = useState("");
+  const [aadharNo, setAadharNo] = useState("");
+  const [licenseNo, setLicenseNo] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
+  const [vehicleColor, setVehicleColor] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [markVerified, setMarkVerified] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  const { data: tree } = useQuery({
+    queryKey: queryKeys.categoryTree,
+    queryFn: () => categoryTreeApi.tree(),
+  });
+
+  const save = useMutation({
+    mutationFn: () => {
+      const fd = new FormData();
+      fd.append("mobile", mobile.trim());
+      if (name.trim()) fd.append("name", name.trim());
+      fd.append("serviceId", categoryId); // category id — same contract as the app
+      fd.append("experience", experience || "0");
+      if (description.trim()) fd.append("description", description.trim());
+      if (city.trim()) fd.append("city", city.trim());
+      if (aadharNo.trim()) fd.append("aadharNo", aadharNo.trim());
+      if (licenseNo.trim()) fd.append("licenseNo", licenseNo.trim());
+      if (vehicleType.trim()) fd.append("vehicleType", vehicleType.trim());
+      if (vehicleColor.trim()) fd.append("vehicleColor", vehicleColor.trim());
+      if (referralCode.trim()) fd.append("referralCode", referralCode.trim().toUpperCase());
+      fd.append("markVerified", String(markVerified));
+      if (photo) fd.append("professional", photo);
+      if (aadharFront) fd.append("aadharFront", aadharFront);
+      if (aadharBack) fd.append("aadharBack", aadharBack);
+      if (licenseDoc) fd.append("licenseDoc", licenseDoc);
+      return dispatcherApi.createPartner(fd);
+    },
+    onSuccess: (r) => onDone(r.message),
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not register the partner."),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="border-b border-border p-5">
+          <h3 className="text-lg font-semibold text-foreground">Add partner</h3>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Registers the partner exactly like first-time app signup — they log into the partner
+            app with this mobile number afterwards.
+          </p>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          {err && <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">{err}</p>}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Full name
+              </span>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ravi Kumar" className={fieldCls} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Mobile <span className="text-danger">*</span>
+              </span>
+              <input
+                value={mobile}
+                onChange={(e) => setMobile(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
+                placeholder="10-digit mobile (their app login)"
+                className={fieldCls}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Category <span className="text-danger">*</span>
+              </span>
+              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={fieldCls}>
+                <option value="">Select…</option>
+                {(tree ?? []).map((c) => (
+                  <option key={c.categoryId} value={c.categoryId}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Experience (years)
+              </span>
+              <input
+                value={experience}
+                onChange={(e) => setExperience(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+                className={fieldCls}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">City</span>
+              <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Delhi" className={fieldCls} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Referral code</span>
+              <input value={referralCode} onChange={(e) => setReferralCode(e.target.value)} placeholder="Optional" className={fieldCls} />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</span>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Electrician expert" className={fieldCls} />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aadhar number</span>
+              <input value={aadharNo} onChange={(e) => setAadharNo(e.target.value)} className={fieldCls} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">License number</span>
+              <input value={licenseNo} onChange={(e) => setLicenseNo(e.target.value)} className={fieldCls} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vehicle type</span>
+              <input value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} placeholder="Bike / Scooter" className={fieldCls} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vehicle color</span>
+              <input value={vehicleColor} onChange={(e) => setVehicleColor(e.target.value)} className={fieldCls} />
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FileField label="Profile photo" file={photo} onPick={setPhoto} required />
+            <FileField label="Aadhar front" file={aadharFront} onPick={setAadharFront} />
+            <FileField label="Aadhar back" file={aadharBack} onPick={setAadharBack} />
+            <FileField label="Driving license" file={licenseDoc} onPick={setLicenseDoc} />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={markVerified}
+              onChange={(e) => setMarkVerified(e.target.checked)}
+              className="h-4 w-4 accent-primary"
+            />
+            Mark documents verified (skips the review queue — training/activation still apply)
+          </label>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-border p-4">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              setErr(null);
+              if (mobile.length !== 10) return setErr("Enter the partner's 10-digit mobile.");
+              if (!categoryId) return setErr("Pick a category.");
+              if (!photo) return setErr("A profile photo is required — same as app signup.");
+              save.mutate();
+            }}
+            disabled={save.isPending}
+            className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+          >
+            {save.isPending ? "Registering…" : "Register partner"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
