@@ -8,6 +8,7 @@ import {
   dispatcherApi,
   groomingApi,
   queryKeys,
+  type PartnerImportResult,
   type PartnerOnboardingStatus,
   type PartnerRow,
 } from "@/src/api/api";
@@ -166,6 +167,10 @@ export default function ServicePartnersPage() {
     queueMicrotask(() => setCanCreate(hasPermission("partners.create")));
   }, []);
 
+  // Bulk CSV import — same permission as creating one partner by hand.
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importResult, setImportResult] = useState<PartnerImportResult | null>(null);
+
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.partners(search.trim(), statusTab),
     queryFn: () => dispatcherApi.listPartners(search.trim() || undefined, statusTab),
@@ -202,6 +207,33 @@ export default function ServicePartnersPage() {
     },
   });
 
+  /** Fetch the CSV template — a plain link can't carry the bearer token. */
+  const handleTemplate = async () => {
+    try {
+      const blob = await dispatcherApi.partnerImportTemplate();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "partner-import-template.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setNotice(e instanceof ApiError ? e.message : "Could not download the template.");
+    }
+  };
+
+  const importPartners = useMutation({
+    mutationFn: (file: File) => dispatcherApi.importPartners(file),
+    onSuccess: (res) => {
+      setImportResult(res);
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: queryKeys.partnerStatusCounts });
+    },
+    onError: (e) => setNotice(e instanceof ApiError ? e.message : "Import failed."),
+  });
+
   const busy = blockMutation.isPending;
   const allPartners = data ?? [];
   // Online/offline is filtered client-side: the list endpoint returns every
@@ -226,14 +258,78 @@ export default function ServicePartnersPage() {
           </p>
         </div>
         {canCreate && (
-          <button
-            onClick={() => setAddOpen(true)}
-            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
-          >
-            ＋ Add partner
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => void handleTemplate()}
+              title="Download the CSV template to fill in"
+              className="rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-accent"
+            >
+              📄 Template
+            </button>
+            {/* The button proxies to a hidden input so the file picker is styled. */}
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                // Reset so re-picking the same corrected file still fires.
+                e.target.value = "";
+                if (file) importPartners.mutate(file);
+              }}
+            />
+            <button
+              onClick={() => importInputRef.current?.click()}
+              disabled={importPartners.isPending}
+              title="Upload a filled sheet to register partners in bulk"
+              className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-accent disabled:opacity-50"
+            >
+              {importPartners.isPending ? <SpinnerIcon className="h-4 w-4" /> : <span>⬆</span>}
+              {importPartners.isPending ? "Importing…" : "Import partners"}
+            </button>
+            <button
+              onClick={() => setAddOpen(true)}
+              className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+            >
+              ＋ Add partner
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Import outcome. A hand-filled sheet usually has a few bad rows, so
+          every failure is listed with its row number instead of a bare count. */}
+      {importResult && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            importResult.failedCount > 0
+              ? "border-warning/40 bg-warning/10 text-foreground"
+              : "border-success/40 bg-success/10 text-foreground"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold">{importResult.message}</p>
+              {importResult.errors.length > 0 && (
+                <ul className="mt-2 max-h-40 space-y-0.5 overflow-y-auto text-xs text-muted-foreground">
+                  {importResult.errors.map((e) => (
+                    <li key={e.row}>
+                      Row {e.row}: {e.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <button
+              onClick={() => setImportResult(null)}
+              className="shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <GroomingModuleCard />
 
