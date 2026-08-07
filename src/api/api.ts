@@ -483,6 +483,16 @@ export interface PartnerStatusCounts {
   ALL: number;
 }
 
+/** Outcome of a bulk partner import — failures are per row, never per file. */
+export interface PartnerImportResult {
+  message: string;
+  importedCount: number;
+  updatedCount: number;
+  failedCount: number;
+  professionalIds: number[];
+  errors: { row: number; reason: string }[];
+}
+
 export interface UpdatePartnerInput {
   name?: string;
   city?: string;
@@ -724,6 +734,17 @@ export const dispatcherApi = {
    *  signup (multipart: photo required, KYC docs optional). */
   createPartner: (fd: FormData) =>
     uploadFile<{ message: string; professionalId: number | null }>("/v1/admin/partners", fd),
+
+  /** GET /v1/admin/partners/import-template — the CSV an admin fills in. */
+  partnerImportTemplate: () => downloadFile("/v1/admin/partners/import-template"),
+
+  /** POST /v1/admin/partners/import — bulk-register partners from a filled
+   *  sheet. Rows are independent, so the result lists every failure by row. */
+  importPartners: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadFile<PartnerImportResult>("/v1/admin/partners/import", fd);
+  },
 
   /** GET /v1/admin/partners/:id/activity — active hours, login session logs and
    *  a daily breakdown for the weekly/monthly report. */
