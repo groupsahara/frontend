@@ -118,19 +118,29 @@ export function Footer() {
             <div className="flex gap-4">
               <div className="space-y-2">
                 <div className="h-20 w-20 bg-white p-1 rounded-sm flex items-center justify-center">
-                  <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=AppStore')] bg-cover"></div>
+                  <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fapps.apple.com%2Fin%2Fapp%2Frestocare-stop-revenue-loss%2Fid6787001148')] bg-cover"></div>
                 </div>
-                <button className="flex items-center gap-2 rounded-md bg-black px-2 py-1.5 border border-gray-700 hover:bg-gray-800 w-full justify-center text-white">
+                <a
+                  href="https://apps.apple.com/in/app/restocare-stop-revenue-loss/id6787001148"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-md bg-black px-2 py-1.5 border border-gray-700 hover:bg-gray-800 w-full justify-center text-white"
+                >
                   <span className="text-xs">App Store</span>
-                </button>
+                </a>
               </div>
               <div className="space-y-2">
                 <div className="h-20 w-20 bg-white p-1 rounded-sm flex items-center justify-center">
-                  <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=PlayStore')] bg-cover"></div>
+                  <div className="w-full h-full bg-[url('https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.restocare.customer')] bg-cover"></div>
                 </div>
-                <button className="flex items-center gap-2 rounded-md bg-black px-2 py-1.5 border border-gray-700 hover:bg-gray-800 w-full justify-center text-white">
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.restocare.customer&pcampaignid=web_share"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-md bg-black px-2 py-1.5 border border-gray-700 hover:bg-gray-800 w-full justify-center text-white"
+                >
                   <span className="text-xs">Google Play</span>
-                </button>
+                </a>
               </div>
             </div>
           </div>

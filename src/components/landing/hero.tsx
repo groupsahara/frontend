@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-// Store listing links — update once the apps are published.
-const PLAY_STORE_URL = "#";
-const APP_STORE_URL = "#";
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.restocare.customer&pcampaignid=web_share";
+const APP_STORE_URL =
+  "https://apps.apple.com/in/app/restocare-stop-revenue-loss/id6787001148";
 
 // Right-side photos from public/Banner.
 const BANNER_IMAGES = ["/Banner/2.png", "/Banner/1.png"] as const;
@@ -180,7 +181,7 @@ export function Hero() {
             </div>
 
             <div
-              className="animate-fade-up mt-6 flex flex-wrap items-center gap-2.5"
+              className="animate-fade-up mt-6 hidden flex-wrap items-center gap-2.5"
               style={{ animationDelay: "0.32s" }}
             >
               <Stars />
