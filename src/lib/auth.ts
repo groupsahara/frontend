@@ -7,6 +7,8 @@ const SESSION_KEY = "rc.sessionId";
 const USER_KEY = "rc.user";
 const PERMS_KEY = "rc.permissions";
 const ROLES_KEY = "rc.roleNames";
+/** Fired when the session's permissions are re-synced from the server. */
+const PERMS_EVENT = "rc.permissions-changed";
 
 /** Persist the auth result from a successful login. */
 export function persistSession(params: {
@@ -43,19 +45,62 @@ export function getRoleNames(): string[] {
   }
 }
 
-/** CRM permissions of the current session ("*" = everything). */
+/**
+ * Permissions of the current session ("*" = everything).
+ *
+ * ALWAYS the server's answer — the login response, refreshed from
+ * `/v1/rbac/me/permissions` while the panel is open. There is deliberately no
+ * client-side fallback that infers access from the account role: this list is
+ * only ever what the backend granted, so nothing the frontend does can widen
+ * it. An unreadable or absent value means "nothing granted yet", never "all".
+ *
+ * Note this list drives the MENU only. It is not the access control — every
+ * endpoint behind these pages enforces the same permission server-side, so
+ * editing this value (or the nav) reveals empty pages and 403s, not data.
+ */
 export function getPermissions(): string[] {
   if (typeof window === "undefined") return [];
+  const raw = window.localStorage.getItem(PERMS_KEY);
+  if (raw === null) return [];
   try {
-    const raw = window.localStorage.getItem(PERMS_KEY);
-    const perms = raw ? (JSON.parse(raw) as string[]) : [];
-    if (perms.length > 0) return perms;
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as string[]) : [];
   } catch {
-    /* ignore */
+    return [];
   }
-  // Sessions stored before the permissions field existed: admins see all.
-  const user = getStoredUser();
-  return user && (user.role === "ADMIN" || user.role === "SUPER_ADMIN") ? ["*"] : [];
+}
+
+/**
+ * Replace the session's permissions with what the server currently grants.
+ *
+ * Permissions used to be a login snapshot, so revoking one left the signed-in
+ * user with their old menu until they logged out and back in. The dashboard
+ * re-syncs on load and on window focus; the event redraws the sidebar at once,
+ * and the `storage` listener carries the change to the user's other tabs.
+ */
+export function setPermissions(permissions: string[]): void {
+  if (typeof window === "undefined") return;
+  const next = JSON.stringify(permissions);
+  if (window.localStorage.getItem(PERMS_KEY) === next) return;
+  window.localStorage.setItem(PERMS_KEY, next);
+  window.dispatchEvent(new Event(PERMS_EVENT));
+}
+
+/** Subscribe to permission changes (this tab via the event, others via storage). */
+export function subscribePermissions(onChange: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(PERMS_EVENT, onChange);
+  window.addEventListener("storage", onChange);
+  return () => {
+    window.removeEventListener(PERMS_EVENT, onChange);
+    window.removeEventListener("storage", onChange);
+  };
+}
+
+/** Stable snapshot for useSyncExternalStore — a string, not a fresh array. */
+export function permissionsSnapshot(): string {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(PERMS_KEY) ?? "";
 }
 
 export function hasPermission(key: string): boolean {

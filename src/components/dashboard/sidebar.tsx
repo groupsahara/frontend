@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -36,7 +36,13 @@ import {
   WarehouseIcon,
   WrenchIcon,
 } from "@/src/components/icons";
-import { getPermissions, getStoredUser } from "@/src/lib/auth";
+import {
+  getPermissions,
+  getStoredUser,
+  isSuperAdmin,
+  permissionsSnapshot,
+  subscribePermissions,
+} from "@/src/lib/auth";
 import type { ComponentType, SVGProps } from "react";
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
@@ -257,10 +263,18 @@ function buildNav(): NavEntry[] {
     if (settingsIdx !== -1) entries.push(...entries.splice(settingsIdx, 1));
     return entries;
   }
-  return [...ADMIN_NAV.slice(0, 1), ...groups, ...ADMIN_NAV.slice(1)];
+  // ADMIN accounts are permission-gated too. An admin inherits the system
+  // "admin" RBAC role, so restricting that role has to actually hide what it no
+  // longer grants — this used to return ADMIN_NAV unfiltered, which showed every
+  // module to every admin regardless of what the super admin assigned.
+  // SUPER_ADMIN holds "*", so nothing is filtered away for them.
+  const adminNav = ADMIN_NAV.map((entry) =>
+    "children" in entry ? { ...entry, children: entry.children.filter(allowed) } : entry,
+  ).filter((entry) => ("children" in entry ? entry.children.length > 0 : allowed(entry)));
+  return [...adminNav.slice(0, 1), ...groups, ...adminNav.slice(1)];
 }
 
-/** Every page link the current session may open (STAFF: permission-gated). */
+/** Every page link the current session may open (permission-gated). */
 function allowedLeaves(): NavLeaf[] {
   return buildNav().flatMap((entry) => ("children" in entry ? entry.children : [entry]));
 }
@@ -287,11 +301,14 @@ export function isTenantUser(): boolean {
 
 /**
  * Whether the current session may view a pathname — used by the dashboard
- * layout to bounce STAFF off pages their roles don't grant (deep links).
+ * layout to bounce panel users off pages their permissions don't grant.
+ * Hiding a module from the menu is not access control on its own: without this
+ * the URL still opened the page. Applies to admins as well as staff; the super
+ * admin ("*") passes everything.
  */
 export function routeAllowed(pathname: string): boolean {
   const user = getStoredUser();
-  if (user?.role !== "STAFF") return true;
+  if (!user || isSuperAdmin()) return true;
   return allowedLeaves().some((leaf) => leafActive(leaf.href, pathname));
 }
 
@@ -304,6 +321,10 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: SidebarProps) {
   const pathname = usePathname();
+  // Redraw when the layout re-syncs permissions from the server, so a module
+  // the super admin just revoked disappears without a reload. The snapshot is
+  // the stored STRING (not a fresh array), which keeps it referentially stable.
+  useSyncExternalStore(subscribePermissions, permissionsSnapshot, () => "");
   // Safe to read localStorage here: the dashboard layout only mounts the
   // sidebar after the client-side auth check, so this never runs during SSR.
   const nav = buildNav();

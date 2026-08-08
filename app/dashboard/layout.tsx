@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import {
   Sidebar,
@@ -19,12 +19,13 @@ import {
 import { Topbar } from "@/src/components/dashboard/topbar";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import { SpinnerIcon } from "@/src/components/icons";
-import { authApi } from "@/src/api/api";
+import { authApi, rbacApi } from "@/src/api/api";
 import {
   clearSession,
   getSessionId,
   getStoredUser,
   isAuthenticated,
+  setPermissions,
 } from "@/src/lib/auth";
 
 // No-op store: the auth snapshot only needs to be read once on the client.
@@ -52,6 +53,21 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (authed === false) router.replace("/login");
   }, [authed, router]);
+
+  // 🔐 Permissions are the SERVER's answer, kept current while the panel is
+  // open. They used to be captured once at login, so a permission the super
+  // admin revoked stayed on the user's menu until they logged out and back in.
+  // Refetched on focus, which is when a change made elsewhere would land.
+  const { data: livePermissions } = useQuery({
+    queryKey: ["me", "permissions"],
+    queryFn: () => rbacApi.myPermissions(),
+    enabled: !!authed && !isTenantUser(),
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  useEffect(() => {
+    if (livePermissions) setPermissions(livePermissions);
+  }, [livePermissions]);
 
   // Tenant (SaaS) users have no place in the admin panel — send them to their
   // /real-estate section instead of rendering the console shell.
