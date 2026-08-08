@@ -25,6 +25,7 @@ import {
   getSessionId,
   getStoredUser,
   isAuthenticated,
+  permissionsSnapshot,
   setPermissions,
 } from "@/src/lib/auth";
 
@@ -75,14 +76,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     if (authed && isTenantUser()) router.replace("/real-estate");
   }, [authed, router]);
 
-  // STAFF may only open pages their role permissions grant — bounce deep
-  // links to their first allowed page (admins are never restricted).
+  // Panel users may only open pages their permissions grant — bounce deep
+  // links to their first allowed page. Held until permissions are known
+  // (stored from login, or freshly synced): acting on an empty list would
+  // bounce a legitimate deep link during the first paint.
+  const permissionsKnown = !!livePermissions || permissionsSnapshot() !== "";
   useEffect(() => {
-    if (authed && !isTenantUser() && !routeAllowed(pathname)) {
+    if (permissionsKnown && authed && !isTenantUser() && !routeAllowed(pathname)) {
       const fallback = firstAllowedRoute();
       if (fallback !== pathname) router.replace(fallback);
     }
-  }, [authed, pathname, router]);
+  }, [permissionsKnown, authed, pathname, router]);
 
   const logoutMutation = useMutation({
     mutationFn: async () => {

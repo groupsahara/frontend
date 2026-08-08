@@ -244,6 +244,10 @@ function buildNav(): NavEntry[] {
     !leaf.permission || perms.includes("*") || perms.includes(leaf.permission);
   const groupAllowed = (g: NavGroup) =>
     !g.permission || perms.includes("*") || perms.includes(g.permission);
+  // Access administration is delegable — the section appears for whoever holds
+  // roles.view / staff.view. What a delegate can see and grant inside it is
+  // scoped server-side to their own permissions, so handing over this module
+  // never hands over the others with it.
   const groups = [MY_SPACE_NAV, CRM_NAV, HR_NAV, REAL_ESTATE_NAV, ACCESS_NAV]
     .filter(groupAllowed)
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
