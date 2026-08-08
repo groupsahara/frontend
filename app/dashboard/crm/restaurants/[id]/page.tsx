@@ -3,25 +3,19 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
 import {
   crmQueryKeys,
   crmRestaurantsApi,
   type CrmBookingRow,
-  type RestaurantBody,
   type RestaurantDetail,
-  type RestaurantRow,
-  type RestaurantStatus,
 } from "@/src/api/api";
 import {
   Badge,
   Btn,
   Card,
   EmptyRow,
-  Field,
-  inputCls,
-  Modal,
   Notice,
   PageHeader,
   TableShell,
@@ -29,6 +23,7 @@ import {
   fmtDate,
   statusTone,
 } from "@/src/components/crm/ui";
+import { RestaurantFormModal } from "@/src/components/crm/restaurant-form";
 import { PencilIcon, SpinnerIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
 
@@ -197,6 +192,56 @@ function ProfileTab({ r }: { r: RestaurantDetail }) {
         </Item>
         <Item label="Created">{fmtDate(r.createdAt)}</Item>
       </dl>
+
+      {/* What the sales executive captured on the visit. */}
+      <h3 className="mt-8 border-t border-border pt-6 text-sm font-semibold text-foreground">
+        Visit & requirement
+      </h3>
+      <dl className="mt-4 grid gap-x-8 gap-y-5 sm:grid-cols-2">
+        <Item label="Operational pain points">
+          {r.painPoints.length ? r.painPoints.join(", ") : "—"}
+        </Item>
+        <Item label="Required staff roles">
+          {r.requiredStaffRoles.length ? r.requiredStaffRoles.join(", ") : "—"}
+        </Item>
+        <Item label="Number of staff required">{r.staffRequired ?? "—"}</Item>
+        <Item label="Required date">{fmtDate(r.requiredDate)}</Item>
+        <Item label="Decision & follow-up">
+          {r.decisionStatus ? <Badge tone={statusTone(r.decisionStatus)}>{r.decisionStatus}</Badge> : "—"}
+        </Item>
+        <Item label="App install">{r.appInstalled ? "Yes" : "No"}</Item>
+        <Item label="Sales executive">{r.salesExecutive ?? "—"}</Item>
+        <Item label="Visit date">{fmtDate(r.visitDate)}</Item>
+        <Item label="Sales executive feedback">{r.salesFeedback ?? "—"}</Item>
+        <Item label="Visit documentation">
+          {r.restaurantPhotoUrl || r.meetingPhotoUrl ? (
+            <span className="flex gap-3">
+              {r.restaurantPhotoUrl && (
+                <a
+                  href={r.restaurantPhotoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Restaurant photo
+                </a>
+              )}
+              {r.meetingPhotoUrl && (
+                <a
+                  href={r.meetingPhotoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Meeting photo
+                </a>
+              )}
+            </span>
+          ) : (
+            "—"
+          )}
+        </Item>
+      </dl>
     </Card>
   );
 }
@@ -344,233 +389,5 @@ function TicketsTab({ r }: { r: RestaurantDetail }) {
         </TableShell>
       </Card>
     </div>
-  );
-}
-
-/* ------------------------- Create / edit modal -------------------------- */
-// Duplicated from the restaurants list page so both files stay self-contained.
-
-const RESTAURANT_TYPES = ["Fine Dine", "QSR", "Cafe", "Cloud Kitchen", "Banquet", "Other"];
-const RESTAURANT_STATUSES: RestaurantStatus[] = ["PROSPECT", "ACTIVE", "INACTIVE", "CHURNED"];
-
-function RestaurantFormModal({
-  restaurant,
-  onClose,
-  onSaved,
-}: {
-  restaurant: RestaurantRow | null;
-  onClose: () => void;
-  onSaved: (name: string) => void;
-}) {
-  const [form, setForm] = useState({
-    name: restaurant?.name ?? "",
-    ownerName: restaurant?.ownerName ?? "",
-    contactNumber: restaurant?.contactNumber ?? "",
-    email: restaurant?.email ?? "",
-    gstNumber: restaurant?.gstNumber ?? "",
-    address: restaurant?.address ?? "",
-    city: restaurant?.city ?? "",
-    restaurantType: restaurant?.restaurantType ?? "",
-    outlets: String(restaurant?.outlets ?? 1),
-    status: restaurant?.status ?? "PROSPECT",
-    agreementStart: restaurant?.agreementStart?.slice(0, 10) ?? "",
-    agreementEnd: restaurant?.agreementEnd?.slice(0, 10) ?? "",
-    servicePackage: restaurant?.servicePackage ?? "",
-    pricingPlan: restaurant?.pricingPlan ?? "",
-    fssaiNumber: restaurant?.fssaiNumber ?? "",
-    agreementCopyUrl: restaurant?.agreementCopyUrl ?? "",
-    gstCertificateUrl: restaurant?.gstCertificateUrl ?? "",
-    fssaiLicenseUrl: restaurant?.fssaiLicenseUrl ?? "",
-    notes: restaurant?.notes ?? "",
-    linkedUserId: restaurant?.linkedUserId != null ? String(restaurant.linkedUserId) : "",
-  });
-  const [err, setErr] = useState("");
-
-  const save = useMutation({
-    mutationFn: (body: RestaurantBody & { name: string }) =>
-      restaurant
-        ? crmRestaurantsApi.update(restaurant.restaurantId, body)
-        : crmRestaurantsApi.create(body),
-    onSuccess: (row) => onSaved(row.name),
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not save restaurant."),
-  });
-
-  const set =
-    (key: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-      setForm((f) => ({ ...f, [key]: e.target.value }));
-
-  const opt = (v: string) => (v.trim() ? v.trim() : undefined);
-
-  return (
-    <Modal wide title={restaurant ? `Edit ${restaurant.name}` : "Add restaurant"} onClose={onClose}>
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setErr("");
-          const name = form.name.trim();
-          if (!name) return setErr("Name is required.");
-          save.mutate({
-            name,
-            status: form.status as RestaurantStatus,
-            outlets: Number(form.outlets) || 1,
-            ownerName: opt(form.ownerName),
-            contactNumber: opt(form.contactNumber),
-            email: opt(form.email),
-            gstNumber: opt(form.gstNumber),
-            address: opt(form.address),
-            city: opt(form.city),
-            restaurantType: opt(form.restaurantType),
-            agreementStart: opt(form.agreementStart),
-            agreementEnd: opt(form.agreementEnd),
-            servicePackage: opt(form.servicePackage),
-            pricingPlan: opt(form.pricingPlan),
-            fssaiNumber: opt(form.fssaiNumber),
-            agreementCopyUrl: opt(form.agreementCopyUrl),
-            gstCertificateUrl: opt(form.gstCertificateUrl),
-            fssaiLicenseUrl: opt(form.fssaiLicenseUrl),
-            notes: opt(form.notes),
-            linkedUserId: form.linkedUserId.trim() ? Number(form.linkedUserId) : undefined,
-          });
-        }}
-      >
-        {err && <Notice kind="error">{err}</Notice>}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <Field label="Name">
-              <input className={inputCls} value={form.name} onChange={set("name")} autoFocus />
-            </Field>
-          </div>
-          <Field label="Owner name">
-            <input className={inputCls} value={form.ownerName} onChange={set("ownerName")} />
-          </Field>
-          <Field label="Contact number">
-            <input
-              className={inputCls}
-              value={form.contactNumber}
-              onChange={set("contactNumber")}
-              inputMode="numeric"
-              placeholder="9876543210"
-            />
-          </Field>
-          <Field label="Email">
-            <input className={inputCls} type="email" value={form.email} onChange={set("email")} />
-          </Field>
-          <Field label="GST number">
-            <input className={inputCls} value={form.gstNumber} onChange={set("gstNumber")} />
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Address">
-              <input className={inputCls} value={form.address} onChange={set("address")} />
-            </Field>
-          </div>
-          <Field label="City">
-            <input className={inputCls} value={form.city} onChange={set("city")} />
-          </Field>
-          <Field label="Restaurant type">
-            <select className={inputCls} value={form.restaurantType} onChange={set("restaurantType")}>
-              <option value="">Select type…</option>
-              {RESTAURANT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Outlets">
-            <input
-              className={inputCls}
-              type="number"
-              min={1}
-              value={form.outlets}
-              onChange={set("outlets")}
-            />
-          </Field>
-          <Field label="Status">
-            <select className={inputCls} value={form.status} onChange={set("status")}>
-              {RESTAURANT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Agreement start">
-            <input
-              className={inputCls}
-              type="date"
-              value={form.agreementStart}
-              onChange={set("agreementStart")}
-            />
-          </Field>
-          <Field label="Agreement end">
-            <input
-              className={inputCls}
-              type="date"
-              value={form.agreementEnd}
-              onChange={set("agreementEnd")}
-            />
-          </Field>
-          <Field label="Service package">
-            <input className={inputCls} value={form.servicePackage} onChange={set("servicePackage")} />
-          </Field>
-          <Field label="Pricing plan">
-            <input className={inputCls} value={form.pricingPlan} onChange={set("pricingPlan")} />
-          </Field>
-          <Field label="FSSAI number">
-            <input className={inputCls} value={form.fssaiNumber} onChange={set("fssaiNumber")} />
-          </Field>
-          <Field
-            label="Linked customer userId"
-            hint="optional — the customer login that places this restaurant's bookings"
-          >
-            <input
-              className={inputCls}
-              type="number"
-              value={form.linkedUserId}
-              onChange={set("linkedUserId")}
-            />
-          </Field>
-          <Field label="Agreement copy URL">
-            <input
-              className={inputCls}
-              value={form.agreementCopyUrl}
-              onChange={set("agreementCopyUrl")}
-              placeholder="https://"
-            />
-          </Field>
-          <Field label="GST certificate URL">
-            <input
-              className={inputCls}
-              value={form.gstCertificateUrl}
-              onChange={set("gstCertificateUrl")}
-              placeholder="https://"
-            />
-          </Field>
-          <Field label="FSSAI license URL">
-            <input
-              className={inputCls}
-              value={form.fssaiLicenseUrl}
-              onChange={set("fssaiLicenseUrl")}
-              placeholder="https://"
-            />
-          </Field>
-          <div className="sm:col-span-2">
-            <Field label="Notes">
-              <textarea className={inputCls} rows={3} value={form.notes} onChange={set("notes")} />
-            </Field>
-          </div>
-        </div>
-        <div className="flex justify-end gap-2">
-          <Btn tone="ghost" onClick={onClose}>
-            Cancel
-          </Btn>
-          <Btn type="submit" busy={save.isPending}>
-            {restaurant ? "Save changes" : "Create restaurant"}
-          </Btn>
-        </div>
-      </form>
-    </Modal>
   );
 }
