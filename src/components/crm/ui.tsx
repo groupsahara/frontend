@@ -92,11 +92,14 @@ export function Modal({
   wide?: boolean;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center">
+      {/* Capped to the viewport with the BODY scrolling, not the overlay: a
+          centred panel taller than the screen would otherwise push its own
+          heading above the top edge, out of reach. */}
       <div
-        className={`w-full ${wide ? "max-w-2xl" : "max-w-lg"} rounded-2xl border border-border bg-card p-6 shadow-xl`}
+        className={`flex max-h-[calc(100dvh-2rem)] w-full flex-col ${wide ? "max-w-2xl" : "max-w-lg"} rounded-2xl border border-border bg-card shadow-xl`}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
           <h2 className="text-lg font-semibold text-foreground">{title}</h2>
           <button
             type="button"
@@ -106,7 +109,7 @@ export function Modal({
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

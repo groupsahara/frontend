@@ -2788,8 +2788,50 @@ export interface RestaurantRow {
   linkedUser?: { userId: number; name: string | null; email: string | null } | null;
   _count?: { tickets: number };
   createdAt: string;
+  /* Field-sales visit capture — filled during onboarding. */
+  painPoints: string[];
+  requiredStaffRoles: string[];
+  staffRequired: number | null;
+  requiredDate: string | null;
+  decisionStatus: string | null;
+  salesExecutive: string | null;
+  salesFeedback: string | null;
+  appInstalled: boolean;
+  visitDate: string | null;
+  restaurantPhotoUrl: string | null;
+  meetingPhotoUrl: string | null;
 }
 export type RestaurantList = CrmPage & { restaurants: RestaurantRow[] };
+
+/** The field-sales questionnaire — mirrors the options the API documents. */
+export const RESTAURANT_PAIN_POINTS = [
+  "Staff Absenteeism",
+  "Hiring Time",
+  "Emergency Staff Requests",
+  "Staff Turnover",
+  "Salary Issues",
+  "Skilled Manpower Shortage",
+  "Seasonal Hiring Issues",
+] as const;
+
+export const RESTAURANT_STAFF_ROLES = [
+  "Executive Chef",
+  "Sous Chef",
+  "Commis / CDP",
+  "Kitchen Helper",
+  "Waiter",
+  "Captain",
+  "Utility Boy",
+  "Housekeeping",
+] as const;
+
+export const RESTAURANT_DECISIONS = [
+  "Interested",
+  "Not Interested",
+  "Follow-up Required",
+  "Call Later",
+  "Need Owner Approval",
+] as const;
 
 export interface RestaurantDetail extends RestaurantRow {
   orderStats: { totalBookings: number; revenue: number } | null;
@@ -2842,6 +2884,12 @@ export const crmRestaurantsApi = {
     apiClient.get<CrmBookingList>(`/v1/crm/restaurants/${id}/bookings${toQueryString(params)}`),
   create: (body: RestaurantBody & { name: string }) =>
     apiClient.post<RestaurantRow>("/v1/crm/restaurants", body),
+  /** POST /v1/crm/restaurants/photo — store a visit photo, get its URL back. */
+  uploadPhoto: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadFile<{ url: string; publicId: string }>("/v1/crm/restaurants/photo", fd);
+  },
   update: (id: number, body: RestaurantBody) =>
     apiClient.patch<RestaurantRow>(`/v1/crm/restaurants/${id}`, body),
   remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/restaurants/${id}`),
