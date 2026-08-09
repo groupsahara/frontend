@@ -3339,6 +3339,31 @@ export interface StaffRow {
   employee: { employeeId: number; employeeCode: string; designation: string | null } | null;
 }
 
+export type NotificationCategory = "POLICY" | "ATTENDANCE" | "SHIFT" | "LEAVE" | "GENERAL";
+
+export interface NotificationRow {
+  notificationId: number;
+  category: NotificationCategory;
+  title: string;
+  body: string | null;
+  link: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+/** The bell. Every route is scoped to the signed-in user's own feed. */
+export const notificationsApi = {
+  list: (limit = 30) =>
+    apiClient.get<{ notifications: NotificationRow[]; unreadCount: number }>(
+      `/v1/notifications?limit=${limit}`,
+    ),
+  unreadCount: () => apiClient.get<{ unreadCount: number }>("/v1/notifications/unread-count"),
+  markRead: (id: number) => apiClient.patch<NotificationRow>(`/v1/notifications/${id}/read`, {}),
+  markAllRead: () =>
+    apiClient.patch<{ message: string; count: number }>("/v1/notifications/read-all", {}),
+  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/notifications/${id}`),
+};
+
 export const rbacApi = {
   permissionCatalog: () => apiClient.get<PermissionCatalogEntry[]>("/v1/rbac/permissions"),
   myPermissions: () => apiClient.get<string[]>("/v1/rbac/me/permissions"),
@@ -3403,12 +3428,16 @@ export interface EmployeeRow {
   office: { officeId: number; name: string; radiusMeters: number } | null;
   manager: { employeeId: number; name: string } | null;
   user: { userId: number; email: string | null } | null;
+  shiftId?: number | null;
+  shift?: { shiftId: number; name: string; startTime: string; endTime: string } | null;
 }
 
 export interface LinkableUser {
   userId: number;
   name: string;
   email: string;
+  /** Prefills the employee form's phone when HR picks this login. */
+  mobile?: string | null;
   role: string;
 }
 
@@ -3600,7 +3629,169 @@ export const hrApi = {
     apiClient.post<AppraisalRow>(`/v1/hr/appraisals/${id}/acknowledge`, {}),
   deleteAppraisal: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/hr/appraisals/${id}`),
+
+  /* ── Shifts: the organisation's working windows + the reschedule queue ── */
+  shifts: (includeInactive?: boolean) =>
+    apiClient.get<ShiftRow[]>(`/v1/hr/shifts${includeInactive ? "?includeInactive=true" : ""}`),
+  shiftRoster: (shiftId: number) =>
+    apiClient.get<{ shift: ShiftRow; employees: ShiftRosterEmployee[] }>(
+      `/v1/hr/shifts/${shiftId}/roster`,
+    ),
+  createShift: (body: ShiftInput) => apiClient.post<ShiftRow>("/v1/hr/shifts", body),
+  updateShift: (id: number, body: Partial<ShiftInput>) =>
+    apiClient.patch<ShiftRow>(`/v1/hr/shifts/${id}`, body),
+  deleteShift: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/shifts/${id}`),
+  assignShift: (id: number, employeeIds: number[]) =>
+    apiClient.post<{ message: string; assigned: number }>(`/v1/hr/shifts/${id}/assign`, {
+      employeeIds,
+    }),
+  unassignShift: (employeeId: number) =>
+    apiClient.post<{ message: string }>(`/v1/hr/shifts/employees/${employeeId}/unassign`, {}),
+  shiftRequests: (status?: string) =>
+    apiClient.get<{ requests: ShiftRequestRow[]; pendingCount: number }>(
+      `/v1/hr/shifts/requests${status ? `?status=${status}` : ""}`,
+    ),
+  approveShiftRequest: (id: number) =>
+    apiClient.post<ShiftRequestRow>(`/v1/hr/shifts/requests/${id}/approve`, {}),
+  rejectShiftRequest: (id: number, reason?: string) =>
+    apiClient.post<ShiftRequestRow>(`/v1/hr/shifts/requests/${id}/reject`, { reason }),
+
+  /* ── HR policy: the attendance rulebook + written documents ── */
+  attendancePolicy: () => apiClient.get<AttendancePolicy>("/v1/hr/policies/attendance"),
+  updateAttendancePolicy: (body: Partial<AttendancePolicyInput>) =>
+    apiClient.patch<AttendancePolicy>("/v1/hr/policies/attendance", body),
+  policies: (params: { published?: boolean; category?: string } = {}) =>
+    apiClient.get<HrPolicyRow[]>(
+      `/v1/hr/policies${toQueryString({
+        published: params.published ? "true" : undefined,
+        category: params.category,
+      })}`,
+    ),
+  createPolicy: (body: HrPolicyInput) => apiClient.post<HrPolicyRow>("/v1/hr/policies", body),
+  updatePolicy: (id: number, body: Partial<HrPolicyInput>) =>
+    apiClient.patch<HrPolicyRow>(`/v1/hr/policies/${id}`, body),
+  deletePolicy: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/policies/${id}`),
+  myPolicies: () =>
+    apiClient.get<{ policies: HrPolicyRow[]; attendancePolicy: AttendancePolicy }>(
+      "/v1/hr/me/policies",
+    ),
+
+  /* ── My shift (employee self-service) ── */
+  myShift: () => apiClient.get<MyShift>("/v1/hr/me/shift"),
+  requestShiftChange: (body: {
+    requestedShiftId: number;
+    effectiveFrom: string;
+    effectiveTo?: string;
+    reason?: string;
+  }) => apiClient.post<ShiftRequestRow>("/v1/hr/me/shift/request", body),
+  cancelShiftRequest: (id: number) =>
+    apiClient.post<ShiftRequestRow>(`/v1/hr/me/shift/request/${id}/cancel`, {}),
 };
+
+export interface ShiftRow {
+  shiftId: number;
+  name: string;
+  /** "HH:mm" wall clock. endTime <= startTime means it runs past midnight. */
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  /** 0 = Sunday … 6 = Saturday. */
+  workDays: number[];
+  description: string | null;
+  isActive: boolean;
+  /** Paid hours the window covers, break already deducted. */
+  hours: number;
+  overnight: boolean;
+  employeeCount?: number;
+}
+
+export interface ShiftInput {
+  name: string;
+  startTime: string;
+  endTime: string;
+  breakMinutes?: number;
+  workDays?: number[];
+  description?: string;
+  isActive?: boolean;
+}
+
+export interface ShiftRosterEmployee {
+  employeeId: number;
+  employeeCode: string;
+  name: string;
+  designation: string | null;
+  department: { name: string } | null;
+}
+
+export type ShiftRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+
+export interface ShiftRequestRow {
+  shiftRequestId: number;
+  employeeId: number;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  reason: string | null;
+  status: ShiftRequestStatus;
+  decidedAt: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  employee?: {
+    employeeId: number;
+    employeeCode: string;
+    name: string;
+    designation: string | null;
+    department: { name: string } | null;
+  };
+  requestedShift: ShiftRow;
+  currentShift: ShiftRow | null;
+  approver?: { employeeId: number; name: string } | null;
+}
+
+/** The attendance rulebook applied automatically on every check-in. */
+export interface AttendancePolicy {
+  attendancePolicyId: number;
+  /** Free minutes after shift start before a day counts as late. */
+  graceMinutes: number;
+  /** Arriving later than this is a half day on the spot. */
+  halfDayAfterMinutes: number;
+  /** …and this many late marks in a month also costs a half day. */
+  lateMarksForHalfDay: number;
+  absentAfterMinutes: number;
+  minHoursFullDay: number;
+  minHoursHalfDay: number;
+  autoApply: boolean;
+  notifyEmployee: boolean;
+  updatedAt: string;
+}
+
+export type AttendancePolicyInput = Omit<AttendancePolicy, "attendancePolicyId" | "updatedAt">;
+
+export interface HrPolicyRow {
+  hrPolicyId: number;
+  title: string;
+  category: string;
+  body: string;
+  effectiveFrom: string | null;
+  isPublished: boolean;
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HrPolicyInput {
+  title: string;
+  category?: string;
+  body: string;
+  effectiveFrom?: string;
+  isPublished?: boolean;
+}
+
+export interface MyShift {
+  employeeId: number;
+  currentShift: ShiftRow | null;
+  shifts: ShiftRow[];
+  requests: ShiftRequestRow[];
+}
 
 /* --------------------- Employee self-service (ESS) ---------------------- */
 
@@ -3673,6 +3864,8 @@ export interface Celebrations {
 export interface MyPortal {
   employee: EmployeeRow & {
     manager: { employeeId: number; name: string; designation: string | null } | null;
+    /** The raw shift row — no derived `hours`/`overnight` on this endpoint. */
+    shift: Omit<ShiftRow, "hours" | "overnight" | "employeeCount"> | null;
   };
   leave: { totalAllocated: number; totalUsed: number; balances: LeaveBalanceRow[] };
   attendanceThisMonth: {
@@ -3858,6 +4051,15 @@ export const crmQueryKeys = {
     ["hr", "leave-balances", employeeId, year] as const,
   myLeaves: ["hr", "leaves", "me"] as const,
   leaves: (p: object) => ["hr", "leaves", p] as const,
+  linkableUsers: ["hr", "linkable-users"] as const,
+  shifts: (includeInactive?: boolean) => ["hr", "shifts", includeInactive ?? false] as const,
+  shiftRoster: (shiftId: number) => ["hr", "shift-roster", shiftId] as const,
+  shiftRequests: (status?: string) => ["hr", "shift-requests", status ?? "ALL"] as const,
+  myShift: ["ess", "shift"] as const,
+  attendancePolicy: ["hr", "attendance-policy"] as const,
+  policies: (p: object) => ["hr", "policies", p] as const,
+  myPolicies: ["ess", "policies"] as const,
+  notifications: ["notifications"] as const,
   appraisals: (p: object) => ["hr", "appraisals", p] as const,
   myAppraisals: ["hr", "appraisals", "me"] as const,
   myPortal: ["ess", "portal"] as const,

@@ -20,6 +20,7 @@ import {
 } from "@/src/components/crm/ui";
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
+import { shiftWindow } from "@/src/components/crm/shift-utils";
 
 export default function CrmEmployeesPage() {
   const qc = useQueryClient();
@@ -72,9 +73,9 @@ export default function CrmEmployeesPage() {
       </div>
 
       <Card>
-        <TableShell head={["Employee", "Department", "Office", "Type", "Status", "Joined", ""]}>
-          {isLoading && <EmptyRow cols={7} label="Loading…" />}
-          {!isLoading && !data?.length && <EmptyRow cols={7} label="No employees yet" />}
+        <TableShell head={["Employee", "Department", "Shift", "Office", "Type", "Status", "Joined", ""]}>
+          {isLoading && <EmptyRow cols={8} label="Loading…" />}
+          {!isLoading && !data?.length && <EmptyRow cols={8} label="No employees yet" />}
           {data?.map((e) => (
             <tr key={e.employeeId} className="transition-colors hover:bg-accent/50">
               <td className="px-4 py-3">
@@ -85,6 +86,16 @@ export default function CrmEmployeesPage() {
                 </div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">{e.department?.name ?? "—"}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {e.shift ? (
+                  <>
+                    <div className="text-foreground">{e.shift.name}</div>
+                    <div className="text-xs">{shiftWindow(e.shift)}</div>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </td>
               <td className="px-4 py-3 text-muted-foreground">{e.office?.name ?? "—"}</td>
               <td className="px-4 py-3 text-muted-foreground">
                 {e.employmentType.replaceAll("_", " ")}
@@ -164,6 +175,10 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
     salary: row?.salary?.toString() ?? "",
     address: row?.address ?? "",
     emergencyContact: row?.emergencyContact ?? "",
+    shiftId: row?.shift?.shiftId?.toString() ?? "",
+    // The panel login this employee record belongs to. Picking one prefills the
+    // details HR already typed on the Staff screen, instead of asking twice.
+    userId: "",
     loginPassword: "",
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -173,6 +188,34 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
     queryFn: hrApi.departments,
   });
   const { data: offices } = useQuery({ queryKey: crmQueryKeys.offices, queryFn: hrApi.offices });
+  const { data: shifts } = useQuery({
+    queryKey: crmQueryKeys.shifts(false),
+    queryFn: () => hrApi.shifts(),
+  });
+  // Panel logins with no employee record yet — only offered when creating.
+  const { data: staffLogins } = useQuery({
+    queryKey: crmQueryKeys.linkableUsers,
+    queryFn: hrApi.linkableUsers,
+    enabled: !row,
+  });
+
+  /** Copy across what the Staff screen already captured. */
+  const prefillFromLogin = (userId: string) => {
+    const login = staffLogins?.find((u) => String(u.userId) === userId);
+    setF((p) => ({
+      ...p,
+      userId,
+      ...(login
+        ? {
+            name: login.name || p.name,
+            email: login.email || p.email,
+            phone: login.mobile || p.phone,
+            // The login already exists, so there's no password to set here.
+            loginPassword: "",
+          }
+        : {}),
+    }));
+  };
 
   const save = useMutation({
     mutationFn: () => {
@@ -187,6 +230,7 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
         salary: f.salary ? Number(f.salary) : undefined,
         address: f.address || undefined,
         emergencyContact: f.emergencyContact || undefined,
+        shiftId: f.shiftId ? Number(f.shiftId) : null,
       };
       if (row) {
         body.status = f.status;
@@ -194,7 +238,8 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
       }
       body.email = f.email;
       body.joinDate = f.joinDate;
-      if (f.loginPassword) body.loginPassword = f.loginPassword;
+      if (f.userId) body.userId = Number(f.userId);
+      else if (f.loginPassword) body.loginPassword = f.loginPassword;
       return hrApi.createEmployee(body);
     },
     onSuccess: () => {
@@ -216,6 +261,27 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
         {err && (
           <div className="sm:col-span-2">
             <Notice kind="error">{err}</Notice>
+          </div>
+        )}
+        {!row && !!staffLogins?.length && (
+          <div className="sm:col-span-2">
+            <Field
+              label="Start from a staff login"
+              hint="Pulls in the name, email and phone already entered on the Staff screen — and links that login to this employee"
+            >
+              <select
+                className={inputCls}
+                value={f.userId}
+                onChange={(e) => prefillFromLogin(e.target.value)}
+              >
+                <option value="">— Enter the details manually —</option>
+                {staffLogins.map((u) => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.name || u.email} · {u.email}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
         )}
         <Field label="Full name">
@@ -259,6 +325,16 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
             {departments?.map((d) => (
               <option key={d.departmentId} value={d.departmentId}>
                 {d.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Shift" hint="Their working window; they see it under My Shift">
+          <select className={inputCls} value={f.shiftId} onChange={(e) => set("shiftId", e.target.value)}>
+            <option value="">— Not assigned —</option>
+            {shifts?.map((s) => (
+              <option key={s.shiftId} value={s.shiftId}>
+                {s.name} · {s.startTime}–{s.endTime}
               </option>
             ))}
           </select>
@@ -331,6 +407,11 @@ function EmployeeForm({ row, onClose }: { row?: EmployeeRow; onClose: () => void
         {row ? (
           <div className="sm:col-span-2">
             <LinkLoginSection employee={row} />
+          </div>
+        ) : f.userId ? (
+          // A login was picked at the top, so there is nothing to create here.
+          <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm text-muted-foreground sm:col-span-2">
+            This employee signs in with the staff login selected above — no new password needed.
           </div>
         ) : (
           <div className="sm:col-span-2">

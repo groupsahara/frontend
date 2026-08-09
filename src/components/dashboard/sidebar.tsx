@@ -49,7 +49,16 @@ type IconType = ComponentType<SVGProps<SVGSVGElement>>;
 
 // `permission` gates visibility for STAFF users (admins hold "*"). Leaves
 // without a permission are visible to every panel session.
-type NavLeaf = { label: string; href: string; icon: IconType; permission?: string };
+type NavLeaf = {
+  label: string;
+  href: string;
+  icon: IconType;
+  permission?: string;
+  // A tool everyone gets regardless of role — chat is the only one today.
+  // Without this, STAFF would be filtered out of it: their rule is "only
+  // admin-panel entries the role explicitly grants".
+  always?: boolean;
+};
 // `permission` on a group is the PARENT switch: when set and not granted, the
 // whole group is hidden even if individual children are still granted.
 type NavGroup = { label: string; icon: IconType; permission?: string; children: NavLeaf[] };
@@ -107,6 +116,15 @@ const ADMIN_NAV: NavEntry[] = [
     href: "/dashboard/workspaces",
     icon: BuildingIcon,
     permission: "workspaces.view",
+  },
+  {
+    label: "Chat",
+    icon: MailIcon,
+    children: [
+      // Messaging itself needs no permission — every panel login can chat.
+      { label: "Team Chat", href: "/dashboard/chat", icon: MailIcon, always: true },
+      { label: "Chat Admin", href: "/dashboard/chat/admin", icon: ShieldIcon, permission: "chat.view" },
+    ],
   },
   { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
   { label: "Vendors", href: "/dashboard/vendors", icon: CartIcon, permission: "vendors.view" },
@@ -180,6 +198,8 @@ const MY_SPACE_NAV: NavGroup = {
     { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.portal" },
     { label: "My Attendance", href: "/dashboard/crm/my-attendance", icon: ClockIcon, permission: "ess.attendance" },
     { label: "My Leaves", href: "/dashboard/crm/my-leaves", icon: CalendarIcon, permission: "ess.leaves" },
+    { label: "My Shift", href: "/dashboard/crm/my-shift", icon: ClockIcon, permission: "ess.shifts" },
+    { label: "Policies", href: "/dashboard/crm/my-policies", icon: FileTextIcon, permission: "ess.policies" },
     { label: "Payslips", href: "/dashboard/crm/my-payslips", icon: WalletIcon, permission: "ess.payslips" },
     { label: "Offer Letters", href: "/dashboard/crm/my-offer-letters", icon: FileTextIcon, permission: "ess.offer-letters" },
     { label: "Increments", href: "/dashboard/crm/my-increments", icon: ChartIcon, permission: "ess.increments" },
@@ -196,6 +216,8 @@ const HR_NAV: NavGroup = {
     { label: "Employees", href: "/dashboard/crm/employees", icon: BriefcaseIcon, permission: "employees.view" },
     { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon, permission: "attendance.view" },
     { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon, permission: "leaves.view" },
+    { label: "Shifts", href: "/dashboard/crm/shifts", icon: ClockIcon, permission: "shifts.view" },
+    { label: "HR Policy", href: "/dashboard/crm/policies", icon: FileTextIcon, permission: "hr-policies.view" },
     { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon, permission: "appraisals.view" },
     { label: "Payroll", href: "/dashboard/crm/payroll", icon: WalletIcon, permission: "payroll.view" },
     { label: "Offer Letters", href: "/dashboard/crm/offers", icon: FileTextIcon, permission: "offer-letters.view" },
@@ -253,7 +275,7 @@ function buildNav(): NavEntry[] {
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
   if (user?.role === "STAFF") {
-    const staffAllowed = (leaf: NavLeaf) => !!leaf.permission && allowed(leaf);
+    const staffAllowed = (leaf: NavLeaf) => leaf.always === true || (!!leaf.permission && allowed(leaf));
     const adminEntries = ADMIN_NAV.map((entry) =>
       "children" in entry ? { ...entry, children: entry.children.filter(staffAllowed) } : entry,
     ).filter((entry) =>
