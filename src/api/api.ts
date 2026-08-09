@@ -4186,20 +4186,6 @@ export type TutorVisual =
   | { applicable: false }
   | { applicable: true; title: string; steps: TutorVisualStep[] };
 
-// "Mirror me": stylized avatar traits scanned from one webcam frame. Enums
-// only — the photo itself is analyzed in memory server-side and never stored.
-export interface TutorLook {
-  person: true;
-  skinTone: "fair" | "light" | "medium" | "tan" | "brown" | "deep";
-  hairColor: "black" | "darkbrown" | "brown" | "auburn" | "red" | "blonde" | "gray" | "white";
-  hairLength: "bald" | "short" | "medium" | "long";
-  hairStyle: "straight" | "wavy" | "curly";
-  eyeColor: "black" | "brown" | "hazel" | "green" | "blue" | "gray";
-  eyebrows: "thin" | "medium" | "thick";
-  glasses: boolean;
-  facialHair: "none" | "stubble" | "mustache" | "beard";
-}
-
 /** Expert badge keys — must mirror the backend's TUTOR_PERSONAS whitelist. */
 export type TutorPersona =
   | "doctor"
@@ -4229,9 +4215,6 @@ export const aiTutorApi = {
     persona?: TutorPersona;
     languageCode?: TutorSpeechLang;
   }) => apiClient.post<TutorConverseResult>("/v1/ai-tutor/converse", body),
-  /** Mirror-me scan — image is a JPEG/PNG data URL of one webcam frame. */
-  appearance: (image: string) =>
-    apiClient.post<TutorLook | { person: false }>("/v1/ai-tutor/appearance", { image }),
   /** Step-by-step whiteboard scene for the question, or applicable:false. */
   visualize: (body: { question: string; answer?: string }) =>
     apiClient.post<TutorVisual>("/v1/ai-tutor/visualize", body),
