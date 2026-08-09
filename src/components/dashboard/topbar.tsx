@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { ThemeToggle } from "@/src/components/theme-toggle";
-import { BellIcon, MenuIcon, SearchIcon } from "@/src/components/icons";
+import { MenuIcon, SearchIcon } from "@/src/components/icons";
+import { NotificationBell } from "@/src/components/dashboard/notification-bell";
 import { getRoleNames } from "@/src/lib/auth";
 import type { AdminUser } from "@/src/api/api";
 
@@ -71,14 +72,7 @@ export function Topbar({ user, onToggleSidebar, onOpenMobile }: TopbarProps) {
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         <ThemeToggle />
 
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        >
-          <BellIcon className="h-5 w-5" />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger ring-2 ring-background" />
-        </button>
+        <NotificationBell />
 
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card py-1.5 pl-1.5 pr-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-semibold text-white">

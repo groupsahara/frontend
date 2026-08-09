@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
+import { shiftWindow } from "@/src/components/crm/shift-utils";
 import {
   crmQueryKeys,
   essApi,
@@ -150,7 +151,13 @@ export function PortalStatsHeader({ portal }: { portal: MyPortal }) {
                 "—"}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-5">
+            <div>
+              <span className="block text-xs text-muted-foreground">Shift</span>
+              <span className="font-medium text-foreground">
+                {emp.shift ? `${emp.shift.name} · ${shiftWindow(emp.shift)}` : "—"}
+              </span>
+            </div>
             <div>
               <span className="block text-xs text-muted-foreground">Employee code</span>
               <span className="font-medium text-foreground">{emp.employeeCode}</span>
