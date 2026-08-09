@@ -34,6 +34,8 @@ export default function ChatPage() {
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+  const [confirmDeleteChat, setConfirmDeleteChat] = useState(false);
   // Groups and channels are created by chat admins — the same rule the server
   // enforces, mirrored here so the button isn't offered and then refused.
   const canManage = hasPermission("chat.manage");
@@ -244,6 +246,58 @@ export default function ChatPage() {
     },
   });
 
+  const deleteMessage = useMutation({
+    mutationFn: ({ messageId, forEveryone }: { messageId: number; forEveryone: boolean }) =>
+      chatApi.deleteMessage(messageId, forEveryone),
+    onSuccess: (res) => {
+      if (!activeId) return;
+      // Mirror the server's outcome in the cache: for-me rows vanish for this
+      // user only; for-everyone rows keep their bubble as "removed".
+      qc.setQueryData<{ items: ChatMessageRow[] }>(chatKeys.messages(activeId), (old) =>
+        old
+          ? {
+              ...old,
+              items: res.deletedForMe
+                ? old.items.filter((m) => m.messageId !== res.messageId)
+                : old.items.map((m) =>
+                    m.messageId === res.messageId
+                      ? { ...m, deletedForEveryone: true, content: null }
+                      : m,
+                  ),
+            }
+          : old,
+      );
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not delete the message"),
+  });
+
+  /** "Delete chat for me": my history clears; the conversation lives on. */
+  const clearChat = useMutation({
+    mutationFn: (id: string) => chatApi.clearForMe(id),
+    onSuccess: (_r, id) => {
+      setChatMenuOpen(false);
+      qc.setQueryData<{ items: ChatMessageRow[] }>(chatKeys.messages(id), { items: [] });
+      refreshList();
+    },
+    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not clear the chat"),
+  });
+
+  /** Hard delete for everyone — chat admins only; the server re-checks. */
+  const deleteChat = useMutation({
+    mutationFn: (id: string) => chatApi.adminDeleteConversation(id),
+    onSuccess: () => {
+      setConfirmDeleteChat(false);
+      setChatMenuOpen(false);
+      setActiveId(null);
+      refreshList();
+      void qc.invalidateQueries({ queryKey: chatKeys.myTeams });
+    },
+    onError: (e) => {
+      setConfirmDeleteChat(false);
+      setErr(e instanceof ApiError ? e.message : "Could not delete");
+    },
+  });
+
   /** Clear the box immediately, tell the room we stopped typing, then send. */
   const submit = () => {
     const text = composer.trim();
@@ -419,13 +473,51 @@ export default function ChatPage() {
                   : "Pick a chat or channel on the left"}
             </p>
           </div>
-          {active && active.type === "GROUP" && (
-            <button
-              onClick={() => setMembersOpen(true)}
-              className="ml-auto rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
-            >
-              Members
-            </button>
+          {active && (
+            <div className="relative ml-auto flex items-center gap-2">
+              {active.type === "GROUP" && (
+                <button
+                  onClick={() => setMembersOpen(true)}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+                >
+                  Members
+                </button>
+              )}
+              <button
+                onClick={() => setChatMenuOpen((v) => !v)}
+                aria-label="Chat options"
+                className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+              >
+                ⋯
+              </button>
+              {chatMenuOpen && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-xl border border-border bg-card shadow-xl">
+                  <button
+                    onClick={() => activeId && clearChat.mutate(activeId)}
+                    className="block w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent"
+                  >
+                    Delete chat for me
+                    <span className="block text-xs text-muted-foreground">
+                      Clears your copy only
+                    </span>
+                  </button>
+                  {canManage && active.type === "GROUP" && (
+                    <button
+                      onClick={() => {
+                        setChatMenuOpen(false);
+                        setConfirmDeleteChat(true);
+                      }}
+                      className="block w-full px-4 py-2.5 text-left text-sm text-danger hover:bg-danger/10"
+                    >
+                      Delete group for everyone
+                      <span className="block text-xs text-muted-foreground">
+                        Removes it and its messages for all members
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </header>
 
@@ -456,7 +548,21 @@ export default function ChatPage() {
                     {dayOf(m.createdAt)}
                   </div>
                 )}
-                <MessageBubble message={m} mine={m.senderId === me?.id} />
+                <MessageBubble
+                  message={m}
+                  mine={m.senderId === me?.id}
+                  // The server's rule: your own message (48h), or any message
+                  // when you run this group (OWNER/ADMIN) or hold chat.manage.
+                  canDeleteForEveryone={
+                    m.senderId === me?.id ||
+                    canManage ||
+                    active?.myRole === "OWNER" ||
+                    active?.myRole === "ADMIN"
+                  }
+                  onDelete={(forEveryone) =>
+                    deleteMessage.mutate({ messageId: m.messageId, forEveryone })
+                  }
+                />
               </div>
             );
           })}
@@ -500,6 +606,22 @@ export default function ChatPage() {
             refreshList();
           }}
         />
+      )}
+      {confirmDeleteChat && activeId && (
+        <Modal title="Delete group for everyone" onClose={() => setConfirmDeleteChat(false)}>
+          <p className="text-sm text-muted-foreground">
+            This permanently removes <span className="font-medium text-foreground">{title}</span>{" "}
+            and its entire history for every member. There is no undo.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Btn tone="ghost" onClick={() => setConfirmDeleteChat(false)}>
+              Cancel
+            </Btn>
+            <Btn tone="danger" busy={deleteChat.isPending} onClick={() => deleteChat.mutate(activeId)}>
+              Delete for everyone
+            </Btn>
+          </div>
+        </Modal>
       )}
       {membersOpen && activeId && (
         <MembersPanel
@@ -610,33 +732,82 @@ function TeamBlock({
   );
 }
 
-function MessageBubble({ message, mine }: { message: ChatMessageRow; mine: boolean }) {
+function MessageBubble({
+  message,
+  mine,
+  canDeleteForEveryone,
+  onDelete,
+}: {
+  message: ChatMessageRow;
+  mine: boolean;
+  canDeleteForEveryone: boolean;
+  onDelete: (forEveryone: boolean) => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   if (message.type === "SYSTEM") {
-    return (
-      <p className="my-2 text-center text-xs text-muted-foreground">{message.content}</p>
-    );
+    return <p className="my-2 text-center text-xs text-muted-foreground">{message.content}</p>;
   }
+  const removed = message.deletedForEveryone;
   return (
-    <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-      <div className={`max-w-[70%] ${mine ? "items-end" : "items-start"}`}>
+    <div className={`group flex ${mine ? "justify-end" : "justify-start"}`}>
+      <div className={`relative max-w-[70%] ${mine ? "items-end" : "items-start"}`}>
         {!mine && (
           <span className="mb-0.5 block text-[11px] font-medium text-muted-foreground">
             {message.sender?.name ?? "Unknown"}
           </span>
         )}
-        <div
-          className={`rounded-2xl px-3.5 py-2 text-sm ${
-            mine
-              ? "rounded-br-sm bg-primary text-primary-foreground"
-              : "rounded-bl-sm bg-muted text-foreground"
-          }`}
-        >
-          {message.deletedForEveryone ? (
-            <span className="italic opacity-70">This message was removed</span>
-          ) : (
-            <span className="whitespace-pre-wrap break-words">{message.content}</span>
+        <div className="flex items-center gap-1.5">
+          {/* WhatsApp-style per-message menu, revealed on hover. */}
+          {!removed && (
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Message options"
+              className={`${mine ? "order-first" : "order-last"} rounded p-1 text-xs text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100`}
+            >
+              ▾
+            </button>
           )}
+          <div
+            className={`rounded-2xl px-3.5 py-2 text-sm ${
+              mine
+                ? "rounded-br-sm bg-primary text-primary-foreground"
+                : "rounded-bl-sm bg-muted text-foreground"
+            }`}
+          >
+            {removed ? (
+              <span className="italic opacity-70">This message was removed</span>
+            ) : (
+              <span className="whitespace-pre-wrap break-words">{message.content}</span>
+            )}
+          </div>
         </div>
+        {menuOpen && !removed && (
+          <div
+            className={`absolute top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-border bg-card shadow-xl ${mine ? "right-0" : "left-0"}`}
+          >
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                onDelete(false);
+              }}
+              className="block w-full px-3.5 py-2 text-left text-sm text-foreground hover:bg-accent"
+            >
+              Delete for me
+            </button>
+            {canDeleteForEveryone && (
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete(true);
+                }}
+                className="block w-full px-3.5 py-2 text-left text-sm text-danger hover:bg-danger/10"
+              >
+                Delete for everyone
+              </button>
+            )}
+          </div>
+        )}
         <span
           className={`mt-0.5 block text-[10px] text-muted-foreground ${mine ? "text-right" : ""}`}
         >
@@ -647,6 +818,7 @@ function MessageBubble({ message, mine }: { message: ChatMessageRow; mine: boole
     </div>
   );
 }
+
 
 function NewChatModal({
   onClose,
@@ -833,12 +1005,10 @@ function MembersPanel({
           <div key={p.userId} className="flex items-center justify-between px-3 py-2">
             <span className="flex items-center gap-3">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-semibold">
-                {initials(p.user.name ?? p.user.email ?? "?")}
+                {initials(p.name ?? p.email ?? "?")}
               </span>
               <span>
-                <span className="block text-sm text-foreground">
-                  {p.user.name ?? p.user.email}
-                </span>
+                <span className="block text-sm text-foreground">{p.name ?? p.email}</span>
                 <span className="block text-xs text-muted-foreground">{p.role}</span>
               </span>
             </span>

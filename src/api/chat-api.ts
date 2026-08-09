@@ -10,10 +10,19 @@ export interface ChatUser {
   online?: boolean;
 }
 
+/**
+ * A conversation's participant. The engine returns these FLATTENED — the user's
+ * fields sit alongside the membership fields, there is no nested `user` object
+ * (team members, from the workspace routes, do nest one — see ChatTeamMember).
+ */
 export interface ChatParticipantRow {
   userId: number;
+  name: string | null;
+  email: string | null;
+  profileImage?: string | null;
   role: "OWNER" | "ADMIN" | "MEMBER";
-  user: ChatUser;
+  joinedAt?: string;
+  online?: boolean;
 }
 
 export interface ChatConversationDetail extends ChatConversationRow {
@@ -136,8 +145,14 @@ export const chatApi = {
     apiClient.post<ChatConversationRow>("/v1/chat/conversations/direct", { recipientId }),
   createGroup: (body: { name: string; participantIds: number[]; description?: string }) =>
     apiClient.post<ChatConversationRow>("/v1/chat/conversations/group", body),
-  deleteConversation: (id: string) =>
+  /** "Delete chat for me" — clears my history, the conversation stays for others. */
+  clearForMe: (id: string) =>
     apiClient.delete<{ message: string }>(`/v1/chat/conversations/${id}`),
+  /** For me: hides it from my view only. For everyone: sender (48h) or a group admin. */
+  deleteMessage: (messageId: number, forEveryone: boolean) =>
+    apiClient.delete<{ messageId: number; deletedForMe?: boolean; deletedForEveryone?: boolean }>(
+      `/v1/chat/messages/${messageId}?forEveryone=${forEveryone}`,
+    ),
   /** Group membership — the engine allows this for the group's own admins. */
   addParticipants: (id: string, userIds: number[]) =>
     apiClient.post<{ message?: string }>(`/v1/chat/conversations/${id}/participants`, { userIds }),
