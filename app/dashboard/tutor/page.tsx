@@ -1,20 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { io, type Socket } from "socket.io-client";
 import { toast } from "sonner";
+import { API_BASE_URL, getToken } from "@/src/api/apiClient";
 import {
   aiTutorApi,
-  type TutorLook,
   type TutorPersona,
   type TutorSpeechLang,
   type TutorTurn,
   type TutorVisual,
 } from "@/src/api/api";
-import { TutorAvatar, type TutorPhase } from "@/src/components/tutor/tutor-avatar";
+import { TutorOrb, type TutorPhase } from "@/src/components/tutor/tutor-orb";
 import { TutorBoard } from "@/src/components/tutor/tutor-board";
-import { TutorCamera } from "@/src/components/tutor/tutor-camera";
-import { TutorGalaxyScene } from "@/src/components/tutor/tutor-galaxy-scene";
-import { TutorScene } from "@/src/components/tutor/tutor-scene";
 import { CloseIcon, SpinnerIcon } from "@/src/components/icons";
 
 /* ------------------------- SpeechRecognition typing ------------------------ */
@@ -132,74 +130,25 @@ const BADGES: { key: TutorPersona; label: string; emoji: string }[] = [
   { key: "fitness", label: "Fitness Coach", emoji: "💪" },
 ];
 
-/* --------------------------- "mirror me" store ---------------------------- */
-// Only the derived traits persist (localStorage); the photo itself never
-// leaves the scan request. useSyncExternalStore keeps hydration clean.
-
-const LOOK_KEY = "rc.tutorLook";
-let lookCache: TutorLook | null | undefined;
-const lookListeners = new Set<() => void>();
-
-function getLookSnapshot(): TutorLook | null {
-  if (lookCache === undefined) {
-    try {
-      lookCache = JSON.parse(window.localStorage.getItem(LOOK_KEY) ?? "null") as TutorLook | null;
-    } catch {
-      lookCache = null;
-    }
-  }
-  return lookCache ?? null;
-}
-
-function subscribeLook(cb: () => void): () => void {
-  lookListeners.add(cb);
-  return () => {
-    lookListeners.delete(cb);
-  };
-}
-
-function saveLook(look: TutorLook | null) {
-  lookCache = look;
-  try {
-    if (look) window.localStorage.setItem(LOOK_KEY, JSON.stringify(look));
-    else window.localStorage.removeItem(LOOK_KEY);
-  } catch {
-    /* private mode */
-  }
-  lookListeners.forEach((cb) => cb());
-}
-
-/* ------------------------------ theme store ------------------------------- */
-// Galaxy is the default; the side tab switches to the angel theme and back.
-
-type TutorTheme = "galaxy" | "angel";
-const THEME_KEY = "rc.tutorTheme";
-let themeCache: TutorTheme | undefined;
-const themeListeners = new Set<() => void>();
-
-function getThemeSnapshot(): TutorTheme {
-  if (themeCache === undefined) {
-    themeCache = window.localStorage.getItem(THEME_KEY) === "angel" ? "angel" : "galaxy";
-  }
-  return themeCache;
-}
-
-function subscribeTheme(cb: () => void): () => void {
-  themeListeners.add(cb);
-  return () => {
-    themeListeners.delete(cb);
-  };
-}
-
-function saveTheme(theme: TutorTheme) {
-  themeCache = theme;
-  try {
-    window.localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    /* private mode */
-  }
-  themeListeners.forEach((cb) => cb());
-}
+/* ---------------------------- realtime stream ----------------------------- */
+// One in-flight spoken turn streamed over the /tutor socket: PCM chunks are
+// scheduled back-to-back on the audio clock as they arrive, so she starts
+// talking while the rest of the answer is still being generated.
+type StreamTurn = {
+  id: string;
+  question: string;
+  /** Transcript accumulated from incremental pieces (authoritative on done). */
+  answer: string;
+  done: boolean;
+  gotAudio: boolean;
+  /** AudioContext time the next chunk should start at (gapless scheduling). */
+  nextTime: number;
+  analyser: AnalyserNode | null;
+  sources: Set<AudioBufferSourceNode>;
+  /** askSeq of the question, for the whiteboard guard. */
+  seq: number;
+  watchdog: number;
+};
 
 const GREETING =
   "Hello, dear one… I am Aanya, your tutor. Press the mic once and we can simply talk, or type below. Ask me anything you wish to learn.";
@@ -215,15 +164,8 @@ export default function TutorPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [subtitle, setSubtitle] = useState("");
   const [visual, setVisual] = useState<Extract<TutorVisual, { applicable: true }> | null>(null);
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [persona, setPersona] = useState<TutorPersona | null>(null);
   const personaRef = useRef<TutorPersona | null>(null);
-  // The student's scanned look — she transforms whenever this changes.
-  const look = useSyncExternalStore(subscribeLook, getLookSnapshot, () => null);
-  // Scene theme: galaxy (default) or angel, switched by the side tab.
-  const theme = useSyncExternalStore(subscribeTheme, getThemeSnapshot, () => "galaxy" as const);
-  const dark = theme === "galaxy";
 
   const phaseRef = useRef<TutorPhase>("idle");
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -243,6 +185,9 @@ export default function TutorPage() {
   const lastLangRef = useRef<TutorSpeechLang | null>(null);
   // Lets speak/ask re-arm the mic without a circular useCallback dependency.
   const startListeningRef = useRef<() => void>(() => {});
+  // Realtime path: the /tutor socket and the turn currently streaming on it.
+  const socketRef = useRef<Socket | null>(null);
+  const turnRef = useRef<StreamTurn | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
   const messagesRef = useRef(messages);
   useEffect(() => {
@@ -280,6 +225,22 @@ export default function TutorPage() {
 
   const stopSpeaking = useCallback(() => {
     playTokenRef.current++;
+    // Tear down any in-flight streamed turn (scheduled chunks + live session).
+    const turn = turnRef.current;
+    if (turn) {
+      turnRef.current = null;
+      window.clearTimeout(turn.watchdog);
+      turn.sources.forEach((s) => {
+        try {
+          s.onended = null;
+          s.stop();
+        } catch {
+          /* already stopped */
+        }
+      });
+      turn.sources.clear();
+      socketRef.current?.emit("stop");
+    }
     try {
       if (sourceRef.current) sourceRef.current.onended = null;
       sourceRef.current?.stop();
@@ -410,6 +371,149 @@ export default function TutorPage() {
     return lastLangRef.current ?? undefined;
   }, []);
 
+  /** Turn ended (all scheduled chunks played and the server said done). */
+  const maybeFinishTurn = useCallback(
+    (turn: StreamTurn) => {
+      if (turnRef.current !== turn) return;
+      if (!turn.done || turn.sources.size > 0) return;
+      turnRef.current = null;
+      finishSpeaking();
+    },
+    [finishSpeaking],
+  );
+
+  const failTurn = useCallback(
+    (turn: StreamTurn, message: string) => {
+      if (turnRef.current !== turn) return;
+      turnRef.current = null;
+      window.clearTimeout(turn.watchdog);
+      turn.sources.forEach((s) => {
+        try {
+          s.stop();
+        } catch {
+          /* stopped */
+        }
+      });
+      updatePhase("idle");
+      toast.error(message);
+      // Don't let one failure kill a hands-free session.
+      if (conversationRef.current) window.setTimeout(() => startListeningRef.current(), 600);
+    },
+    [updatePhase],
+  );
+
+  /**
+   * Lazily connect the /tutor socket and wire the stream events once. Every
+   * payload carries the turnId, so anything from a superseded turn is ignored.
+   */
+  const ensureSocket = useCallback((): Promise<Socket | null> => {
+    return new Promise((resolve) => {
+      const existing = socketRef.current;
+      if (existing?.connected) return resolve(existing);
+
+      const socket =
+        existing ??
+        io(`${new URL(API_BASE_URL, window.location.origin).origin}/tutor`, {
+          auth: { token: getToken() },
+          transports: ["websocket", "polling"],
+        });
+
+      if (!existing) {
+        socketRef.current = socket;
+
+        socket.on("transcript", (p: { turnId: string; text: string }) => {
+          const turn = turnRef.current;
+          if (!turn || turn.id !== p.turnId) return;
+          turn.answer += p.text;
+          setSubtitle(turn.answer);
+          // She has started answering — show the words as they form.
+          if (phaseRef.current === "thinking") updatePhase("speaking");
+        });
+
+        socket.on("audio", (p: { turnId: string; data: string; mimeType: string }) => {
+          const turn = turnRef.current;
+          if (!turn || turn.id !== p.turnId) return;
+          try {
+            const ctx = (audioCtxRef.current ??= new (getAudioCtxCtor())());
+            if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
+            if (!turn.analyser) {
+              const analyser = ctx.createAnalyser();
+              analyser.fftSize = 512;
+              analyser.smoothingTimeConstant = 0.5;
+              analyser.connect(ctx.destination);
+              analyserDataRef.current = new Uint8Array(analyser.fftSize);
+              analyserRef.current = analyser;
+              turn.analyser = analyser;
+            }
+            const buffer = pcmToAudioBuffer(ctx, p.data, p.mimeType);
+            const source = ctx.createBufferSource();
+            source.buffer = buffer;
+            source.connect(turn.analyser);
+            // Gapless: each chunk starts exactly where the previous one ends.
+            const startAt = Math.max(ctx.currentTime + 0.05, turn.nextTime);
+            turn.nextTime = startAt + buffer.duration;
+            turn.sources.add(source);
+            turn.gotAudio = true;
+            source.onended = () => {
+              turn.sources.delete(source);
+              maybeFinishTurn(turn);
+            };
+            source.start(startAt);
+            if (phaseRef.current !== "speaking") updatePhase("speaking");
+          } catch {
+            /* one bad chunk — skip it, the next chunks keep the clock */
+          }
+        });
+
+        socket.on(
+          "done",
+          (p: { turnId: string; answer: string; languageCode: string }) => {
+            const turn = turnRef.current;
+            if (!turn || turn.id !== p.turnId) return;
+            window.clearTimeout(turn.watchdog);
+            turn.done = true;
+            const answer = (p.answer || turn.answer).trim() || "…";
+            turn.answer = answer;
+            setSubtitle(answer);
+            setMessages((prev) => [...prev, { role: "tutor", text: answer }]);
+            // The accent the server actually used becomes the sticky one.
+            lastLangRef.current = p.languageCode?.toLowerCase().startsWith("hi")
+              ? "hi-IN"
+              : "en-IN";
+            // Whiteboard in the background, only for the latest question.
+            aiTutorApi
+              .visualize({ question: turn.question, answer })
+              .then((v) => {
+                if (askSeqRef.current === turn.seq && v.applicable) setVisual(v);
+              })
+              .catch(() => undefined);
+            if (!turn.gotAudio) {
+              // Voice never arrived — the browser voice still answers.
+              turnRef.current = null;
+              speakWithBrowser(answer, lastLangRef.current ?? "en-IN");
+              return;
+            }
+            maybeFinishTurn(turn);
+          },
+        );
+
+        socket.on("turn_error", (p: { turnId: string; message: string }) => {
+          const turn = turnRef.current;
+          if (!turn || turn.id !== p.turnId) return;
+          failTurn(turn, p.message || "The tutor could not answer — try again");
+        });
+      }
+
+      // Give the transport a moment; on failure the caller falls back to REST.
+      const timer = window.setTimeout(() => resolve(null), 2500);
+      socket.once("connect", () => {
+        window.clearTimeout(timer);
+        resolve(socket);
+      });
+      if (!socket.connected && existing) socket.connect();
+    });
+  }, [failTurn, maybeFinishTurn, speakWithBrowser, updatePhase]);
+
   const ask = useCallback(
     async (question: string) => {
       const q = question.trim();
@@ -423,21 +527,52 @@ export default function TutorPage() {
       updatePhase("thinking");
       const seq = ++askSeqRef.current;
       setVisual(null);
+      const languageCode = resolveSpeechLang(q);
+
+      // Realtime path: stream the turn over the /tutor socket.
+      const socket = await ensureSocket();
+      if (socket && askSeqRef.current === seq) {
+        const turn: StreamTurn = {
+          id: `${seq}-${Math.random().toString(36).slice(2, 10)}`,
+          question: q,
+          answer: "",
+          done: false,
+          gotAudio: false,
+          nextTime: 0,
+          analyser: null,
+          sources: new Set(),
+          seq,
+          watchdog: 0,
+        };
+        turn.watchdog = window.setTimeout(
+          () => failTurn(turn, "The tutor could not answer — try again"),
+          75_000,
+        );
+        turnRef.current = turn;
+        socket.emit("converse", {
+          turnId: turn.id,
+          question: q,
+          history,
+          persona: personaRef.current ?? undefined,
+          languageCode,
+        });
+        return;
+      }
+      if (askSeqRef.current !== seq) return;
+
+      // Fallback: the socket didn't connect — one REST round-trip instead.
       try {
         const turn = await aiTutorApi.converse({
           question: q,
           history,
           persona: personaRef.current ?? undefined,
-          languageCode: resolveSpeechLang(q),
+          languageCode,
         });
         const answer = turn.answer || "…";
         setMessages((prev) => [...prev, { role: "tutor", text: answer }]);
-        // The accent the server actually used becomes the sticky one.
         lastLangRef.current = turn.languageCode.toLowerCase().startsWith("hi")
           ? "hi-IN"
           : "en-IN";
-        // Whiteboard runs in the background while she starts speaking — the
-        // board pops in whenever it's ready, and only for the latest question.
         aiTutorApi
           .visualize({ question: q, answer })
           .then((v) => {
@@ -452,7 +587,7 @@ export default function TutorPage() {
         if (conversationRef.current) window.setTimeout(() => startListeningRef.current(), 600);
       }
     },
-    [playAnswer, resolveSpeechLang, stopSpeaking, updatePhase],
+    [ensureSocket, failTurn, playAnswer, resolveSpeechLang, stopSpeaking, updatePhase],
   );
 
   /* ------------------------------- microphone ------------------------------ */
@@ -561,32 +696,15 @@ export default function TutorPage() {
     setPersona(next);
   }, []);
 
-  /* ------------------------------ mirror me -------------------------------- */
-
-  const handleCaptured = useCallback((dataUrl: string) => {
-    setCameraOpen(false);
-    setScanning(true);
-    aiTutorApi
-      .appearance(dataUrl)
-      .then((r) => {
-        if (r.person) {
-          saveLook(r);
-          toast.success("Scan complete — Aanya has taken your look ✨");
-        } else {
-          toast.error("I couldn't see a face clearly — try again with better light");
-        }
-      })
-      .catch((err: unknown) =>
-        toast.error(err instanceof Error ? err.message : "Scan failed — try again"),
-      )
-      .finally(() => setScanning(false));
-  }, []);
-
   /* ------------------------------- lifecycle ------------------------------- */
 
   useEffect(() => {
     return () => {
       conversationRef.current = false;
+      if (turnRef.current) window.clearTimeout(turnRef.current.watchdog);
+      turnRef.current = null;
+      socketRef.current?.disconnect();
+      socketRef.current = null;
       recognitionRef.current?.abort();
       try {
         sourceRef.current?.stop();
@@ -614,54 +732,33 @@ export default function TutorPage() {
             : "Waiting for you";
 
   return (
-    <div
-      className={`tutor-page relative -mx-4 -my-6 h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden sm:-mx-6 ${dark ? "bg-[#04040c]" : "bg-[#cfdcf4]"}`}
-    >
-      {dark ? (
-        <TutorGalaxyScene phase={phase}>
-          <TutorAvatar phase={phase} getLevel={getLevel} look={look} theme="galaxy" />
-        </TutorGalaxyScene>
-      ) : (
-        <TutorScene phase={phase}>
-          <TutorAvatar phase={phase} getLevel={getLevel} look={look} theme="angel" />
-        </TutorScene>
-      )}
-
-
-      {cameraOpen && (
-        <TutorCamera onCancel={() => setCameraOpen(false)} onCaptured={handleCaptured} />
-      )}
+    <div className="tutor-page relative -mx-4 -my-6 h-[calc(100dvh-4rem)] min-h-[560px] overflow-hidden bg-[#04040c] sm:-mx-6">
+      {/* the whole universe is one Three.js canvas */}
+      <div className="absolute inset-0">
+        <TutorOrb phase={phase} getLevel={getLevel} />
+      </div>
 
       {/* title + status */}
       <div className="pointer-events-none absolute left-5 top-4 z-20 select-none">
-        <h1
-          className={`text-2xl font-semibold tracking-[0.35em] sm:text-3xl ${dark ? "tutor-title-galaxy text-violet-200" : "tutor-title-angel text-amber-600"}`}
-        >
+        <h1 className="tutor-title-galaxy text-2xl font-semibold tracking-[0.35em] text-violet-200 sm:text-3xl">
           AANYA
         </h1>
-        <p
-          className={`mt-1 text-[10px] uppercase tracking-[0.3em] sm:text-xs ${dark ? "text-indigo-200/60" : "text-indigo-900/60"}`}
-        >
-          {dark ? "Cosmic Tutor · ask me anything" : "Angel Tutor · ask me anything"}
+        <p className="mt-1 text-[10px] uppercase tracking-[0.3em] text-indigo-200/60 sm:text-xs">
+          Cosmic Tutor · ask me anything
         </p>
-        <div
-          className={`mt-3 inline-flex items-center gap-2 rounded-full border px-3 py-1 backdrop-blur ${dark ? "border-white/15 bg-white/10" : "border-white/60 bg-white/60"}`}
-        >
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 backdrop-blur">
           <span
             className={[
               "h-2 w-2 rounded-full",
               phase === "listening" && "animate-pulse bg-sky-400",
               phase === "thinking" && "animate-pulse bg-amber-400",
               phase === "speaking" && "animate-pulse bg-emerald-400",
-              phase === "idle" &&
-                (conversation ? "animate-pulse bg-amber-400" : dark ? "bg-slate-400" : "bg-indigo-300"),
+              phase === "idle" && (conversation ? "animate-pulse bg-amber-400" : "bg-slate-400"),
             ]
               .filter(Boolean)
               .join(" ")}
           />
-          <span className={`text-xs ${dark ? "text-indigo-100/90" : "text-indigo-900/80"}`}>
-            {statusLabel}
-          </span>
+          <span className="text-xs text-indigo-100/90">{statusLabel}</span>
         </div>
       </div>
 
@@ -672,62 +769,12 @@ export default function TutorPage() {
         </div>
       )}
 
-      {/* top-right actions: theme tabs + mirror-me scan + transcript */}
+      {/* top-right actions */}
       <div className="absolute right-4 top-4 z-30 flex items-center gap-2">
-        {/* theme tabs — galaxy by default, angel only when its tab is clicked */}
-        <div
-          className={`flex items-center rounded-full border p-0.5 backdrop-blur ${dark ? "border-white/15 bg-white/10" : "border-white/60 bg-white/60"}`}
-        >
-          <button
-            type="button"
-            onClick={() => saveTheme("galaxy")}
-            className={`rounded-full px-3 py-1 text-xs transition-colors ${dark ? "bg-violet-600 text-white shadow-[0_0_12px_rgba(140,110,255,0.5)]" : "text-indigo-900/60 hover:text-indigo-950"}`}
-          >
-            Galaxy
-          </button>
-          <button
-            type="button"
-            onClick={() => saveTheme("angel")}
-            className={`rounded-full px-3 py-1 text-xs transition-colors ${!dark ? "bg-amber-400 text-white shadow-[0_0_12px_rgba(245,185,66,0.5)]" : "text-indigo-200/70 hover:text-white"}`}
-          >
-            Angel
-          </button>
-        </div>
-        <button
-          type="button"
-          onClick={() => setCameraOpen(true)}
-          disabled={scanning}
-          title="Scan yourself once — Aanya transforms to match you"
-          className={`flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-xs backdrop-blur transition-colors disabled:opacity-50 ${dark ? "border-violet-300/40 bg-white/10 text-violet-200 hover:bg-white/20" : "border-amber-300/70 bg-white/60 text-amber-700 hover:bg-white/90"}`}
-        >
-          {scanning ? (
-            <>
-              <SpinnerIcon className="h-3.5 w-3.5" /> Transforming…
-            </>
-          ) : (
-            <>
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-              {look ? "Rescan me" : "Mirror me"}
-            </>
-          )}
-        </button>
-        {look && !scanning && (
-          <button
-            type="button"
-            onClick={() => saveLook(null)}
-            title="Back to Aanya's own look"
-            className={`rounded-full border px-3 py-1.5 text-xs backdrop-blur transition-colors ${dark ? "border-white/15 bg-white/10 text-indigo-100 hover:bg-white/20" : "border-white/60 bg-white/60 text-indigo-900/80 hover:bg-white/90"}`}
-          >
-            Reset look
-          </button>
-        )}
         <button
           type="button"
           onClick={() => setPanelOpen((v) => !v)}
-          className={`rounded-full border px-4 py-1.5 text-xs backdrop-blur transition-colors ${dark ? "border-white/15 bg-white/10 text-indigo-100 hover:bg-white/20 hover:text-white" : "border-white/60 bg-white/60 text-indigo-900/80 hover:bg-white/90 hover:text-indigo-950"}`}
+          className="rounded-full border border-white/15 bg-white/10 px-4 py-1.5 text-xs text-indigo-100 backdrop-blur transition-colors hover:bg-white/20 hover:text-white"
         >
           {panelOpen ? "Hide transcript" : "Transcript"}
         </button>
@@ -735,17 +782,13 @@ export default function TutorPage() {
 
       {/* transcript panel */}
       {panelOpen && (
-        <div
-          className={`absolute bottom-32 right-4 top-14 z-20 flex w-[19rem] max-w-[85vw] flex-col overflow-hidden rounded-2xl border backdrop-blur-md ${dark ? "border-white/10 bg-black/50" : "border-white/70 bg-white/60"}`}
-        >
-          <div
-            className={`flex items-center justify-between border-b px-4 py-2.5 ${dark ? "border-white/10" : "border-indigo-100"}`}
-          >
-            <span className={`text-xs uppercase tracking-widest ${dark ? "text-indigo-300" : "text-indigo-400"}`}>Lesson transcript</span>
+        <div className="absolute bottom-32 right-4 top-14 z-20 flex w-[19rem] max-w-[85vw] flex-col overflow-hidden rounded-2xl border border-white/10 bg-black/50 backdrop-blur-md">
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
+            <span className="text-xs uppercase tracking-widest text-indigo-300">Lesson transcript</span>
             <button
               type="button"
               onClick={() => setPanelOpen(false)}
-              className={`transition-colors ${dark ? "text-indigo-400 hover:text-white" : "text-indigo-300 hover:text-indigo-700"}`}
+              className="text-indigo-400 transition-colors hover:text-white"
             >
               <CloseIcon className="h-4 w-4" />
             </button>
@@ -757,12 +800,8 @@ export default function TutorPage() {
                   className={[
                     "max-w-[85%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed",
                     m.role === "user"
-                      ? dark
-                        ? "rounded-br-sm bg-violet-600/80 text-white"
-                        : "rounded-br-sm bg-indigo-500/85 text-white"
-                      : dark
-                        ? "rounded-bl-sm bg-white/10 text-indigo-100"
-                        : "rounded-bl-sm bg-white/85 text-slate-700 shadow-sm",
+                      ? "rounded-br-sm bg-violet-600/80 text-white"
+                      : "rounded-bl-sm bg-white/10 text-indigo-100",
                   ].join(" ")}
                 >
                   {m.text}
@@ -771,9 +810,7 @@ export default function TutorPage() {
             ))}
             {phase === "thinking" && (
               <div className="flex justify-start">
-                <div
-                  className={`flex items-center gap-2 rounded-2xl rounded-bl-sm px-3 py-2 text-[13px] ${dark ? "bg-white/10 text-indigo-300" : "bg-white/85 text-indigo-400 shadow-sm"}`}
-                >
+                <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-white/10 px-3 py-2 text-[13px] text-indigo-300">
                   <SpinnerIcon className="h-3.5 w-3.5" /> Aanya is thinking…
                 </div>
               </div>
@@ -785,9 +822,7 @@ export default function TutorPage() {
       {/* live subtitle while she speaks */}
       {phase === "speaking" && subtitle && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[min(46rem,90vw)] -translate-x-1/2 text-center">
-          <p
-            className={`mx-auto line-clamp-3 rounded-xl px-4 py-2 text-sm italic leading-relaxed backdrop-blur-sm ${dark ? "bg-black/45 text-violet-100/90" : "bg-white/65 text-indigo-900/90"}`}
-          >
+          <p className="mx-auto line-clamp-3 rounded-xl bg-black/45 px-4 py-2 text-sm italic leading-relaxed text-violet-100/90 backdrop-blur-sm">
             “{subtitle}”
           </p>
         </div>
@@ -796,9 +831,7 @@ export default function TutorPage() {
       {/* interim voice text */}
       {phase === "listening" && (
         <div className="pointer-events-none absolute bottom-28 left-1/2 z-20 w-[min(40rem,90vw)] -translate-x-1/2 text-center">
-          <p
-            className={`mx-auto rounded-xl px-4 py-2 text-sm backdrop-blur-sm ${dark ? "bg-black/45 text-sky-200" : "bg-white/65 text-sky-800"}`}
-          >
+          <p className="mx-auto rounded-xl bg-black/45 px-4 py-2 text-sm text-sky-200 backdrop-blur-sm">
             {interim || "I'm listening… speak your question."}
           </p>
         </div>
@@ -819,12 +852,8 @@ export default function TutorPage() {
                 className={[
                   "flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1 text-xs backdrop-blur transition-colors",
                   active
-                    ? dark
-                      ? "border-violet-400/60 bg-violet-600 text-white shadow-[0_0_12px_rgba(140,110,255,0.5)]"
-                      : "border-amber-300 bg-amber-400 text-white shadow-[0_0_12px_rgba(245,185,66,0.5)]"
-                    : dark
-                      ? "border-white/10 bg-white/10 text-indigo-100 hover:bg-white/20"
-                      : "border-white/60 bg-white/60 text-indigo-900/70 hover:bg-white/90",
+                    ? "border-violet-400/60 bg-violet-600 text-white shadow-[0_0_12px_rgba(140,110,255,0.5)]"
+                    : "border-white/10 bg-white/10 text-indigo-100 hover:bg-white/20",
                 ].join(" ")}
               >
                 <span aria-hidden>{b.emoji}</span> {b.label}
@@ -837,7 +866,7 @@ export default function TutorPage() {
             e.preventDefault();
             void ask(draft);
           }}
-          className={`flex items-center gap-2 rounded-2xl border p-2 backdrop-blur-md ${dark ? "border-white/10 bg-black/50 shadow-lg shadow-violet-900/40" : "border-white/70 bg-white/65 shadow-lg shadow-indigo-300/30"}`}
+          className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 p-2 shadow-lg shadow-violet-900/40 backdrop-blur-md"
         >
           {/* mic — one click for a hands-free conversation */}
           <button
@@ -855,9 +884,7 @@ export default function TutorPage() {
               "relative grid h-12 w-12 shrink-0 place-items-center rounded-full transition-all",
               conversation
                 ? "bg-amber-400 text-white shadow-[0_0_24px_rgba(245,185,66,0.75)]"
-                : dark
-                  ? "bg-white/10 text-indigo-100 hover:bg-white/20"
-                  : "bg-indigo-900/10 text-indigo-800 hover:bg-indigo-900/20",
+                : "bg-white/10 text-indigo-100 hover:bg-white/20",
               !micSupported && "cursor-not-allowed opacity-40",
             ]
               .filter(Boolean)
@@ -889,7 +916,7 @@ export default function TutorPage() {
                   ? `Ask your ${BADGES.find((b) => b.key === persona)?.label.toLowerCase()}…`
                   : "Ask Aanya anything…"
             }
-            className={`min-w-0 flex-1 bg-transparent px-2 text-sm focus:outline-none ${dark ? "text-indigo-50 placeholder:text-indigo-400" : "text-indigo-950 placeholder:text-indigo-400"}`}
+            className="min-w-0 flex-1 bg-transparent px-2 text-sm text-indigo-50 placeholder:text-indigo-400 focus:outline-none"
           />
 
           {phase === "speaking" ? (
@@ -899,7 +926,7 @@ export default function TutorPage() {
                 stopSpeaking();
                 if (conversationRef.current) startListeningRef.current();
               }}
-              className={`shrink-0 rounded-xl px-4 py-2.5 text-sm transition-colors ${dark ? "bg-white/10 text-indigo-100 hover:bg-white/20" : "bg-indigo-900/10 text-indigo-800 hover:bg-indigo-900/20"}`}
+              className="shrink-0 rounded-xl bg-white/10 px-4 py-2.5 text-sm text-indigo-100 transition-colors hover:bg-white/20"
             >
               Stop
             </button>
@@ -907,7 +934,7 @@ export default function TutorPage() {
             <button
               type="submit"
               disabled={!draft.trim() || phase === "thinking"}
-              className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${dark ? "bg-violet-600 hover:bg-violet-500" : "bg-amber-500 hover:bg-amber-400"}`}
+              className="shrink-0 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {phase === "thinking" ? <SpinnerIcon className="h-4 w-4" /> : "Ask"}
             </button>
@@ -916,7 +943,6 @@ export default function TutorPage() {
       </div>
 
       <style>{`
-        .tutor-title-angel { text-shadow: 0 0 18px rgba(255, 214, 110, 0.85), 0 1px 2px rgba(255,255,255,0.9); }
         .tutor-title-galaxy { text-shadow: 0 0 20px rgba(150, 120, 255, 0.9), 0 0 3px rgba(220, 210, 255, 0.6); }
       `}</style>
     </div>
