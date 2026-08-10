@@ -124,7 +124,6 @@ export default function CartPage() {
               </h2>
               <dl className="mt-4 space-y-2.5 text-sm">
                 <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
-                <Row label="Platform fee" value={inr(summary.platformFee ?? 0)} />
                 <Row label="Taxes (18%)" value={inr(summary.tax ?? 0)} />
                 {summary.discount ? (
                   <Row

@@ -1936,6 +1936,26 @@ export interface AvailableSlot {
   professionalName?: string;
 }
 
+/** A customer's own coupon, as /v1/coupons returns it. */
+export interface CustomerCoupon {
+  couponId: number;
+  code: string;
+  description: string | null;
+  discountPercent: number;
+  isApplied: boolean;
+  isUsed: boolean;
+  expiresAt: string;
+}
+
+/** Customer coupons — the same endpoints the mobile app uses. */
+export const couponsApi = {
+  list: () => apiClient.get<CustomerCoupon[]>("/v1/coupons"),
+  apply: (couponCode: string) =>
+    apiClient.post<CustomerCoupon>("/v1/coupons/apply", { couponCode }),
+  remove: (couponId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/coupons/remove/${couponId}`),
+};
+
 export interface CreateBookingPayload {
   userId?: number;
   professionalId: number | null;
@@ -1949,6 +1969,8 @@ export interface CreateBookingPayload {
   serviceCity: string;
   serviceAddress: string;
   paymentMode: string;
+  /** Redeemed server-side on the booking it rides with (single use). */
+  couponCode?: string;
 }
 
 export interface BookingSummary {
