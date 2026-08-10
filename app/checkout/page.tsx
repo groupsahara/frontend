@@ -19,10 +19,12 @@ import {
 } from "@/src/lib/booking-shifts";
 import {
   bookingApi,
+  couponsApi,
   paymentsApi,
   userApi,
   type CartItemData,
   type CreateBookingPayload,
+  type CustomerCoupon,
   type UserAddress,
 } from "@/src/api/api";
 import { SpinnerIcon, CloseIcon, TrashIcon, PencilIcon } from "@/src/components/icons";
@@ -225,8 +227,68 @@ export default function CheckoutPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🎟️ Coupons — the same /v1/coupons endpoints the mobile app uses.
+  const [myCoupons, setMyCoupons] = useState<CustomerCoupon[]>([]);
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<CustomerCoupon | null>(null);
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
   const summary = cart?.priceSummary ?? {};
-  const grandTotal = summary.grandTotal ?? 0;
+  // The coupon is single-use, so it rides on ONE booking — the priciest item —
+  // exactly as the server redeems it. Discount is that item × the coupon %.
+  const cartItems2 = cart?.items ?? [];
+  const couponTarget = appliedCoupon
+    ? [...cartItems2].sort((a, b) => (b.total || b.price) - (a.total || a.price))[0]
+    : undefined;
+  const couponBaseDiscount =
+    appliedCoupon && couponTarget
+      ? Math.round((couponTarget.total || couponTarget.price) * (appliedCoupon.discountPercent / 100) * 100) / 100
+      : 0;
+  // What the customer saves is GST-inclusive — the same maths the app shows.
+  const couponSaving = Math.round(couponBaseDiscount * 1.18 * 100) / 100;
+  const grandTotal = Math.max(0, Math.round(((summary.grandTotal ?? 0) - couponSaving) * 100) / 100);
+
+  useEffect(() => {
+    if (!user) return;
+    couponsApi
+      .list()
+      .then((list) => {
+        setMyCoupons(list);
+        const applied = list.find((c) => c.isApplied);
+        if (applied) setAppliedCoupon(applied);
+      })
+      .catch(() => setMyCoupons([]));
+  }, [user]);
+
+  const applyCoupon = async (code: string) => {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) return;
+    setCouponBusy(true);
+    setCouponError(null);
+    try {
+      const applied = await couponsApi.apply(trimmed);
+      setAppliedCoupon(applied);
+      setCouponInput("");
+    } catch (e) {
+      setCouponError(e instanceof Error ? e.message : "Could not apply the coupon.");
+    } finally {
+      setCouponBusy(false);
+    }
+  };
+
+  const removeCoupon = async () => {
+    if (!appliedCoupon) return;
+    setCouponBusy(true);
+    try {
+      await couponsApi.remove(appliedCoupon.couponId);
+    } catch {
+      // Deselecting is best-effort; the booking simply won't carry the code.
+    } finally {
+      setAppliedCoupon(null);
+      setCouponBusy(false);
+    }
+  };
 
   const fetchAddresses = async (userId: string | number) => {
     setAddressesLoading(true);
@@ -351,6 +413,11 @@ export default function CheckoutPage() {
 
     return cartItems.map((item) => {
       const sched = getBookingSchedule(item.serviceId, item.variantId);
+      // The server expects the PRE-TAX, post-discount amount plus the code on
+      // the one booking that redeems the coupon; it reconstructs the list
+      // price and reimburses the partner from the percentage.
+      const discounted = appliedCoupon && couponTarget && item.id === couponTarget.id;
+      const base = item.total || item.price;
       return {
         userId: Number(user?.id),
         professionalId: null,
@@ -358,12 +425,13 @@ export default function CheckoutPage() {
         variantId: item.variantId ?? null,
         bookingDate: sched?.date || fallbackDate,
         startTime: sched?.startTime || fallbackTime,
-        totalAmount: item.total || item.price,
+        totalAmount: discounted ? Math.round((base - couponBaseDiscount) * 100) / 100 : base,
         serviceLat: lat,
         serviceLng: lng,
         serviceCity: city.trim(),
         serviceAddress: address.trim(),
         paymentMode: mode,
+        ...(discounted ? { couponCode: appliedCoupon.code } : {}),
       };
     });
   };
@@ -648,15 +716,89 @@ export default function CheckoutPage() {
               />
             </section>
 
+            {/* Coupons */}
+            <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+              <h2 className="text-base font-bold text-gray-900">Apply coupon</h2>
+              {appliedCoupon ? (
+                <div className="mt-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5">
+                  <div>
+                    <p className="text-sm font-semibold text-green-700">
+                      {appliedCoupon.code} · {appliedCoupon.discountPercent}% off
+                    </p>
+                    <p className="text-xs text-green-600">You save {inr(couponSaving)}</p>
+                  </div>
+                  <button
+                    onClick={removeCoupon}
+                    disabled={couponBusy}
+                    className="text-sm font-semibold text-red-500 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Enter coupon code"
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
+                    />
+                    <button
+                      onClick={() => applyCoupon(couponInput)}
+                      disabled={couponBusy || !couponInput.trim()}
+                      className="shrink-0 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {couponBusy ? "Applying…" : "Apply"}
+                    </button>
+                  </div>
+                  {myCoupons.filter((c) => !c.isUsed).length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                        Your coupons
+                      </p>
+                      {myCoupons
+                        .filter((c) => !c.isUsed)
+                        .map((c) => (
+                          <button
+                            key={c.couponId}
+                            onClick={() => applyCoupon(c.code)}
+                            disabled={couponBusy}
+                            className="flex w-full items-center justify-between rounded-xl border border-dashed border-orange-300 bg-orange-50/50 px-3.5 py-2.5 text-left disabled:opacity-50"
+                          >
+                            <span>
+                              <span className="block text-sm font-semibold text-gray-900">
+                                {c.code}
+                              </span>
+                              <span className="block text-xs text-gray-500">
+                                {c.description || `${c.discountPercent}% off your booking`}
+                              </span>
+                            </span>
+                            <span className="text-sm font-semibold text-orange-600">Apply</span>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </>
+              )}
+              {couponError && <p className="mt-2 text-sm text-red-500">{couponError}</p>}
+            </section>
+
             {/* Bill summary */}
             <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
               <h2 className="text-base font-bold text-gray-900">Bill summary</h2>
               <dl className="mt-4 space-y-2.5 text-sm">
                 <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
-                <Row label="Platform fee" value={inr(summary.platformFee ?? 0)} />
                 <Row label="Taxes (18%)" value={inr(summary.tax ?? 0)} />
                 {summary.discount ? (
                   <Row label="Discount" value={`− ${inr(summary.discount)}`} accent="text-green-600" />
+                ) : null}
+                {appliedCoupon && couponSaving > 0 ? (
+                  <Row
+                    label={`Coupon ${appliedCoupon.code}`}
+                    value={`− ${inr(couponSaving)}`}
+                    accent="text-green-600"
+                  />
                 ) : null}
               </dl>
               <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
