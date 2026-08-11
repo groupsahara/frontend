@@ -27,6 +27,14 @@ import {
   UsersIcon,
 } from "@/src/components/icons";
 
+/** 8100 → "2h 15m"; a partner who hasn't clocked on today reads as "—". */
+function dutyLabel(seconds: number): string {
+  if (!seconds) return "—";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.round((seconds % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
 function inr(n: number): string {
   return `₹${Math.round(n).toLocaleString("en-IN")}`;
 }
@@ -478,6 +486,7 @@ export default function ServicePartnersPage() {
                   <th className="px-5 py-3 font-medium">City</th>
                   <th className="px-5 py-3 font-medium">Rating</th>
                   <th className="px-5 py-3 font-medium">Wallet</th>
+                  <th className="px-5 py-3 font-medium">Today on duty</th>
                   <th className="px-5 py-3 font-medium">Status</th>
                   <th className="px-5 py-3 text-right font-medium">Action</th>
                 </tr>
@@ -516,6 +525,20 @@ export default function ServicePartnersPage() {
                       </span>
                     </td>
                     <td className="px-5 py-3 font-medium text-foreground">{inr(p.walletBalance)}</td>
+                    {/* Duty time so far today — click through for the full
+                        per-day log instead of hunting for the clock icon. */}
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => setActivityTarget(p)}
+                        title="Active hours & online/offline log"
+                        className="font-medium text-foreground underline-offset-2 hover:text-primary hover:underline"
+                      >
+                        {dutyLabel(p.todayActiveSeconds ?? 0)}
+                        {p.isOnline && (
+                          <span className="ml-1.5 text-xs font-normal text-success">• live</span>
+                        )}
+                      </button>
+                    </td>
                     <td className="px-5 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <PartnerStatusBadge status={p.onboardingStatus} />
