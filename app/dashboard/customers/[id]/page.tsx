@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -28,6 +27,7 @@ const couponStatusStyles: Record<string, string> = {
 
 export default function CustomerDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const userId = Number(params?.id);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -38,12 +38,19 @@ export default function CustomerDetailPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <Link
-        href="/dashboard/customers"
+      {/* Go back the way we came. This used to be a fixed link to
+          /dashboard/customers, so anyone arriving from CRM → Customers was
+          dropped on a different list that has no coupon action and no sidebar
+          entry — making the coupon option look like it had disappeared. */}
+      <button
+        type="button"
+        onClick={() =>
+          window.history.length > 1 ? router.back() : router.push("/dashboard/crm/customers")
+        }
         className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
       >
         ← Back to Customers
-      </Link>
+      </button>
 
       {isLoading ? (
         <div className="flex h-60 items-center justify-center text-muted-foreground">
