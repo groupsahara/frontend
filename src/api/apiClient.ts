@@ -163,6 +163,10 @@ async function request<T>(
 
   const finalHeaders: Record<string, string> = {
     Accept: "application/json",
+    // Ask for money amounts exactly as stored — GST-inclusive totals. Without
+    // this the booking list serves a pre-tax figure, for compatibility with an
+    // old customer-app build that multiplies it by 1.18 itself.
+    "x-amount-format": "inclusive",
     ...(headers as Record<string, string>),
   };
 
