@@ -445,6 +445,10 @@ export interface PartnerRow {
   profileImage: string | null;
   /** Dispatch team the partner belongs to (null = unassigned). */
   teamId: number | null;
+  /** Seconds on duty so far today (IST), including a session still open. */
+  todayActiveSeconds?: number;
+  /** Last proof the partner app was running (presence heartbeat). */
+  lastSeenAt?: string | null;
 }
 
 export interface PartnerDocuments {
