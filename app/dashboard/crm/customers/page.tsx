@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
@@ -26,7 +27,7 @@ import {
 import { PencilIcon, PlusIcon, SearchIcon, TrashIcon } from "@/src/components/icons";
 import { getStoredUser, hasPermission } from "@/src/lib/auth";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 export default function CrmCustomersPage() {
   const qc = useQueryClient();
@@ -123,7 +124,14 @@ export default function CrmCustomersPage() {
             <tr key={c.userId} className="transition-colors hover:bg-accent/50">
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-foreground">{c.name ?? "—"}</span>
+                  {/* The detail page is where coupons are granted. Without this
+                      link it had no route into it from anywhere in the panel. */}
+                  <Link
+                    href={`/dashboard/customers/${c.userId}`}
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    {c.name ?? `#${c.userId}`}
+                  </Link>
                   {c.isBlocked && <Badge tone="danger">Blocked</Badge>}
                 </div>
                 <div className="text-xs text-muted-foreground">#{c.userId}</div>
@@ -136,6 +144,13 @@ export default function CrmCustomersPage() {
               <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.createdAt)}</td>
               <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-2">
+                  <Link
+                    href={`/dashboard/customers/${c.userId}`}
+                    title="View profile & grant coupons"
+                    className="rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  >
+                    Coupons
+                  </Link>
                   {canManage && (
                     <Btn
                       small
