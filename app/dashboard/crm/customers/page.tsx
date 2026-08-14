@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/src/api/apiClient";
@@ -31,6 +31,7 @@ const PAGE_SIZE = 10;
 
 export default function CrmCustomersPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<CrmCustomerRow | null>(null);
@@ -121,20 +122,21 @@ export default function CrmCustomersPage() {
           {isLoading && <EmptyRow cols={5} label="Loading…" />}
           {!isLoading && !data?.customers.length && <EmptyRow cols={5} label="No customers found" />}
           {data?.customers.map((c) => (
-            <tr key={c.userId} className="transition-colors hover:bg-accent/50">
+            /* The whole row opens the customer. It used to link to
+               /dashboard/customers/:id, which is not a sidebar leaf — the
+               layout's routeAllowed() check bounced anyone who is not a super
+               admin to Analytics. A modal needs no route, so it works for
+               every role. */
+            <tr
+              key={c.userId}
+              onClick={() => router.push(`/dashboard/crm/customers/${c.userId}`)}
+              className="cursor-pointer transition-colors hover:bg-accent/50"
+            >
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  {/* The detail page is where coupons are granted. Without this
-                      link it had no route into it from anywhere in the panel. */}
-                  <Link
-                    href={`/dashboard/customers/${c.userId}`}
-                    className="font-medium text-foreground underline-offset-4 hover:underline"
-                  >
-                    {c.name ?? `#${c.userId}`}
-                  </Link>
+                  <span className="font-medium text-foreground">{c.name?.trim() || ""}</span>
                   {c.isBlocked && <Badge tone="danger">Blocked</Badge>}
                 </div>
-                <div className="text-xs text-muted-foreground">#{c.userId}</div>
               </td>
               <td className="px-4 py-3 text-muted-foreground">
                 <div>{c.mobile ?? "—"}</div>
@@ -143,14 +145,10 @@ export default function CrmCustomersPage() {
               <td className="px-4 py-3 text-foreground">{c.bookingCount}</td>
               <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.createdAt)}</td>
               <td className="px-4 py-3">
-                <div className="flex items-center justify-end gap-2">
-                  <Link
-                    href={`/dashboard/customers/${c.userId}`}
-                    title="View profile & grant coupons"
-                    className="rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  >
-                    Coupons
-                  </Link>
+                <div
+                  className="flex items-center justify-end gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {canManage && (
                     <Btn
                       small
@@ -361,7 +359,7 @@ function EditCustomerModal({
   });
 
   return (
-    <Modal title={`Edit customer #${customer.userId}`} onClose={onClose}>
+    <Modal title={customer.name?.trim() || `Customer #${customer.userId}`} onClose={onClose}>
       <form
         className="space-y-4"
         onSubmit={(e) => {
@@ -388,3 +386,4 @@ function EditCustomerModal({
     </Modal>
   );
 }
+
