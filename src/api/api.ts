@@ -2438,7 +2438,10 @@ export interface TaskListResponse {
 }
 
 export interface AssignableEmployee {
-  employeeId: number;
+  /** Null for a panel login that has no employee record yet. */
+  employeeId: number | null;
+  /** Set only when employeeId is null — assign by login instead. */
+  userId: number | null;
   name: string;
   email: string;
   designation: string | null;
@@ -2479,13 +2482,23 @@ export interface TaskListParams {
   limit?: number;
 }
 
+export type TaskRepeat = "DAILY" | "WEEKLY" | "MONTHLY";
+
+
 export interface CreateTaskInput {
   title: string;
   description?: string;
-  assigneeId: number;
+  /** Employee to assign to. Use assigneeUserId for a login with no employee record. */
+  assigneeId?: number;
+  assigneeUserId?: number;
   priority?: TaskPriority;
   status?: TaskStatus;
+  /** When the work should begin. */
+  startDate?: string;
   dueDate?: string;
+  isRepeating?: boolean;
+  repeatEvery?: TaskRepeat;
+  repeatUntil?: string;
 }
 
 export type UpdateTaskInput = Partial<CreateTaskInput>;

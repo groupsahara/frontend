@@ -4,14 +4,12 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   taskApi,
-  type AssignableEmployee,
-  type CreateTaskInput,
   type TaskPriority,
   type TaskRow,
   type TaskStatus,
 } from "@/src/api/api";
-import { ApiError } from "@/src/api/apiClient";
 import { TaskDetailDrawer } from "@/src/components/dashboard/task-detail-drawer";
+import { TaskFormModal } from "@/src/components/tasks/task-form";
 import { SearchIcon, SpinnerIcon, PlusIcon } from "@/src/components/icons";
 
 const STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE", "BLOCKED"];
@@ -204,129 +202,6 @@ function TaskCard({ task, onOpen, onMove }: { task: TaskRow; onOpen: () => void;
   );
 }
 
-/* ---------------------------- Create / Edit ---------------------------- */
-function TaskFormModal({ onClose }: { onClose: () => void }) {
-  const queryClient = useQueryClient();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [assigneeId, setAssigneeId] = useState<number | "">("");
-  const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
-  const [dueDate, setDueDate] = useState("");
-  const [err, setErr] = useState<string | null>(null);
 
-  const { data: employees } = useQuery({
-    queryKey: ["task-employees", ""],
-    queryFn: () => taskApi.employees(),
-  });
 
-  const create = useMutation({
-    mutationFn: (body: CreateTaskInput) => taskApi.create(body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      onClose();
-    },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not create the task."),
-  });
 
-  const submit = () => {
-    setErr(null);
-    if (!title.trim()) return setErr("Please enter a title.");
-    if (!assigneeId) return setErr("Please choose an employee to assign.");
-    create.mutate({
-      title: title.trim(),
-      description: description.trim() || undefined,
-      assigneeId: Number(assigneeId),
-      priority,
-      dueDate: dueDate || undefined,
-    });
-  };
-
-  return (
-    <Modal onClose={onClose} title="New Task">
-      <div className="space-y-4 p-5">
-        <Field label="Title">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What needs to be done?" className={inputCls} autoFocus />
-        </Field>
-        <Field label="Description">
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Details, checklist, links…" className={inputCls} />
-        </Field>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Assign to">
-            <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : "")} className={inputCls}>
-              <option value="">Select employee…</option>
-              {(employees ?? []).map((emp: AssignableEmployee) => (
-                <option key={emp.employeeId} value={emp.employeeId}>
-                  {emp.name}
-                  {emp.designation ? ` · ${emp.designation}` : ""}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Priority">
-            <select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)} className={inputCls}>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>
-                  {p.charAt(0) + p.slice(1).toLowerCase()}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
-        <Field label="Due date">
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputCls} />
-        </Field>
-        {err && <p className="text-sm text-danger">{err}</p>}
-      </div>
-      <ModalFooter>
-        <button onClick={onClose} className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
-          Cancel
-        </button>
-        <button
-          onClick={submit}
-          disabled={create.isPending}
-          className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {create.isPending && <SpinnerIcon className="h-4 w-4" />} Create &amp; assign
-        </button>
-      </ModalFooter>
-    </Modal>
-  );
-}
-
-/* ------------------------------ primitives ----------------------------- */
-const inputCls =
-  "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/30";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Modal({ title, children, onClose, wide }: { title: string; children: React.ReactNode; onClose: () => void; wide?: boolean }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
-      <div
-        className={`relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl ${
-          wide ? "max-w-4xl" : "max-w-lg"
-        }`}
-      >
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground">
-            ✕
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function ModalFooter({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center justify-end gap-2 border-t border-border p-4">{children}</div>;
-}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { workspacesApi, type WorkspaceRow } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
-import { BuildingIcon, PlusIcon, SpinnerIcon, UsersIcon } from "@/src/components/icons";
+import { BuildingIcon, PlusIcon, SpinnerIcon, TrashIcon, UsersIcon } from "@/src/components/icons";
 import { hasPermission } from "@/src/lib/auth";
 
 /**
@@ -15,6 +15,9 @@ import { hasPermission } from "@/src/lib/auth";
  */
 export default function WorkspacesPage() {
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<WorkspaceRow | null>(null);
+  // Creating and deleting a workspace are platform acts, not workspace ones —
+  // a workspace owner runs their own workspace but cannot remove it.
   const canManage = hasPermission("workspaces.manage");
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -72,27 +75,55 @@ export default function WorkspacesPage() {
           style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}
         >
           {workspaces.map((w) => (
-            <WorkspaceCard key={w.workspaceId} workspace={w} />
+            <WorkspaceCard
+              key={w.workspaceId}
+              workspace={w}
+              onDelete={canManage ? () => setDeleting(w) : undefined}
+            />
           ))}
         </div>
       )}
 
       {creating && <CreateWorkspaceModal onClose={() => setCreating(false)} />}
+      {deleting && (
+        <DeleteWorkspaceModal workspace={deleting} onClose={() => setDeleting(null)} />
+      )}
     </div>
   );
 }
 
-function WorkspaceCard({ workspace: w }: { workspace: WorkspaceRow }) {
+function WorkspaceCard({
+  workspace: w,
+  onDelete,
+}: {
+  workspace: WorkspaceRow;
+  onDelete?: () => void;
+}) {
   return (
     <Link
       href={`/dashboard/workspaces/${w.workspaceId}`}
-      className="group rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40"
+      className="group relative rounded-2xl border border-border bg-card p-5 transition hover:border-primary/40"
     >
       <div className="flex items-start justify-between gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
           <BuildingIcon className="h-5 w-5" />
         </span>
         <div className="flex items-center gap-1.5">
+          {onDelete && (
+            <button
+              type="button"
+              title="Delete workspace"
+              // The card is a link, so the click must not also navigate.
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete();
+              }}
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-danger/10 hover:text-danger"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          )}
           {w.isOwner && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
               Owner
@@ -266,6 +297,78 @@ function CreateWorkspaceModal({ onClose }: { onClose: () => void }) {
             className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
             {create.isPending && <SpinnerIcon className="h-4 w-4" />} Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Deleting a workspace takes its roles, members and task board with it (the
+ * schema cascades), so the confirmation says exactly what goes and asks for the
+ * name to be typed — the same bar as any other destructive panel action.
+ */
+function DeleteWorkspaceModal({
+  workspace,
+  onClose,
+}: {
+  workspace: WorkspaceRow;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [confirmText, setConfirmText] = useState("");
+  const [err, setErr] = useState("");
+
+  const remove = useMutation({
+    mutationFn: () => workspacesApi.remove(workspace.workspaceId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workspaces"] });
+      onClose();
+    },
+    onError: (e) =>
+      setErr(e instanceof ApiError ? e.message : "Could not delete this workspace."),
+  });
+
+  const matches = confirmText.trim() === workspace.name.trim();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden />
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+        <h3 className="text-base font-semibold text-foreground">Delete “{workspace.name}”?</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This removes the workspace along with its{" "}
+          <strong className="text-foreground">roles, members and every task on its board</strong>.
+          The member logins themselves are kept. This cannot be undone.
+        </p>
+
+        <label className="mt-4 block text-sm text-muted-foreground">
+          Type <strong className="text-foreground">{workspace.name}</strong> to confirm
+          <input
+            className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-danger"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            autoFocus
+          />
+        </label>
+
+        {err && <p className="mt-3 text-sm text-danger">{err}</p>}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => remove.mutate()}
+            disabled={!matches || remove.isPending}
+            className="inline-flex items-center gap-2 rounded-xl bg-danger px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {remove.isPending && <SpinnerIcon className="h-4 w-4 animate-spin" />}
+            Delete workspace
           </button>
         </div>
       </div>
