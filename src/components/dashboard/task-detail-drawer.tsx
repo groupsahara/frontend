@@ -168,13 +168,19 @@ export function TaskDetailDrawer({
                 </select>
               </Prop>
               <Prop label="Assignee">
+                {/* Reassignment moves the task to an existing employee record.
+                    Logins that have never been assigned anything do not have one
+                    yet, so they are offered on the create form — which creates
+                    it — rather than here. */}
                 {isManage ? (
                   <select value={task.assigneeId} onChange={(e) => patch.mutate({ assigneeId: Number(e.target.value) })} className={inputCls}>
-                    {(employees ?? []).map((emp: AssignableEmployee) => (
-                      <option key={emp.employeeId} value={emp.employeeId}>
-                        {emp.name}
-                      </option>
-                    ))}
+                    {(employees ?? [])
+                      .filter((emp: AssignableEmployee) => emp.employeeId != null)
+                      .map((emp: AssignableEmployee) => (
+                        <option key={emp.employeeId} value={emp.employeeId as number}>
+                          {emp.name}
+                        </option>
+                      ))}
                   </select>
                 ) : (
                   <div className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-foreground">{task.assignee.name}</div>
