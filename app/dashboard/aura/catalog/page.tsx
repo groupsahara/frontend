@@ -163,6 +163,7 @@ const BLANK_ENTRY = {
   category: "OTHER" as AuraCategory,
   pointsPerHour: null,
   isDistracting: false,
+  isSystem: false,
   updatedAt: "",
   totalMinutes: 0,
   userCount: 0,
@@ -183,6 +184,7 @@ function CatalogModal({
     category: AuraCategory;
     pointsPerHour: number | null;
     isDistracting: boolean;
+    isSystem: boolean;
   }) => void;
 }) {
   const isNew = !entry.id;
@@ -191,6 +193,7 @@ function CatalogModal({
   const [category, setCategory] = useState<AuraCategory>(entry.category);
   const [override, setOverride] = useState(entry.pointsPerHour?.toString() ?? "");
   const [isDistracting, setIsDistracting] = useState(entry.isDistracting);
+  const [isSystem, setIsSystem] = useState(entry.isSystem);
 
   const submit = () => {
     if (!packageName.trim()) return toast.error("Package name is required");
@@ -204,6 +207,7 @@ function CatalogModal({
       category,
       pointsPerHour: parsed,
       isDistracting,
+      isSystem,
     });
   };
 
@@ -258,6 +262,22 @@ function CatalogModal({
             className="h-4 w-4 rounded border-border accent-[var(--primary)]"
           />
           Flag as distracting in the app&apos;s screen-time view
+        </label>
+
+        <label className="flex items-start gap-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={isSystem}
+            onChange={(event) => setIsSystem(event.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-border accent-[var(--primary)]"
+          />
+          <span>
+            Phone plumbing — exclude from screen time
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              For launchers, System UI and permission dialogs. Their minutes are the gaps between
+              real apps, so counting them inflates every total.
+            </span>
+          </span>
         </label>
 
         {!isNew && entry.totalMinutes > 0 && (
