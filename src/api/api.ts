@@ -4398,6 +4398,8 @@ export interface AuraCatalogEntry {
   category: AuraCategory;
   pointsPerHour: number | null;
   isDistracting: boolean;
+  /** Launchers and System UI: excluded from screen time rather than counted. */
+  isSystem: boolean;
   updatedAt: string;
   totalMinutes: number;
   userCount: number;
@@ -4473,6 +4475,7 @@ export const auraApi = {
     category: AuraCategory;
     pointsPerHour?: number | null;
     isDistracting?: boolean;
+    isSystem?: boolean;
   }) => apiClient.put<AuraCatalogEntry>("/v1/aura/admin/catalog", body),
 
   /** DELETE /v1/aura/admin/catalog/:packageName */
