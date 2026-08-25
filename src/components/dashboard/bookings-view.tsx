@@ -36,12 +36,15 @@ import {
   TrashIcon,
   UsersIcon,
 } from "@/src/components/icons";
+import { BookingAnalytics } from "@/src/components/dashboard/booking-analytics";
 
 const PAGE_SIZE = 20;
 
 /** Filter tabs. "OUT_OF_ZONE" is not a status — it filters bookings placed
- *  outside every active service zone (the "coming soon in your area" demand). */
-type BookingTab = AdminBookingStatus | "ALL" | "OUT_OF_ZONE";
+ *  outside every active service zone (the "coming soon in your area" demand).
+ *  "ANALYTICS" is not a filter at all: it swaps the table for the booking
+ *  analytics report. */
+type BookingTab = AdminBookingStatus | "ALL" | "OUT_OF_ZONE" | "ANALYTICS";
 
 const TABS: { key: BookingTab; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -49,6 +52,7 @@ const TABS: { key: BookingTab; label: string }[] = [
   { key: "COMPLETED", label: "Completed" },
   { key: "CANCELLED", label: "Cancelled" },
   { key: "OUT_OF_ZONE", label: "Coming Soon" },
+  { key: "ANALYTICS", label: "Analytics" },
 ];
 
 /** Tailwind classes per booking status badge. */
@@ -219,7 +223,7 @@ export function BookingsView() {
     try {
       // Same filters as the table, so the file matches what's on screen.
       await downloadBookingsCsv({
-        status: tab === "ALL" || tab === "OUT_OF_ZONE" ? undefined : tab,
+        status: tab === "ALL" || tab === "OUT_OF_ZONE" || tab === "ANALYTICS" ? undefined : tab,
         outOfServiceArea: tab === "OUT_OF_ZONE" ? "true" : undefined,
         search: search.trim() || undefined,
         from: dateFrom || undefined,
@@ -263,7 +267,7 @@ export function BookingsView() {
   }, [tab, search, dateFrom, dateTo]);
 
   const params = {
-    status: tab === "ALL" || tab === "OUT_OF_ZONE" ? undefined : tab,
+    status: tab === "ALL" || tab === "OUT_OF_ZONE" || tab === "ANALYTICS" ? undefined : tab,
     outOfServiceArea: tab === "OUT_OF_ZONE" ? true : undefined,
     search: search.trim() || undefined,
     from: dateFrom || undefined,
@@ -276,6 +280,8 @@ export function BookingsView() {
     queryKey: queryKeys.adminBookings(params),
     queryFn: () => dashboardApi.listBookings(params),
     placeholderData: keepPreviousData,
+    // The analytics tab renders its own report — don't fetch the table behind it.
+    enabled: tab !== "ANALYTICS",
   });
 
   const deleteBooking = useMutation({
@@ -473,23 +479,29 @@ export function BookingsView() {
                 }`}
               >
                 {t.label}
-                <sup className="ml-1 text-xs">({count ?? 0})</sup>
+                {t.key !== "ANALYTICS" && <sup className="ml-1 text-xs">({count ?? 0})</sup>}
               </button>
             );
           })}
         </div>
 
-        <div className="relative w-full max-w-sm pb-2">
-          <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, mobile, booking ID or date"
-            className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
-          />
-        </div>
+        {tab !== "ANALYTICS" && (
+          <div className="relative w-full max-w-sm pb-2">
+            <SearchIcon className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, mobile, booking ID or date"
+              className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+            />
+          </div>
+        )}
       </div>
 
+      {tab === "ANALYTICS" ? (
+        <BookingAnalytics />
+      ) : (
+        <>
       {/* Date-range filter (by booking date) */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
@@ -916,6 +928,8 @@ export function BookingsView() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {confirmBulk && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

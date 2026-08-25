@@ -17,6 +17,7 @@ import { hasPermission } from "@/src/lib/auth";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 import { PartnerStatusBadge } from "@/src/components/dashboard/partner-status";
 import { PartnerActivityModal } from "@/src/components/dashboard/partner-activity-modal";
+import { PartnerAnalytics } from "@/src/components/dashboard/partner-analytics";
 import {
   ClockIcon,
   PencilIcon,
@@ -138,7 +139,9 @@ function GroomingModuleCard() {
   );
 }
 
-type StatusTab = PartnerOnboardingStatus | "ALL";
+/** "ANALYTICS" is not an onboarding filter — it swaps the partner table for
+ *  the partner analytics report. */
+type StatusTab = PartnerOnboardingStatus | "ALL" | "ANALYTICS";
 
 const STATUS_TABS: { key: StatusTab; label: string }[] = [
   { key: "PENDING", label: "Pending" },
@@ -146,6 +149,7 @@ const STATUS_TABS: { key: StatusTab; label: string }[] = [
   { key: "ACTIVE", label: "Active" },
   { key: "REJECTED", label: "Rejected" },
   { key: "ALL", label: "All" },
+  { key: "ANALYTICS", label: "Analytics" },
 ];
 
 // Duty filter, applied on top of the onboarding tab: onboarding status says
@@ -181,8 +185,11 @@ export default function ServicePartnersPage() {
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: queryKeys.partners(search.trim(), statusTab),
-    queryFn: () => dispatcherApi.listPartners(search.trim() || undefined, statusTab),
+    queryFn: () =>
+      dispatcherApi.listPartners(search.trim() || undefined, statusTab === "ANALYTICS" ? "ALL" : statusTab),
     placeholderData: keepPreviousData,
+    // The analytics tab renders its own report — don't fetch the table behind it.
+    enabled: statusTab !== "ANALYTICS",
   });
 
   const { data: counts } = useQuery({
@@ -342,6 +349,7 @@ export default function ServicePartnersPage() {
       <GroomingModuleCard />
 
       {/* Search */}
+      {statusTab !== "ANALYTICS" && (
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-xs">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -359,12 +367,13 @@ export default function ServicePartnersPage() {
           </span>
         )}
       </div>
+      )}
 
       {/* Onboarding tabs — Pending is the review queue admins act on first. */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border">
         {STATUS_TABS.map((tab) => {
           const active = statusTab === tab.key;
-          const count = counts?.[tab.key];
+          const count = tab.key === "ANALYTICS" ? undefined : counts?.[tab.key];
           return (
             <button
               key={tab.key}
@@ -394,6 +403,10 @@ export default function ServicePartnersPage() {
         })}
       </div>
 
+      {statusTab === "ANALYTICS" ? (
+        <PartnerAnalytics />
+      ) : (
+        <>
       {/* Duty filter — who is on duty right now, within the tab above. */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -627,6 +640,8 @@ export default function ServicePartnersPage() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {deleteTarget && (
         <ConfirmDialog
