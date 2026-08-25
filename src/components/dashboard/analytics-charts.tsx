@@ -83,6 +83,69 @@ function labelIndices(n: number, maxCount = 6): Set<number> {
   return idx;
 }
 
+/** Width-aware x-label budget: one label per ~70px of plot, clamped 4–10. */
+function maxXLabels(plotW: number): number {
+  return Math.max(4, Math.min(10, Math.floor(plotW / 70)));
+}
+
+/** "Sun, 2 Aug 2026" for daily buckets; week/month buckets keep their label. */
+function fullDateLabel(series: AnalyticsSeriesPoint[], i: number): string {
+  const p = series[i];
+  const next = series[i + 1] ?? series[i - 1];
+  if (!next) return p.label;
+  const step = Math.abs(new Date(next.date).getTime() - new Date(p.date).getTime());
+  if (step !== 86_400_000) return p.label;
+  return new Date(p.date).toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** Dashed neutral reference line for the period average, labelled at the right
+ *  edge — dashed so it never impersonates the solid recessive gridlines. */
+function AvgLine({ y, label, W }: { y: number; label: string; W: number }) {
+  return (
+    <g pointerEvents="none">
+      <line
+        x1={PAD_L}
+        x2={W - PAD_R}
+        y1={y}
+        y2={y}
+        stroke="var(--muted-foreground)"
+        strokeOpacity="0.5"
+        strokeWidth="1"
+        strokeDasharray="4 3"
+      />
+      <text x={PAD_L + 4} y={y - 4} fontSize="9.5" fill="var(--muted-foreground)">
+        {label}
+      </text>
+    </g>
+  );
+}
+
+/** The hovered date, highlighted on the axis band under the crosshair. */
+function HoverDatePill({ x, label, W }: { x: number; label: string; W: number }) {
+  const w = label.length * 5.6 + 16;
+  const left = Math.max(PAD_L, Math.min(W - PAD_R - w, x - w / 2));
+  return (
+    <g pointerEvents="none">
+      <rect x={left} y={H - 20} width={w} height={16} rx={8} fill="var(--accent)" />
+      <text
+        x={left + w / 2}
+        y={H - 8.5}
+        textAnchor="middle"
+        fontSize="10"
+        fontWeight={600}
+        fill="var(--accent-foreground)"
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
 /** Track the rendered width of a wrapper so the SVG can draw at 1:1 pixels. */
 function useMeasuredWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
@@ -281,10 +344,14 @@ export function RevenueTrendCard({ series }: { series: AnalyticsSeriesPoint[] })
     const line = pts.map((p) => `${p.x},${p.y}`).join(" ");
     const area = `${line} ${x(n - 1)},${PAD_T + plotH} ${x(0)},${PAD_T + plotH}`;
     const ticks = fractionTicks(max).map((v) => ({ v, y: y(v) }));
-    return { max, pts, line, area, ticks, plotH, plotW };
+    // Period context: the average revenue per bucket, and the peak bucket —
+    // both get a quiet annotation so a spike reads as a fact, not a mystery.
+    const avg = series.reduce((s, p) => s + p.revenue, 0) / n;
+    const peakIdx = series.reduce((best, p, i) => (p.revenue > series[best].revenue ? i : best), 0);
+    return { max, pts, line, area, ticks, plotH, plotW, y, avg, peakIdx };
   }, [series, n, W]);
 
-  const xLabels = useMemo(() => labelIndices(n), [n]);
+  const xLabels = useMemo(() => labelIndices(n, maxXLabels(W - PAD_L - PAD_R)), [n, W]);
 
   // The SVG draws at its measured CSS width, so clientX maps 1:1 into the
   // viewBox — no letterbox/scale correction needed.
@@ -357,6 +424,9 @@ export function RevenueTrendCard({ series }: { series: AnalyticsSeriesPoint[] })
               strokeLinejoin="round"
             />
 
+            {/* period-average reference line (under the hover marker) */}
+            {geom!.avg > 0 && <AvgLine y={geom!.y(geom!.avg)} label={`avg ${tickLabel(geom!.avg, true)}`} W={W} />}
+
             {/* crosshair + snapped marker */}
             {hover != null && (
               <g>
@@ -390,6 +460,33 @@ export function RevenueTrendCard({ series }: { series: AnalyticsSeriesPoint[] })
               strokeWidth="2"
             />
 
+            {/* peak annotation — marker + direct value label (selective: the
+                one point the reader will ask about) */}
+            {series[geom!.peakIdx].revenue > 0 && (
+              <g pointerEvents="none">
+                {geom!.peakIdx !== n - 1 && (
+                  <circle
+                    cx={geom!.pts[geom!.peakIdx].x}
+                    cy={geom!.pts[geom!.peakIdx].y}
+                    r="3.5"
+                    fill="var(--chart-1)"
+                    stroke="var(--card)"
+                    strokeWidth="2"
+                  />
+                )}
+                <text
+                  x={Math.max(PAD_L + 18, Math.min(W - PAD_R - 18, geom!.pts[geom!.peakIdx].x))}
+                  y={Math.max(PAD_T + 9, geom!.pts[geom!.peakIdx].y - 9)}
+                  textAnchor="middle"
+                  fontSize="10.5"
+                  fontWeight={600}
+                  fill="var(--foreground)"
+                >
+                  {tickLabel(series[geom!.peakIdx].revenue, true)}
+                </text>
+              </g>
+            )}
+
             {/* x labels (subset, collision-free) */}
             {series.map((p, i) =>
               xLabels.has(i) ? (
@@ -405,12 +502,22 @@ export function RevenueTrendCard({ series }: { series: AnalyticsSeriesPoint[] })
                 </text>
               ) : null,
             )}
+
+            {/* hovered date, highlighted on the axis */}
+            {hover != null && <HoverDatePill x={geom!.pts[hover].x} label={series[hover].label} W={W} />}
           </svg>
 
           {hover != null && (
-            <ChartTooltip xPx={geom!.pts[hover].x} containerW={W} title={series[hover].label}>
+            <ChartTooltip xPx={geom!.pts[hover].x} containerW={W} title={fullDateLabel(series, hover)}>
               <TooltipRow color="var(--chart-1)" label="Revenue" value={inr(series[hover].revenue)} />
               <TooltipRow color="var(--muted-foreground)" label="Bookings" value={num(series[hover].bookings)} />
+              <TooltipRow color="var(--success)" label="Completed" value={num(series[hover].completed)} />
+              <TooltipRow color="var(--danger)" label="Cancelled" value={num(series[hover].cancelled)} />
+              <TooltipRow
+                color="var(--muted-foreground)"
+                label="Avg order value"
+                value={series[hover].completed > 0 ? inr(series[hover].revenue / series[hover].completed) : "—"}
+              />
             </ChartTooltip>
           )}
         </div>
@@ -456,10 +563,14 @@ export function BookingsTrendCard({ series }: { series: AnalyticsSeriesPoint[] }
     const barW = Math.min(24, Math.max(4, band * 0.55));
     const y = (v: number) => PAD_T + plotH - (v / max) * plotH;
     const ticks = integerTicks(max).map((v) => ({ v, y: y(v) }));
-    return { max, band, barW, y, ticks, plotH, plotW };
+    // Period context for the annotations: average bookings per bucket and the
+    // busiest bucket.
+    const avg = rows.reduce((s, p) => s + p.bookings, 0) / n;
+    const peakIdx = rows.reduce((best, p, i) => (p.bookings > rows[best].bookings ? i : best), 0);
+    return { max, band, barW, y, ticks, plotH, plotW, avg, peakIdx };
   }, [rows, n, W]);
 
-  const xLabels = useMemo(() => labelIndices(n), [n]);
+  const xLabels = useMemo(() => labelIndices(n, maxXLabels(W - PAD_L - PAD_R)), [n, W]);
 
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!geom || n === 0) return;
@@ -561,6 +672,29 @@ export function BookingsTrendCard({ series }: { series: AnalyticsSeriesPoint[] }
               );
             })}
 
+            {/* period-average reference line */}
+            {geom!.avg > 0 && (
+              <AvgLine y={geom!.y(geom!.avg)} label={`avg ${num(Math.round(geom!.avg))}`} W={W} />
+            )}
+
+            {/* busiest bucket gets its total as a direct label */}
+            {rows[geom!.peakIdx].bookings > 0 && (
+              <text
+                pointerEvents="none"
+                x={Math.max(
+                  PAD_L + 12,
+                  Math.min(W - PAD_R - 12, PAD_L + geom!.band * geom!.peakIdx + geom!.band / 2),
+                )}
+                y={Math.max(PAD_T + 9, geom!.y(rows[geom!.peakIdx].bookings) - 7)}
+                textAnchor="middle"
+                fontSize="10.5"
+                fontWeight={600}
+                fill="var(--foreground)"
+              >
+                {num(rows[geom!.peakIdx].bookings)}
+              </text>
+            )}
+
             {series.map((p, i) =>
               xLabels.has(i) ? (
                 <text
@@ -575,17 +709,23 @@ export function BookingsTrendCard({ series }: { series: AnalyticsSeriesPoint[] }
                 </text>
               ) : null,
             )}
+
+            {/* hovered date, highlighted on the axis */}
+            {hover != null && (
+              <HoverDatePill x={PAD_L + geom!.band * hover + geom!.band / 2} label={series[hover].label} W={W} />
+            )}
           </svg>
 
           {hover != null && (
             <ChartTooltip
               xPx={PAD_L + geom!.band * hover + geom!.band / 2}
               containerW={W}
-              title={`${series[hover].label} · ${num(series[hover].bookings)} bookings`}
+              title={`${fullDateLabel(series, hover)} · ${num(series[hover].bookings)} bookings`}
             >
               {OUTCOME.map((o) => (
                 <TooltipRow key={o.key} color={o.color} label={o.label} value={num(rows[hover][o.key])} />
               ))}
+              <TooltipRow color="var(--chart-1)" label="Revenue" value={inr(series[hover].revenue)} />
             </ChartTooltip>
           )}
         </div>
