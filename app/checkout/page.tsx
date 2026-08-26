@@ -241,13 +241,20 @@ export default function CheckoutPage() {
   const couponTarget = appliedCoupon
     ? [...cartItems2].sort((a, b) => (b.total || b.price) - (a.total || a.price))[0]
     : undefined;
+  // A FLAT_TOTAL coupon fixes the whole bill (e.g. ₹1) whatever the service
+  // costs, so the saving is the remainder rather than a percentage of one line.
+  const isFlatCoupon =
+    appliedCoupon?.discountType === "FLAT_TOTAL" && appliedCoupon.flatTotal != null;
+  const cartGrandTotal = summary.grandTotal ?? 0;
   const couponBaseDiscount =
-    appliedCoupon && couponTarget
+    appliedCoupon && couponTarget && !isFlatCoupon
       ? Math.round((couponTarget.total || couponTarget.price) * (appliedCoupon.discountPercent / 100) * 100) / 100
       : 0;
   // What the customer saves is GST-inclusive — the same maths the app shows.
-  const couponSaving = Math.round(couponBaseDiscount * 1.18 * 100) / 100;
-  const grandTotal = Math.max(0, Math.round(((summary.grandTotal ?? 0) - couponSaving) * 100) / 100);
+  const couponSaving = isFlatCoupon
+    ? Math.max(0, Math.round((cartGrandTotal - (appliedCoupon!.flatTotal as number)) * 100) / 100)
+    : Math.round(couponBaseDiscount * 1.18 * 100) / 100;
+  const grandTotal = Math.max(0, Math.round((cartGrandTotal - couponSaving) * 100) / 100);
 
   useEffect(() => {
     if (!user) return;
@@ -425,7 +432,12 @@ export default function CheckoutPage() {
         variantId: item.variantId ?? null,
         bookingDate: sched?.date || fallbackDate,
         startTime: sched?.startTime || fallbackTime,
-        totalAmount: discounted ? Math.round((base - couponBaseDiscount) * 100) / 100 : base,
+        // A flat coupon has no per-line share to compute — the server prices
+        // those from the booking itself and ignores this figure.
+        totalAmount:
+          discounted && !isFlatCoupon
+            ? Math.round((base - couponBaseDiscount) * 100) / 100
+            : base,
         serviceLat: lat,
         serviceLng: lng,
         serviceCity: city.trim(),
@@ -723,7 +735,10 @@ export default function CheckoutPage() {
                 <div className="mt-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5">
                   <div>
                     <p className="text-sm font-semibold text-green-700">
-                      {appliedCoupon.code} · {appliedCoupon.discountPercent}% off
+                      {appliedCoupon.code} ·{" "}
+                      {isFlatCoupon
+                        ? `pay only ₹${appliedCoupon.flatTotal}`
+                        : `${appliedCoupon.discountPercent}% off`}
                     </p>
                     <p className="text-xs text-green-600">You save {inr(couponSaving)}</p>
                   </div>
@@ -763,7 +778,7 @@ export default function CheckoutPage() {
                           <button
                             key={c.couponId}
                             onClick={() => applyCoupon(c.code)}
-                            disabled={couponBusy}
+                            disabled={couponBusy || !!appliedCoupon}
                             className="flex w-full items-center justify-between rounded-xl border border-dashed border-orange-300 bg-orange-50/50 px-3.5 py-2.5 text-left disabled:opacity-50"
                           >
                             <span>
@@ -771,10 +786,14 @@ export default function CheckoutPage() {
                                 {c.code}
                               </span>
                               <span className="block text-xs text-gray-500">
-                                {c.description || `${c.discountPercent}% off your booking`}
+                                {c.discountType === "FLAT_TOTAL" && c.flatTotal != null
+                                  ? `Pay only ₹${c.flatTotal} for this booking`
+                                  : c.description || `${c.discountPercent}% off your booking`}
                               </span>
                             </span>
-                            <span className="text-sm font-semibold text-orange-600">Apply</span>
+                            <span className="text-sm font-semibold text-orange-600">
+                              {c.isApplied ? "APPLIED" : "Apply"}
+                            </span>
                           </button>
                         ))}
                     </div>

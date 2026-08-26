@@ -956,6 +956,22 @@ export interface CustomerDetail {
   bookings: CustomerBooking[];
 }
 
+/** A coupon every customer may redeem once, priced as a fixed total. */
+export interface CampaignCoupon {
+  couponId: number;
+  code: string;
+  description: string;
+  discountType: "PERCENT" | "FLAT_TOTAL";
+  /** What the customer pays in total, GST included. */
+  flatTotal: number | null;
+  validTill: string;
+  isActive: boolean;
+  maxRedemptions: number | null;
+  redemptions: number;
+  status: "ACTIVE" | "DISABLED" | "EXPIRED" | "EXHAUSTED";
+  createdAt: string;
+}
+
 export interface AdminCoupon {
   couponId: number;
   code: string;
@@ -981,6 +997,24 @@ export const customersApi = {
   /** GET /v1/admin/customers/:id/coupons — every coupon the customer holds. */
   coupons: (userId: number) =>
     apiClient.get<AdminCoupon[]>(`/v1/admin/customers/${userId}/coupons`),
+
+  /** GET /v1/admin/coupons/campaigns — coupons any customer may redeem once. */
+  campaigns: () => apiClient.get<CampaignCoupon[]>("/v1/admin/coupons/campaigns"),
+
+  /** POST /v1/admin/coupons/campaigns — create one (e.g. pay ₹1 for any service). */
+  createCampaign: (body: {
+    code: string;
+    flatTotal: number;
+    validTill: string;
+    description?: string;
+    maxRedemptions?: number;
+  }) => apiClient.post<CampaignCoupon>("/v1/admin/coupons/campaigns", body),
+
+  /** PATCH /v1/admin/coupons/campaigns/:id — switch off or change validity. */
+  updateCampaign: (
+    couponId: number,
+    body: { isActive?: boolean; validTill?: string; maxRedemptions?: number },
+  ) => apiClient.patch<CampaignCoupon>(`/v1/admin/coupons/campaigns/${couponId}`, body),
 
   /** POST /v1/admin/customers/:id/coupons — grant N one-time 50%-off coupons. */
   grantCoupons: (userId: number, count: number) =>
@@ -1949,6 +1983,10 @@ export interface CustomerCoupon {
   isApplied: boolean;
   isUsed: boolean;
   expiresAt: string;
+  /** FLAT_TOTAL fixes the whole bill; a percentage cannot express that. */
+  discountType?: "PERCENT" | "FLAT_TOTAL";
+  /** For FLAT_TOTAL: the total the customer pays, GST included. */
+  flatTotal?: number | null;
 }
 
 /** Customer coupons — the same endpoints the mobile app uses. */

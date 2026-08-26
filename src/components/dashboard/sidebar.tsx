@@ -174,6 +174,7 @@ const CRM_NAV: NavGroup = {
     { label: "Restaurants", href: "/dashboard/crm/restaurants", icon: StoreIcon, permission: "restaurants.view" },
     { label: "Sales Leads", href: "/dashboard/crm/sales-leads", icon: TagIcon, permission: "sales-leads.view" },
     { label: "Customers", href: "/dashboard/crm/customers", icon: UsersIcon, permission: "customers.view" },
+    { label: "Coupons", href: "/dashboard/crm/coupons", icon: TagIcon, permission: "customers.view" },
     { label: "Partners", href: "/dashboard/crm/partners", icon: UsersIcon, permission: "partners.view" },
     { label: "Bookings", href: "/dashboard/crm/bookings", icon: BagIcon, permission: "bookings.view" },
     { label: "Operations", href: "/dashboard/crm/operations", icon: RouteIcon, permission: "ops.view" },
