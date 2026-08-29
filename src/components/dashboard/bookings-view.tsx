@@ -37,6 +37,7 @@ import {
   UsersIcon,
 } from "@/src/components/icons";
 import { BookingAnalytics } from "@/src/components/dashboard/booking-analytics";
+import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 
 const PAGE_SIZE = 20;
 
@@ -173,6 +174,8 @@ export function BookingsView() {
   // Cancelling from the panel captures a reason, which is stored on the booking
   // and shown in the table — otherwise a cancellation has no explanation.
   const [cancelTarget, setCancelTarget] = useState<AdminBooking | null>(null);
+  // Completing bills the customer and unlocks the invoice, so it confirms first.
+  const [completeTarget, setCompleteTarget] = useState<AdminBooking | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
   // Checkbox multi-select for bulk delete (ids survive page/filter changes so
   // an admin can gather a selection across pages).
@@ -325,6 +328,19 @@ export function BookingsView() {
     onError: (e) => {
       setCancelTarget(null);
       setNotice(e instanceof ApiError ? e.message : "Could not cancel the booking.");
+    },
+  });
+
+  const completeBooking = useMutation({
+    mutationFn: (id: number) => crmApi.updateBookingStatus(id, "COMPLETED"),
+    onSuccess: () => {
+      setCompleteTarget(null);
+      setNotice("Booking marked complete.");
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    },
+    onError: (e) => {
+      setCompleteTarget(null);
+      setNotice(e instanceof ApiError ? e.message : "Could not complete the booking.");
     },
   });
 
@@ -869,6 +885,18 @@ export function BookingsView() {
                             <TrashIcon className="h-4 w-4" />
                           </button>
                         )}
+                        {showActions && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
+                          <button
+                            onClick={() => {
+                              setNotice(null);
+                              setCompleteTarget(b);
+                            }}
+                            title="Mark this booking as completed"
+                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-success transition hover:bg-success/10"
+                          >
+                            Complete
+                          </button>
+                        ) : null}
                         {/* Cancelling asks for a reason, stored on the booking
                             and shown in this table. */}
                         {showActions && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
@@ -929,6 +957,17 @@ export function BookingsView() {
         )}
       </div>
         </>
+      )}
+
+      {completeTarget && (
+        <ConfirmDialog
+          title={`Mark ${completeTarget.id} as completed?`}
+          message="This closes the job as done, bills the customer for it and makes the invoice available. It can't be reopened afterwards."
+          confirmLabel="Mark complete"
+          busy={completeBooking.isPending}
+          onConfirm={() => completeBooking.mutate(completeTarget.bookingId)}
+          onCancel={() => setCompleteTarget(null)}
+        />
       )}
 
       {confirmBulk && (
