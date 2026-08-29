@@ -50,6 +50,14 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc: string }> = {
   crm: { icon: GridIcon, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", desc: "CRM overview access" },
   analytics: { icon: ChartIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "KPIs, trends & breakdowns" },
+  // Separate from analytics on purpose: it reads the same numbers out loud and
+  // holds the microphone open, so it is granted deliberately.
+  "ai-analyst": {
+    icon: ChartIcon,
+    color: "#a78bfa",
+    bg: "rgba(167,139,250,0.12)",
+    desc: "Voice analyst — clap twice, hear the week",
+  },
   categories: { icon: StoreIcon, color: "#ffc845", bg: "rgba(255,200,69,0.12)", desc: "Service categories" },
   banners: { icon: ImageIcon, color: "#e879f9", bg: "rgba(232,121,249,0.12)", desc: "Landing page banners" },
   dispatcher: { icon: RouteIcon, color: "#10b981", bg: "rgba(16,185,129,0.12)", desc: "Teams, zones & allocation" },
@@ -156,6 +164,7 @@ const MODULE_GROUPS: { id: string; label: string; desc: string; icon: Icon; modu
     icon: SettingsIcon,
     modules: [
       "analytics",
+      "ai-analyst",
       "categories",
       "banners",
       "vendors",
