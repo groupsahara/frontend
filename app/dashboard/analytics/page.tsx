@@ -14,6 +14,7 @@ import {
   num,
 } from "@/src/components/dashboard/analytics-charts";
 import { SpinnerIcon, StarIcon } from "@/src/components/icons";
+import { AiAnalystPanel } from "@/src/components/analytics/ai-analyst-panel";
 
 /** Date-range presets — one filter row that scopes every chart below it. */
 const RANGES: { key: AnalyticsRange; label: string }[] = [
@@ -74,6 +75,9 @@ export default function AnalyticsPage() {
         </p>
       </div>
 
+      {/* Ask questions of the same data the charts below are drawn from. */}
+      <AiAnalystPanel />
+
       {/* Range filter row — scopes everything below it. */}
       <div className="flex flex-wrap items-center gap-2">
         {RANGES.map((r) => (
@@ -99,9 +103,6 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Everything below holds its previous render (dimmed) while refetching —
-          no skeleton flash, no layout jump. opacity-75 keeps the stale text
-          readable while still signalling the reload. */}
       <div className={`space-y-6 transition-opacity ${isFetching ? "opacity-75" : ""}`}>
         <KpiGrid data={data} />
 
