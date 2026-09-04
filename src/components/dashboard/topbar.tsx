@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ThemeToggle } from "@/src/components/theme-toggle";
 import { MenuIcon, SearchIcon } from "@/src/components/icons";
 import { NotificationBell } from "@/src/components/dashboard/notification-bell";
+import { NewBookingAlarm } from "@/src/components/dashboard/new-booking-alarm";
 import { getRoleNames } from "@/src/lib/auth";
 import type { AdminUser } from "@/src/api/api";
 
@@ -73,6 +74,9 @@ export function Topbar({ user, onToggleSidebar, onOpenMobile }: TopbarProps) {
         <ThemeToggle />
 
         <NotificationBell />
+        {/* Rings and pops the moment a booking lands, rather than waiting for
+            the bell's next minute-long poll. */}
+        <NewBookingAlarm />
 
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card py-1.5 pl-1.5 pr-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-semibold text-white">

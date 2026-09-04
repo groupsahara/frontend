@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import {
   dispatcherApi,
   queryKeys,
   type PartnerDetail,
+  type PartnerDocumentField,
   type PartnerEarnings,
   type PartnerOnboardingStatus,
   type UpdatePartnerInput,
@@ -93,6 +94,13 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
   );
   const [description, setDescription] = useState(partner.description ?? "");
   const [categoryId, setCategoryId] = useState<number | "">(partner.categoryId ?? "");
+  // The rest of the registration form, so a half-filled profile can be
+  // completed here instead of sending the partner back through the app.
+  const [district, setDistrict] = useState(partner.district ?? "");
+  const [aadharNo, setAadharNo] = useState(partner.aadharNo ?? "");
+  const [licenseNo, setLicenseNo] = useState(partner.licenseNo ?? "");
+  const [vehicleType, setVehicleType] = useState(partner.vehicleType ?? "");
+  const [vehicleColor, setVehicleColor] = useState(partner.vehicleColor ?? "");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -171,6 +179,11 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
       city: city.trim() || undefined,
       experience: exp ? Number(exp) : undefined,
       description: description.trim() || undefined,
+      district: district.trim() || undefined,
+      aadharNo: aadharNo.trim() || undefined,
+      licenseNo: licenseNo.trim() || undefined,
+      vehicleType: vehicleType.trim() || undefined,
+      vehicleColor: vehicleColor.trim() || undefined,
       // Only send when it actually changed — sending it re-points the partner
       // to a representative service of the category on the backend.
       categoryId:
@@ -258,6 +271,12 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           <h2 className="text-base font-semibold text-foreground">Profile details</h2>
           <Field label="Name" value={name} onChange={setName} />
           <Field label="City" value={city} onChange={setCity} />
+          <Field
+            label="District"
+            value={district}
+            onChange={setDistrict}
+            hint="Decides which dispatch team the partner belongs to."
+          />
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">Category</label>
@@ -284,6 +303,13 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
             onChange={setExperience}
             inputMode="numeric"
           />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Aadhaar number" value={aadharNo} onChange={setAadharNo} />
+            <Field label="Licence number" value={licenseNo} onChange={setLicenseNo} />
+            <Field label="Vehicle type" value={vehicleType} onChange={setVehicleType} />
+            <Field label="Vehicle colour" value={vehicleColor} onChange={setVehicleColor} />
+          </div>
+
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">Description</label>
             <textarea
@@ -399,13 +425,28 @@ function OnboardingReview({
 }) {
   const status = partner.onboardingStatus;
   const meta = ONBOARDING_STATUS_META[status];
+  const queryClient = useQueryClient();
 
-  const docs: { label: string; url: string | null }[] = [
-    { label: "Aadhaar front", url: partner.documents.aadharFront },
-    { label: "Aadhaar back", url: partner.documents.aadharBack },
-    { label: "Driving licence", url: partner.documents.licenseDoc },
-    { label: "PAN card", url: partner.documents.panCard },
-    { label: "Bank passbook", url: partner.documents.bankPassbook },
+  // Replacing a document is per field: the API only touches what it receives,
+  // so a new Aadhaar never disturbs the licence beside it.
+  const [uploadingField, setUploadingField] = useState<PartnerDocumentField | null>(null);
+  const documentMutation = useMutation({
+    mutationFn: ({ field, file }: { field: PartnerDocumentField; file: File }) => {
+      setUploadingField(field);
+      return dispatcherApi.updatePartnerDocument(partner.professionalId, field, file);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.partner(partner.professionalId) });
+    },
+    onSettled: () => setUploadingField(null),
+  });
+
+  const docs: { label: string; url: string | null; field: PartnerDocumentField }[] = [
+    { label: "Aadhaar front", url: partner.documents.aadharFront, field: "aadharFront" as const },
+    { label: "Aadhaar back", url: partner.documents.aadharBack, field: "aadharBack" as const },
+    { label: "Driving licence", url: partner.documents.licenseDoc, field: "licenseDoc" as const },
+    { label: "PAN card", url: partner.documents.panCard, field: "panCard" as const },
+    { label: "Bank passbook", url: partner.documents.bankPassbook, field: "bankPassbook" as const },
   ];
   const uploaded = docs.filter((d) => d.url);
 
@@ -504,17 +545,22 @@ function OnboardingReview({
             ({uploaded.length}/{docs.length} uploaded)
           </span>
         </p>
-        {uploaded.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            This partner hasn’t uploaded any documents.
+        {uploaded.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Nothing uploaded yet — you can add each document here on the partner’s behalf.
           </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {docs.map((d) => (
-              <DocumentTile key={d.label} label={d.label} url={d.url} />
-            ))}
-          </div>
         )}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {docs.map((d) => (
+            <DocumentTile
+              key={d.label}
+              label={d.label}
+              url={d.url}
+              busy={uploadingField === d.field}
+              onPick={(file) => documentMutation.mutate({ field: d.field, file })}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Grooming photos */}
@@ -582,7 +628,50 @@ function OnboardingReview({
   );
 }
 
-function DocumentTile({ label, url }: { label: string; url: string | null }) {
+/**
+ * One document. `onPick` turns it into an upload slot — used for the KYC set,
+ * where an admin routinely has to fix a blurred or missing scan. Grooming
+ * photos pass no handler, so those tiles stay read-only and keep their own
+ * approve/reject review flow.
+ */
+function DocumentTile({
+  label,
+  url,
+  onPick,
+  busy,
+}: {
+  label: string;
+  url: string | null;
+  onPick?: (file: File) => void;
+  busy?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const picker = onPick ? (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          // Reset first: picking the same file twice must still fire onChange.
+          e.target.value = "";
+          if (file) onPick(file);
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="w-full border-t border-border px-2 py-1.5 text-xs font-medium text-primary transition hover:bg-accent disabled:opacity-60"
+      >
+        {busy ? "Uploading…" : url ? "Replace" : "Upload"}
+      </button>
+    </>
+  ) : null;
+
   if (!url) {
     return (
       <div className="flex flex-col overflow-hidden rounded-xl border border-dashed border-border">
@@ -590,23 +679,19 @@ function DocumentTile({ label, url }: { label: string; url: string | null }) {
           Not uploaded
         </div>
         <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{label}</div>
+        {picker}
       </div>
     );
   }
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group flex flex-col overflow-hidden rounded-xl border border-border transition hover:border-primary"
-      title={`Open ${label}`}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- external KYC document */}
-      <img src={url} alt={label} className="h-28 w-full object-cover" />
-      <div className="px-2 py-1.5 text-xs font-medium text-foreground group-hover:text-primary">
-        {label}
-      </div>
-    </a>
+    <div className="flex flex-col overflow-hidden rounded-xl border border-border transition hover:border-primary">
+      <a href={url} target="_blank" rel="noopener noreferrer" title={`Open ${label}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- external KYC document */}
+        <img src={url} alt={label} className="h-28 w-full object-cover" />
+      </a>
+      <div className="px-2 py-1.5 text-xs font-medium text-foreground">{label}</div>
+      {picker}
+    </div>
   );
 }
 
@@ -665,11 +750,13 @@ function Field({
   value,
   onChange,
   inputMode,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   inputMode?: "numeric";
+  hint?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -680,6 +767,7 @@ function Field({
         inputMode={inputMode}
         className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
       />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

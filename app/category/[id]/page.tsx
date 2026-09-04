@@ -10,6 +10,7 @@ import {
   type CategoryTreeNode,
   type CategoryTreeService,
 } from "@/src/api/api";
+import { useCurrentLocation } from "@/src/lib/location";
 import { LandingHeader } from "@/src/components/landing/landing-header";
 import { Footer } from "@/src/components/landing/footer";
 import { SpinnerIcon, StarIcon, ArrowRightIcon } from "@/src/components/icons";
@@ -59,9 +60,12 @@ function CategoryPageContent() {
   // Pre-fill the filter when arriving from a service search (…/category/5?q=Tandoor).
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
 
+  // Location-scoped, so a category nobody can serve here arrives flagged and
+  // with no services — this page then shows the flag instead of an empty list.
+  const { coords } = useCurrentLocation();
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.categoryTree,
-    queryFn: () => categoryTreeApi.tree(),
+    queryKey: queryKeys.categoryTreeAt(coords),
+    queryFn: () => categoryTreeApi.tree(coords),
   });
 
   const category = useMemo<CategoryTreeNode | undefined>(
@@ -108,6 +112,23 @@ function CategoryPageContent() {
               {isError
                 ? "We couldn’t load this category. Please try again."
                 : "The category you’re looking for doesn’t exist or was removed."}
+            </p>
+            <Link
+              href="/"
+              className="mt-6 inline-flex items-center gap-2 rounded-full bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-800"
+            >
+              ← Back to home
+            </Link>
+          </div>
+        ) : category && category.comingSoon ? (
+          <div className="mx-auto flex h-[60vh] max-w-2xl flex-col items-center justify-center px-4 text-center">
+            <p className="text-5xl">📍</p>
+            <h1 className="mt-4 text-xl font-bold text-gray-900 sm:text-2xl">
+              {category.name} is coming soon in your area
+            </h1>
+            <p className="mt-2 text-gray-500">
+              We’re not serving this category at your location yet. Change your location, or check
+              back soon — we’re expanding quickly.
             </p>
             <Link
               href="/"

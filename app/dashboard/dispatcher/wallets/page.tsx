@@ -15,12 +15,14 @@ type AdjustTarget = { wallet: WalletRow; mode: "credit" | "debit" };
 export default function PartnerWalletsPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  // Same buckets as the partners list, so "Active" means the same on both.
+  const [status, setStatus] = useState("ALL");
   const [notice, setNotice] = useState<string | null>(null);
   const [adjust, setAdjust] = useState<AdjustTarget | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: queryKeys.partnerWallets(search.trim()),
-    queryFn: () => dispatcherApi.listWallets(search.trim() || undefined),
+    queryKey: queryKeys.partnerWallets(search.trim(), status),
+    queryFn: () => dispatcherApi.listWallets(search.trim() || undefined, status),
     placeholderData: keepPreviousData,
   });
 
@@ -47,18 +49,35 @@ export default function PartnerWalletsPage() {
             <p className="text-2xl font-semibold tracking-tight text-foreground">
               {isLoading ? "—" : inr(totalBalance)}
             </p>
-            <p className="text-sm text-muted-foreground">Total held across {wallets.length} wallets</p>
+            <p className="text-sm text-muted-foreground">
+              Total held across {wallets.length} partner{wallets.length === 1 ? "" : "s"}
+            </p>
           </div>
         </div>
 
-        <div className="relative w-full max-w-xs">
-          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by partner name or email"
-            className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full max-w-xs">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, mobile or city"
+              className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+            />
+          </div>
+
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Filter wallets by partner status"
+            className="shrink-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+          >
+            <option value="ALL">All partners</option>
+            <option value="ACTIVE">Active</option>
+            <option value="VERIFIED">Verified</option>
+            <option value="PENDING">Pending</option>
+            <option value="BLOCKED">Blocked</option>
+          </select>
         </div>
       </div>
 
@@ -91,7 +110,7 @@ export default function PartnerWalletsPage() {
           <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
             <WalletIcon className="h-10 w-10 text-muted-foreground" />
             <p className="text-muted-foreground">
-              {search ? "No wallets match your search." : "No partner wallets yet."}
+              {search ? "No partners match your search." : "No partners yet."}
             </p>
           </div>
         ) : (
@@ -110,7 +129,7 @@ export default function PartnerWalletsPage() {
               <tbody>
                 {wallets.map((w: WalletRow) => (
                   <tr
-                    key={w.walletId}
+                    key={w.professionalId}
                     className="border-t border-border transition-colors hover:bg-muted/40"
                   >
                     <td className="px-5 py-3">

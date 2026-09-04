@@ -9,6 +9,7 @@ import {
   type CategoryTreeNode,
   type CategoryTreeService,
 } from "@/src/api/api";
+import { useCurrentLocation } from "@/src/lib/location";
 import { useCart } from "@/src/lib/cart";
 import { categoryUsesSlots } from "@/src/lib/slot-categories";
 import { ArrowRightIcon, SpinnerIcon, StarIcon, StoreIcon } from "@/src/components/icons";
@@ -70,9 +71,12 @@ export function ServiceGrid({ search, categoryId }: ServiceGridProps) {
     el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: "smooth" });
   };
 
+  // Location-scoped: an unserved category arrives with no services, so
+  // nothing unbookable is listed here.
+  const { coords } = useCurrentLocation();
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: queryKeys.categoryTree,
-    queryFn: () => categoryTreeApi.tree(),
+    queryKey: queryKeys.categoryTreeAt(coords),
+    queryFn: () => categoryTreeApi.tree(coords),
   });
 
   const services = useMemo(() => {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { categoryTreeApi, queryKeys, type CategoryTreeNode } from "@/src/api/api";
+import { useCurrentLocation } from "@/src/lib/location";
 
 interface PopularCategoriesProps {
   /** Kept for backwards-compat with the landing page; clicking a tile now
@@ -59,9 +60,12 @@ function emojiFor(name: string): string {
 
 export function PopularCategories(_props: PopularCategoriesProps) {
   void _props;
+  // Scoped to where the customer actually is: the server then flags categories
+  // nobody can serve there and sends no services for them.
+  const { coords } = useCurrentLocation();
   const { data, isLoading, isError } = useQuery({
-    queryKey: queryKeys.categoryTree,
-    queryFn: () => categoryTreeApi.tree(),
+    queryKey: queryKeys.categoryTreeAt(coords),
+    queryFn: () => categoryTreeApi.tree(coords),
   });
 
   const categories = data ?? [];
@@ -160,8 +164,13 @@ export function PopularCategories(_props: PopularCategoriesProps) {
 
 function CategoryTile({ category }: { category: CategoryTreeNode }) {
   const hasImage = Boolean(category.profileImage);
-  // Not yet published → render as a non-clickable "Coming soon" tile.
-  const comingSoon = category.isPublished === false;
+  // Two ways to be "coming soon": not published anywhere yet, or published but
+  // with nobody who can be dispatched to THIS customer's location.
+  const comingSoon = category.isPublished === false || category.comingSoon === true;
+  const soonLabel =
+    category.isPublished === false
+      ? "Coming soon"
+      : (category.comingSoonMessage ?? "Coming soon in your area");
 
   const icon = (
     <div className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100 transition group-hover:ring-amber-200">
@@ -184,7 +193,7 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
     return (
       <div
         aria-disabled
-        title="Coming soon"
+        title={soonLabel}
         className="relative flex cursor-not-allowed flex-col items-center gap-2.5 rounded-2xl border border-gray-100 bg-gray-50/80 px-2 py-3.5 text-center opacity-60"
       >
         <span className="absolute right-1.5 top-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
@@ -194,7 +203,7 @@ function CategoryTile({ category }: { category: CategoryTreeNode }) {
         <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-500">
           {category.name}
         </p>
-        <span className="text-[10px] font-semibold text-amber-600">Coming soon</span>
+        <span className="text-[10px] font-semibold text-amber-600">{soonLabel}</span>
       </div>
     );
   }
