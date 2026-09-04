@@ -521,6 +521,7 @@ export interface PartnerDetail extends PartnerRow {
   verifiedAt: string | null;
   activatedAt: string | null;
   rejectionReason: string | null;
+  district: string | null;
   aadharNo: string | null;
   licenseNo: string | null;
   vehicleType: string | null;
@@ -555,15 +556,32 @@ export interface UpdatePartnerInput {
   experience?: number;
   description?: string;
   categoryId?: number;
+  /** District decides the partner's dispatch team, so correcting it matters. */
+  district?: string;
+  aadharNo?: string;
+  licenseNo?: string;
+  vehicleType?: string;
+  vehicleColor?: string;
 }
 
+/** The KYC documents an admin can replace, keyed as the API expects them. */
+export type PartnerDocumentField =
+  | "aadharFront"
+  | "aadharBack"
+  | "licenseDoc"
+  | "panCard"
+  | "bankPassbook";
+
 export interface WalletRow {
-  walletId: number;
+  /** Null until money first moves — a wallet row is created on demand. */
+  walletId: number | null;
   professionalId: number;
   name: string;
   email: string | null;
   mobile: string | null;
   city: string | null;
+  onboardingStatus: PartnerOnboardingStatus;
+  isBlocked: boolean;
   balance: number;
   transactionCount: number;
 }
@@ -789,8 +807,8 @@ export const dispatcherApi = {
     apiClient.get<PartnerStatusCounts>(`/v1/admin/partners/status-counts`),
 
   /** GET /v1/admin/wallets — partner wallet balances. */
-  listWallets: (search?: string) =>
-    apiClient.get<WalletListResponse>(`/v1/admin/wallets${toQueryString({ search })}`),
+  listWallets: (search?: string, status?: string) =>
+    apiClient.get<WalletListResponse>(`/v1/admin/wallets${toQueryString({ search, status })}`),
 
   /** GET /v1/admin/partners/:id — a single partner's full profile. */
   getPartner: (professionalId: number) =>
@@ -822,6 +840,22 @@ export const dispatcherApi = {
   /** PATCH /v1/admin/partners/:id — edit a partner's basic profile. */
   updatePartner: (professionalId: number, body: UpdatePartnerInput) =>
     apiClient.patch<{ message: string }>(`/v1/admin/partners/${professionalId}`, body),
+
+  /**
+   * PATCH /v1/admin/partners/:id/documents — replace one KYC document.
+   *
+   * One field at a time: the API only touches what it receives, so replacing a
+   * blurred Aadhaar never disturbs the licence next to it.
+   */
+  updatePartnerDocument: (professionalId: number, field: PartnerDocumentField, file: File) => {
+    const fd = new FormData();
+    fd.append(field, file);
+    return uploadFile<{ message: string }>(
+      `/v1/admin/partners/${professionalId}/documents`,
+      fd,
+      "PATCH",
+    );
+  },
 
   /** PATCH /v1/admin/partners/:id/block — block or unblock a partner. */
   setPartnerBlocked: (professionalId: number, isBlocked: boolean) =>
@@ -1613,6 +1647,16 @@ export interface CategoryTreeNode {
   bannerVideo?: string | null;
   /** When false, the category shows as "Coming soon" on the storefront/customer app. */
   isPublished?: boolean;
+  /**
+   * Whether anyone can actually be dispatched for this category AT the
+   * customer's location. Separate from isPublished: a category can be live
+   * everywhere and still have nobody to serve this particular address. Absent
+   * when the tree was fetched without coordinates, which means "don't know" —
+   * treat it as available.
+   */
+  available?: boolean;
+  comingSoon?: boolean;
+  comingSoonMessage?: string | null;
   /** Services attached directly to this category (no sub-category). */
   services: CategoryTreeService[];
   groups: CategoryTreeGroup[];
@@ -1620,7 +1664,16 @@ export interface CategoryTreeNode {
 
 export const categoryTreeApi = {
   /** GET /v1/catagories — full category → service → variant tree (public). */
-  tree: () => apiClient.get<CategoryTreeNode[]>("/v1/catagories", { skipAuth: true }),
+  /**
+   * The category tree. With coordinates the server also says which categories
+   * can be served there — unserved ones come back flagged and with NO services
+   * attached, so nothing is loaded for a category nobody could be sent to.
+   */
+  tree: (coords?: { lat: number; lng: number } | null) =>
+    apiClient.get<CategoryTreeNode[]>(
+      `/v1/catagories${coords ? toQueryString({ lat: coords.lat, lng: coords.lng }) : ""}`,
+      { skipAuth: true },
+    ),
 };
 
 /* ============================== Banners ================================= */
@@ -2699,7 +2752,8 @@ export const queryKeys = {
   partnerEarnings: (professionalId: number) =>
     ["dispatcher", "partner", professionalId, "earnings"] as const,
   partner: (id: number) => ["dispatcher", "partner", id] as const,
-  partnerWallets: (search: string) => ["dispatcher", "wallets", search] as const,
+  partnerWallets: (search: string, status?: string) =>
+    ["dispatcher", "wallets", search, status ?? "ALL"] as const,
   payouts: (search: string, status: string) =>
     ["dispatcher", "payouts", status, search] as const,
   payoutStatusCounts: ["dispatcher", "payouts", "status-counts"] as const,
@@ -2721,6 +2775,9 @@ export const queryKeys = {
   categories: ["categories"] as const,
   services: (params: ServiceListParams) => ["services", params] as const,
   categoryTree: ["categoryTree"] as const,
+  /** Location-scoped tree: a Delhi answer must never be reused in Mumbai. */
+  categoryTreeAt: (coords?: { lat: number; lng: number } | null) =>
+    ["categoryTree", coords ? `${coords.lat.toFixed(3)},${coords.lng.toFixed(3)}` : "all"] as const,
   banners: ["banners"] as const,
   bannersActive: ["banners", "active"] as const,
   cart: (sessionId: string) => ["cart", sessionId] as const,

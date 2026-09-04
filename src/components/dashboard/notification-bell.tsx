@@ -12,6 +12,8 @@ const CATEGORY_TONE: Record<string, string> = {
   ATTENDANCE: "bg-warning",
   SHIFT: "bg-success",
   LEAVE: "bg-primary",
+  // New bookings land here — green, because it is the one an allocator acts on.
+  BOOKING: "bg-success",
   GENERAL: "bg-muted-foreground",
 };
 

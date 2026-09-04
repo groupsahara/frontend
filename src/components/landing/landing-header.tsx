@@ -86,9 +86,11 @@ export function LandingHeader({ search, onSearchChange }: LandingHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
+  // Location-scoped, so search can't surface a service nobody can deliver to
+  // this customer. Reuses the header's existing location state.
   const { data } = useQuery({
-    queryKey: queryKeys.categoryTree,
-    queryFn: () => categoryTreeApi.tree(),
+    queryKey: queryKeys.categoryTreeAt(location.coords),
+    queryFn: () => categoryTreeApi.tree(location.coords),
   });
 
   // Build flat, searchable indexes of categories + every service once.
