@@ -35,6 +35,9 @@ export default function CategoryProfilePage() {
   const [search, setSearchState] = useState("");
   const [page, setPage] = useState(1);
   // Rows per page — the admin picks; 10 keeps big categories scannable.
+  // ALL_ROWS asks for everything in one page: a 126-service category capped at
+  // 50 a page read as "only 50 services" to the people counting them.
+  const ALL_ROWS = 1000;
   const [pageSize, setPageSizeState] = useState(10);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -443,9 +446,9 @@ export default function CategoryProfilePage() {
                   aria-label="Services per page"
                   className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs text-foreground"
                 >
-                  {[10, 20, 30, 40, 50].map((n) => (
+                  {[10, 20, 50, 100, ALL_ROWS].map((n) => (
                     <option key={n} value={n}>
-                      {n} / page
+                      {n === ALL_ROWS ? "All" : `${n} / page`}
                     </option>
                   ))}
                 </select>

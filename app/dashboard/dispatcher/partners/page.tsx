@@ -167,6 +167,9 @@ export default function ServicePartnersPage() {
   const [search, setSearch] = useState("");
   // Default to the pending queue — the applications awaiting admin review.
   const [statusTab, setStatusTab] = useState<StatusTab>("PENDING");
+  // Filter by the category a partner registered under (Chef, Technician, …).
+  // Undefined means every category, which is the default view.
+  const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [duty, setDuty] = useState<DutyFilter>("ALL");
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartnerRow | null>(null);
@@ -184,9 +187,13 @@ export default function ServicePartnersPage() {
   const [importResult, setImportResult] = useState<PartnerImportResult | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: queryKeys.partners(search.trim(), statusTab),
+    queryKey: queryKeys.partners(search.trim(), statusTab, categoryId),
     queryFn: () =>
-      dispatcherApi.listPartners(search.trim() || undefined, statusTab === "ANALYTICS" ? "ALL" : statusTab),
+      dispatcherApi.listPartners(
+        search.trim() || undefined,
+        statusTab === "ANALYTICS" ? "ALL" : statusTab,
+        categoryId,
+      ),
     placeholderData: keepPreviousData,
     // The analytics tab renders its own report — don't fetch the table behind it.
     enabled: statusTab !== "ANALYTICS",
@@ -195,6 +202,13 @@ export default function ServicePartnersPage() {
   const { data: counts } = useQuery({
     queryKey: queryKeys.partnerStatusCounts,
     queryFn: () => dispatcherApi.partnerStatusCounts(),
+  });
+
+  // Partners register under a TOP-LEVEL category, so only those are offered —
+  // listing sub-categories would show options that can never match anyone.
+  const { data: categoryTree } = useQuery({
+    queryKey: queryKeys.categoryTree,
+    queryFn: () => categoryTreeApi.tree(),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["dispatcher", "partners"] });
@@ -360,6 +374,20 @@ export default function ServicePartnersPage() {
             className="w-full rounded-xl border border-border bg-card py-2 pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
           />
         </div>
+
+        <select
+          value={categoryId ?? ""}
+          onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : undefined)}
+          aria-label="Filter partners by category"
+          className="shrink-0 rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+        >
+          <option value="">All categories</option>
+          {(categoryTree ?? []).map((c) => (
+            <option key={c.categoryId} value={c.categoryId}>
+              {c.name}
+            </option>
+          ))}
+        </select>
         {!isLoading && (
           <span className="shrink-0 text-sm text-muted-foreground">
             {partners.length} partner{partners.length === 1 ? "" : "s"}
