@@ -34,13 +34,29 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
+/** Today in IST as YYYY-MM-DD — the business day, not the browser's. */
+function istToday(offsetDays = 0) {
+  const ist = new Date(Date.now() + 5.5 * 60 * 60 * 1000 + offsetDays * 86400000);
+  return ist.toISOString().slice(0, 10);
+}
+
 export default function AnalyticsPage() {
   const [range, setRange] = useState<AnalyticsRange>("30d");
+  // Seeded with the last 7 days so switching to Custom shows something useful
+  // immediately rather than an empty pair of date boxes.
+  const [from, setFrom] = useState(() => istToday(-6));
+  const [to, setTo] = useState(() => istToday());
+
+  const isCustom = range === "custom";
+  // An inverted pair would ask the server for a window it must reject, so the
+  // query simply waits until the dates make sense.
+  const datesValid = !isCustom || (!!from && !!to && from <= to);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: queryKeys.analytics(range),
-    queryFn: () => dashboardApi.getAnalytics(range),
+    queryKey: queryKeys.analytics(range, isCustom ? from : undefined, isCustom ? to : undefined),
+    queryFn: () => dashboardApi.getAnalytics(range, from, to),
     placeholderData: keepPreviousData,
+    enabled: datesValid,
   });
 
   if (isLoading) {
@@ -96,6 +112,44 @@ export default function AnalyticsPage() {
             {r.label}
           </button>
         ))}
+
+        <button
+          onClick={() => setRange("custom")}
+          aria-pressed={isCustom}
+          className={`rounded-xl px-3.5 py-2 text-sm font-medium transition ${
+            isCustom
+              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 dark:bg-blue-600"
+              : "border border-border bg-card text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Custom
+        </button>
+
+        {isCustom && (
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="date"
+              value={from}
+              max={to || undefined}
+              onChange={(e) => setFrom(e.target.value)}
+              aria-label="From date"
+              className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+            />
+            <span className="text-sm text-muted-foreground">to</span>
+            <input
+              type="date"
+              value={to}
+              min={from || undefined}
+              max={istToday()}
+              onChange={(e) => setTo(e.target.value)}
+              aria-label="To date"
+              className="rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+            />
+            {!datesValid && (
+              <span className="text-xs text-danger">Pick an end date on or after the start.</span>
+            )}
+          </div>
+        )}
         {isFetching && (
           <span className="ml-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <SpinnerIcon className="h-3.5 w-3.5" /> updating…

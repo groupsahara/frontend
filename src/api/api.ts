@@ -465,6 +465,56 @@ export interface PartnerGrooming {
   fullPhoto: string | null;
 }
 
+/**
+ * A partner's money and job history.
+ *
+ * `lifetimeEarned` is what the partner earned for work delivered (pre-tax,
+ * pre-coupon list price) — deliberately NOT what the customer paid, which can
+ * be lower on a coupon booking. The platform's cut is reported separately so
+ * "why is my wallet lower than my earnings" answers itself.
+ */
+export interface PartnerEarnings {
+  professionalId: number;
+  earnings: {
+    lifetimeEarned: number;
+    commissionPaid: number;
+    leadFeesPaid: number;
+    netAfterPlatformCharges: number;
+    averagePerJob: number;
+  };
+  wallet: {
+    balance: number;
+    totalCredited: number;
+    totalDebited: number;
+    transactions: {
+      walletTransactionId: number;
+      amount: number;
+      type: "CREDIT" | "DEBIT";
+      description: string | null;
+      createdAt: string;
+    }[];
+  };
+  jobs: {
+    total: number;
+    completed: number;
+    cancelled: number;
+    inProgress: number;
+    rejectedLeads: number;
+    cancellationRate: number;
+    firstJobAt: string | null;
+    lastJobAt: string | null;
+    recent: {
+      bookingId: number;
+      service: string;
+      status: string;
+      bookingDate: string;
+      paymentMode: string | null;
+      partnerEarning: number;
+      customerPaid: number;
+    }[];
+  };
+}
+
 export interface PartnerDetail extends PartnerRow {
   categoryId: number | null;
   joinedAt: string;
@@ -717,9 +767,17 @@ export const groomingApi = {
 
 export const dispatcherApi = {
   /** GET /v1/admin/partners — service partners (professionals), filterable by onboarding status. */
-  listPartners: (search?: string, status?: PartnerOnboardingStatus | "ALL") =>
+  listPartners: (
+    search?: string,
+    status?: PartnerOnboardingStatus | "ALL",
+    categoryId?: number,
+  ) =>
     apiClient.get<PartnerRow[]>(
-      `/v1/admin/partners${toQueryString({ search, status: status && status !== "ALL" ? status : undefined })}`,
+      `/v1/admin/partners${toQueryString({
+        search,
+        status: status && status !== "ALL" ? status : undefined,
+        categoryId,
+      })}`,
     ),
 
   /** GET /v1/admin/partners/status-counts — partner counts per onboarding bucket. */
@@ -778,6 +836,10 @@ export const dispatcherApi = {
       `/v1/admin/partners/${professionalId}/onboarding`,
       { status, reason },
     ),
+
+  /** GET /v1/admin/partners/:id/earnings — lifetime money + job history. */
+  getPartnerEarnings: (professionalId: number) =>
+    apiClient.get<PartnerEarnings>(`/v1/admin/partners/${professionalId}/earnings`),
 
   /** DELETE /v1/admin/partners/:id — remove a partner. */
   deletePartner: (professionalId: number) =>
@@ -1042,7 +1104,7 @@ export const customersApi = {
 /* ----------------------------- Analytics -------------------------------- */
 
 /** Time-range presets accepted by GET /v1/admin/analytics. */
-export type AnalyticsRange = "7d" | "30d" | "90d" | "12m";
+export type AnalyticsRange = "7d" | "30d" | "90d" | "12m" | "custom";
 
 export interface AnalyticsKpi {
   value: number;
@@ -1145,8 +1207,11 @@ export const dashboardApi = {
   getOverview: () => apiClient.get<DashboardOverview>("/v1/admin/dashboard/overview"),
 
   /** GET /v1/admin/analytics — KPIs, series and breakdowns for a time range. */
-  getAnalytics: (range: AnalyticsRange) =>
-    apiClient.get<AnalyticsResponse>(`/v1/admin/analytics${toQueryString({ range })}`),
+  getAnalytics: (range: AnalyticsRange, from?: string, to?: string) =>
+    apiClient.get<AnalyticsResponse>(
+      // from/to override the preset server-side; both are IST dates, inclusive.
+      `/v1/admin/analytics${toQueryString(range === "custom" ? { from, to } : { range })}`,
+    ),
 
   /** GET /v1/admin/bookings — full, paginated booking history (admin). */
   listBookings: (params: AdminBookingListParams = {}) =>
@@ -2621,11 +2686,14 @@ export const queryKeys = {
   taskReport: (params: Record<string, unknown>) => ["task-report", params] as const,
   myTasks: (status: string) => ["my-tasks", status] as const,
   dashboardOverview: ["dashboard", "overview"] as const,
-  analytics: (range: string) => ["dashboard", "analytics", range] as const,
+  analytics: (range: string, from?: string, to?: string) =>
+    ["dashboard", "analytics", range, from ?? "", to ?? ""] as const,
   adminBookings: (params: AdminBookingListParams) => ["admin-bookings", params] as const,
-  partners: (search: string, status: string) =>
-    ["dispatcher", "partners", status, search] as const,
+  partners: (search: string, status: string, categoryId?: number) =>
+    ["dispatcher", "partners", status, search, categoryId ?? "all"] as const,
   partnerStatusCounts: ["dispatcher", "partners", "status-counts"] as const,
+  partnerEarnings: (professionalId: number) =>
+    ["dispatcher", "partner", professionalId, "earnings"] as const,
   partner: (id: number) => ["dispatcher", "partner", id] as const,
   partnerWallets: (search: string) => ["dispatcher", "wallets", search] as const,
   payouts: (search: string, status: string) =>

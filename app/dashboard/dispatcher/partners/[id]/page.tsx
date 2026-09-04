@@ -9,6 +9,7 @@ import {
   dispatcherApi,
   queryKeys,
   type PartnerDetail,
+  type PartnerEarnings,
   type PartnerOnboardingStatus,
   type UpdatePartnerInput,
 } from "@/src/api/api";
@@ -344,6 +345,11 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
         </div>
       </div>
 
+      {/* Money and job history — the questions admins actually get asked:
+          what has this partner earned, what does the wallet hold, and how many
+          jobs did they finish versus cancel. */}
+      <PartnerLedgerSection professionalId={partner.professionalId} />
+
       {confirmDelete && (
         <ConfirmDialog
           danger
@@ -674,6 +680,225 @@ function Field({
         inputMode={inputMode}
         className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
       />
+    </div>
+  );
+}
+
+/**
+ * Lifetime earnings, wallet and job history.
+ *
+ * Loaded separately from the profile so a slow aggregate never delays the page
+ * an admin opened just to edit a phone number.
+ */
+function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.partnerEarnings(professionalId),
+    queryFn: () => dispatcherApi.getPartnerEarnings(professionalId),
+    enabled: Number.isFinite(professionalId),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center rounded-2xl border border-border bg-card p-8">
+        <SpinnerIcon className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <div className="rounded-2xl border border-border bg-card p-5 text-sm text-muted-foreground">
+        Could not load earnings for this partner.
+      </div>
+    );
+  }
+
+  const { earnings, wallet, jobs } = data;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Money
+          label="Lifetime earnings"
+          value={earnings.lifetimeEarned}
+          hint={`${jobs.completed} completed · avg ₹${inr(earnings.averagePerJob)}`}
+          accent
+        />
+        <Money
+          label="Wallet balance"
+          value={wallet.balance}
+          hint={`₹${inr(wallet.totalCredited)} in · ₹${inr(wallet.totalDebited)} out`}
+        />
+        <Money
+          label="Platform charges"
+          value={earnings.commissionPaid + earnings.leadFeesPaid}
+          hint={`₹${inr(earnings.commissionPaid)} commission · ₹${inr(earnings.leadFeesPaid)} lead fees`}
+        />
+        <Money
+          label="Net after charges"
+          value={earnings.netAfterPlatformCharges}
+          hint="Earnings minus commission and lead fees"
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Service history */}
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">Service history</h2>
+            <span className="text-xs text-muted-foreground">{jobs.total} jobs</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Tally label="Completed" value={jobs.completed} tone="text-success" />
+            <Tally label="Cancelled" value={jobs.cancelled} tone="text-danger" />
+            <Tally label="In progress" value={jobs.inProgress} />
+            <Tally label="Leads rejected" value={jobs.rejectedLeads} />
+          </div>
+
+          {jobs.total > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Cancellation rate {jobs.cancellationRate}%
+              {jobs.firstJobAt ? ` · first job ${istDate(jobs.firstJobAt)}` : ""}
+              {jobs.lastJobAt ? ` · last job ${istDate(jobs.lastJobAt)}` : ""}
+            </p>
+          )}
+
+          {jobs.recent.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No jobs yet.</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-card text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="py-2 pr-2 font-medium">Job</th>
+                    <th className="py-2 pr-2 font-medium">Date</th>
+                    <th className="py-2 pr-2 text-right font-medium">Earned</th>
+                    <th className="py-2 text-right font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {jobs.recent.map((j) => (
+                    <tr key={j.bookingId}>
+                      <td className="py-2 pr-2 text-foreground">
+                        {j.service}
+                        <span className="block text-xs text-muted-foreground">#{j.bookingId}</span>
+                      </td>
+                      <td className="py-2 pr-2 text-muted-foreground">{istDate(j.bookingDate)}</td>
+                      <td className="py-2 pr-2 text-right text-foreground">
+                        ₹{inr(j.partnerEarning)}
+                        {/* The customer can pay less than the partner earns on a
+                            coupon booking — the discount is the platform's cost. */}
+                        {j.customerPaid !== j.partnerEarning && (
+                          <span className="block text-xs text-muted-foreground">
+                            customer paid ₹{inr(j.customerPaid)}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 text-right">
+                        <span className={`text-xs font-medium ${statusTone(j.status)}`}>
+                          {j.status.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Wallet ledger */}
+        <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">Wallet ledger</h2>
+            <span className="text-xs text-muted-foreground">
+              Balance ₹{inr(wallet.balance)}
+            </span>
+          </div>
+
+          {wallet.transactions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No wallet activity yet.</p>
+          ) : (
+            <div className="max-h-80 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-card text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="py-2 pr-2 font-medium">Description</th>
+                    <th className="py-2 pr-2 font-medium">Date</th>
+                    <th className="py-2 text-right font-medium">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {wallet.transactions.map((t) => (
+                    <tr key={t.walletTransactionId}>
+                      <td className="py-2 pr-2 text-foreground">{t.description ?? "—"}</td>
+                      <td className="py-2 pr-2 text-muted-foreground">{istDate(t.createdAt)}</td>
+                      <td
+                        className={`py-2 text-right font-medium ${
+                          t.type === "CREDIT" ? "text-success" : "text-danger"
+                        }`}
+                      >
+                        {t.type === "CREDIT" ? "+" : "−"}₹{inr(t.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Rupees with Indian grouping and no trailing paise noise. */
+function inr(n: number) {
+  return Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+
+function istDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function statusTone(status: string) {
+  if (status === "COMPLETED") return "text-success";
+  if (status === "CANCELLED") return "text-danger";
+  return "text-muted-foreground";
+}
+
+function Money({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: number;
+  hint?: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold ${accent ? "text-primary" : "text-foreground"}`}>
+        ₹{inr(value)}
+      </p>
+      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
+function Tally({ label, value, tone }: { label: string; value: number; tone?: string }) {
+  return (
+    <div className="rounded-xl bg-accent/40 px-3 py-2">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`text-lg font-semibold ${tone ?? "text-foreground"}`}>{value}</p>
     </div>
   );
 }
