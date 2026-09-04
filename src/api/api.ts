@@ -530,6 +530,8 @@ export interface PartnerDetail extends PartnerRow {
 }
 
 export interface PartnerStatusCounts {
+  /** Blocked cuts across every onboarding stage, so it counts separately. */
+  BLOCKED?: number;
   PENDING: number;
   VERIFIED: number;
   ACTIVE: number;
@@ -769,7 +771,9 @@ export const dispatcherApi = {
   /** GET /v1/admin/partners — service partners (professionals), filterable by onboarding status. */
   listPartners: (
     search?: string,
-    status?: PartnerOnboardingStatus | "ALL",
+    // "BLOCKED" is not an onboarding stage — the server treats it as a filter
+    // across all of them.
+    status?: PartnerOnboardingStatus | "ALL" | "BLOCKED",
     categoryId?: number,
   ) =>
     apiClient.get<PartnerRow[]>(

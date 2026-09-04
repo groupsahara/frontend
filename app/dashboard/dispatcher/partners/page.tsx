@@ -141,13 +141,16 @@ function GroomingModuleCard() {
 
 /** "ANALYTICS" is not an onboarding filter — it swaps the partner table for
  *  the partner analytics report. */
-type StatusTab = PartnerOnboardingStatus | "ALL" | "ANALYTICS";
+type StatusTab = PartnerOnboardingStatus | "ALL" | "ANALYTICS" | "BLOCKED";
 
 const STATUS_TABS: { key: StatusTab; label: string }[] = [
   { key: "PENDING", label: "Pending" },
   { key: "VERIFIED", label: "Verified" },
   { key: "ACTIVE", label: "Active" },
   { key: "REJECTED", label: "Rejected" },
+  // Blocked is not an onboarding stage — a blocked partner can be at any of
+  // them — so it gets its own tab instead of hiding inside Active.
+  { key: "BLOCKED", label: "Blocked" },
   { key: "ALL", label: "All" },
   { key: "ANALYTICS", label: "Analytics" },
 ];
@@ -267,14 +270,17 @@ export default function ServicePartnersPage() {
   const allPartners = data ?? [];
   // Online/offline is filtered client-side: the list endpoint returns every
   // partner for the tab, so no extra request is needed and counts stay exact.
-  const onlineCount = allPartners.filter((p) => p.isOnline).length;
+  // A blocked partner is never "on duty", whatever the flag says: blocking
+  // clears it going forward, and this keeps historical rows honest too.
+  const isOnDuty = (p: PartnerRow) => p.isOnline && !p.isBlocked;
+  const onlineCount = allPartners.filter(isOnDuty).length;
   const dutyCounts: Record<DutyFilter, number> = {
     ALL: allPartners.length,
     ONLINE: onlineCount,
     OFFLINE: allPartners.length - onlineCount,
   };
   const partners =
-    duty === "ALL" ? allPartners : allPartners.filter((p) => (duty === "ONLINE" ? p.isOnline : !p.isOnline));
+    duty === "ALL" ? allPartners : allPartners.filter((p) => (duty === "ONLINE" ? isOnDuty(p) : !isOnDuty(p)));
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
