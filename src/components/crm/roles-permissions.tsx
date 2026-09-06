@@ -492,6 +492,9 @@ const ACTION_LABEL: Record<string, Record<string, string>> = {
     // with the generic View/Manage wording elsewhere.
     view: "See campaigns & delivery results",
     manage: "Create and SEND campaigns to customers",
+    // Separate from "manage" on purpose: this changes what the business is
+    // allowed to say, and every template goes to Meta for review.
+    templates: "Create & delete WhatsApp templates",
   },
   tasks: {
     view: "All Tasks (tab)",

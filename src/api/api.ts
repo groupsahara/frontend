@@ -3736,6 +3736,14 @@ export interface CampaignRecipientList {
   recipients: CampaignRecipientRow[];
 }
 
+/** One button under a template — Meta's three kinds. */
+export interface TemplateButton {
+  type: "URL" | "PHONE_NUMBER" | "QUICK_REPLY";
+  text: string;
+  url?: string;
+  phoneNumber?: string;
+}
+
 /** An approved template on the WABA, as Meta reports it. */
 export interface WhatsappTemplate {
   name: string;
@@ -3811,9 +3819,29 @@ export const crmCampaignsApi = {
     ),
   progress: (id: number) =>
     apiClient.get<CampaignProgress>(`/v1/crm/campaigns/${id}/progress`),
-  /** Approved templates, read live from Meta so a paused one never shows. */
+  /** Every template on the WABA, whatever its review status. */
   templates: () =>
     apiClient.get<WhatsappTemplate[]>("/v1/crm/campaigns/templates"),
+  /** Submit a new template to Meta; it returns PENDING until reviewed. */
+  createTemplate: (body: {
+    name: string;
+    category: string;
+    language: string;
+    body: string;
+    bodyExamples?: string[];
+    header?: string;
+    headerExample?: string;
+    footer?: string;
+    buttons?: TemplateButton[];
+  }) =>
+    apiClient.post<{ id: string; status: string; category: string }>(
+      "/v1/crm/campaigns/templates",
+      body,
+    ),
+  deleteTemplate: (name: string) =>
+    apiClient.delete<{ success: boolean }>(
+      `/v1/crm/campaigns/templates/${encodeURIComponent(name)}`,
+    ),
   /** One template message to one customer, outside any campaign. */
   sendOne: (body: {
     userId?: number;
