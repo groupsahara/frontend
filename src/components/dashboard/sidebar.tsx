@@ -61,7 +61,12 @@ type NavLeaf = {
 };
 // `permission` on a group is the PARENT switch: when set and not granted, the
 // whole group is hidden even if individual children are still granted.
-type NavGroup = { label: string; icon: IconType; permission?: string; children: NavLeaf[] };
+type NavGroup = {
+  label: string;
+  icon: IconType;
+  permission?: string;
+  children: NavLeaf[];
+};
 type NavEntry = NavLeaf | NavGroup;
 
 const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
@@ -69,46 +74,161 @@ const isGroup = (entry: NavEntry): entry is NavGroup => "children" in entry;
 // Sections of the classic admin panel — hidden entirely from STAFF logins.
 const ADMIN_NAV: NavEntry[] = [
   { label: "Overview", href: "/dashboard", icon: GridIcon },
-  { label: "Analytics", href: "/dashboard/analytics", icon: ChartIcon, permission: "analytics.view" },
-  { label: "Categories", href: "/dashboard/categories", icon: StoreIcon, permission: "categories.view" },
-  { label: "Banner", href: "/dashboard/banners", icon: ImageIcon, permission: "banners.view" },
-  { label: "Bookings", href: "/dashboard/bookings", icon: BagIcon, permission: "bookings.view" },
+  {
+    label: "Analytics",
+    href: "/dashboard/analytics",
+    icon: ChartIcon,
+    permission: "analytics.view",
+  },
+  {
+    label: "Categories",
+    href: "/dashboard/categories",
+    icon: StoreIcon,
+    permission: "categories.view",
+  },
+  {
+    label: "Banner",
+    href: "/dashboard/banners",
+    icon: ImageIcon,
+    permission: "banners.view",
+  },
+  {
+    label: "Bookings",
+    href: "/dashboard/bookings",
+    icon: BagIcon,
+    permission: "bookings.view",
+  },
   {
     label: "Tasks",
     icon: ClipboardIcon,
     children: [
-      { label: "All Tasks", href: "/dashboard/tasks", icon: ClipboardIcon, permission: "tasks.view" },
-      { label: "Task Reports", href: "/dashboard/tasks/reports", icon: ChartIcon, permission: "tasks.report" },
+      {
+        label: "All Tasks",
+        href: "/dashboard/tasks",
+        icon: ClipboardIcon,
+        permission: "tasks.view",
+      },
+      {
+        label: "Task Reports",
+        href: "/dashboard/tasks/reports",
+        icon: ChartIcon,
+        permission: "tasks.report",
+      },
     ],
   },
   {
     label: "Quick Commerce",
     icon: StoreIcon,
     children: [
-      { label: "Vendors", href: "/dashboard/qc/vendors", icon: UsersIcon, permission: "qc-vendors.view" },
-      { label: "QC Orders", href: "/dashboard/qc/orders", icon: BagIcon, permission: "qc-orders.view" },
-      { label: "Delivery Partners", href: "/dashboard/qc/delivery-partners", icon: UsersIcon, permission: "qc-orders.view" },
-      { label: "QC Settings", href: "/dashboard/qc/settings", icon: TagIcon, permission: "qc-settings.manage" },
+      {
+        label: "Vendors",
+        href: "/dashboard/qc/vendors",
+        icon: UsersIcon,
+        permission: "qc-vendors.view",
+      },
+      {
+        label: "QC Orders",
+        href: "/dashboard/qc/orders",
+        icon: BagIcon,
+        permission: "qc-orders.view",
+      },
+      {
+        label: "Delivery Partners",
+        href: "/dashboard/qc/delivery-partners",
+        icon: UsersIcon,
+        permission: "qc-orders.view",
+      },
+      {
+        label: "QC Settings",
+        href: "/dashboard/qc/settings",
+        icon: TagIcon,
+        permission: "qc-settings.manage",
+      },
       // The vendor's own portal — the only entry a qc_vendor login can see.
-      { label: "My Store", href: "/dashboard/qc/my-store", icon: StoreIcon, permission: "qc-vendor-portal.view" },
+      {
+        label: "My Store",
+        href: "/dashboard/qc/my-store",
+        icon: StoreIcon,
+        permission: "qc-vendor-portal.view",
+      },
     ],
   },
   {
     label: "Dispatcher",
     icon: MapPinIcon,
     children: [
-      { label: "Service Partners", href: "/dashboard/dispatcher/partners", icon: UsersIcon, permission: "partners.view" },
-      { label: "Partner Progress", href: "/dashboard/dispatcher/partner-progress", icon: RouteIcon, permission: "partner-progress.view" },
-      { label: "Partner MIS Report", href: "/dashboard/dispatcher/partner-mis", icon: ChartIcon, permission: "partners.view" },
-      { label: "Bank & Payout MIS", href: "/dashboard/dispatcher/bank-payout-mis", icon: WalletIcon, permission: "payouts.view" },
-      { label: "Teams", href: "/dashboard/dispatcher/teams", icon: UsersIcon, permission: "dispatcher.view" },
-      { label: "Geo Fence", href: "/dashboard/dispatcher/geo-fence", icon: PolygonIcon, permission: "dispatcher.view" },
-      { label: "Warehouses", href: "/dashboard/dispatcher/warehouses", icon: WarehouseIcon, permission: "dispatcher.view" },
-      { label: "Auto Allocation", href: "/dashboard/dispatcher/allocation", icon: RouteIcon, permission: "dispatcher.view" },
-      { label: "Pricing Rules", href: "/dashboard/dispatcher/pricing", icon: TagIcon, permission: "dispatcher.view" },
-      { label: "Partner Wallets", href: "/dashboard/dispatcher/wallets", icon: WalletIcon, permission: "wallets.view" },
-      { label: "Partner Payouts", href: "/dashboard/dispatcher/payouts", icon: WalletIcon, permission: "payouts.view" },
-      { label: "Referrals", href: "/dashboard/dispatcher/referrals", icon: TagIcon, permission: "referrals.view" },
+      {
+        label: "Service Partners",
+        href: "/dashboard/dispatcher/partners",
+        icon: UsersIcon,
+        permission: "partners.view",
+      },
+      {
+        label: "Partner Progress",
+        href: "/dashboard/dispatcher/partner-progress",
+        icon: RouteIcon,
+        permission: "partner-progress.view",
+      },
+      {
+        label: "Partner MIS Report",
+        href: "/dashboard/dispatcher/partner-mis",
+        icon: ChartIcon,
+        permission: "partners.view",
+      },
+      {
+        label: "Bank & Payout MIS",
+        href: "/dashboard/dispatcher/bank-payout-mis",
+        icon: WalletIcon,
+        permission: "payouts.view",
+      },
+      {
+        label: "Teams",
+        href: "/dashboard/dispatcher/teams",
+        icon: UsersIcon,
+        permission: "dispatcher.view",
+      },
+      {
+        label: "Geo Fence",
+        href: "/dashboard/dispatcher/geo-fence",
+        icon: PolygonIcon,
+        permission: "dispatcher.view",
+      },
+      {
+        label: "Warehouses",
+        href: "/dashboard/dispatcher/warehouses",
+        icon: WarehouseIcon,
+        permission: "dispatcher.view",
+      },
+      {
+        label: "Auto Allocation",
+        href: "/dashboard/dispatcher/allocation",
+        icon: RouteIcon,
+        permission: "dispatcher.view",
+      },
+      {
+        label: "Pricing Rules",
+        href: "/dashboard/dispatcher/pricing",
+        icon: TagIcon,
+        permission: "dispatcher.view",
+      },
+      {
+        label: "Partner Wallets",
+        href: "/dashboard/dispatcher/wallets",
+        icon: WalletIcon,
+        permission: "wallets.view",
+      },
+      {
+        label: "Partner Payouts",
+        href: "/dashboard/dispatcher/payouts",
+        icon: WalletIcon,
+        permission: "payouts.view",
+      },
+      {
+        label: "Referrals",
+        href: "/dashboard/dispatcher/referrals",
+        icon: TagIcon,
+        permission: "referrals.view",
+      },
     ],
   },
   {
@@ -122,66 +242,219 @@ const ADMIN_NAV: NavEntry[] = [
     icon: MailIcon,
     children: [
       // Messaging itself needs no permission — every panel login can chat.
-      { label: "Team Chat", href: "/dashboard/chat", icon: MailIcon, always: true },
-      { label: "Chat Admin", href: "/dashboard/chat/admin", icon: ShieldIcon, permission: "chat.view" },
+      {
+        label: "Team Chat",
+        href: "/dashboard/chat",
+        icon: MailIcon,
+        always: true,
+      },
+      {
+        label: "Chat Admin",
+        href: "/dashboard/chat/admin",
+        icon: ShieldIcon,
+        permission: "chat.view",
+      },
     ],
   },
-  { label: "Contacts", href: "/dashboard/contacts", icon: MailIcon, permission: "contact.view" },
-  { label: "Vendors", href: "/dashboard/vendors", icon: CartIcon, permission: "vendors.view" },
-  { label: "Payments", href: "/dashboard/payments", icon: WalletIcon, permission: "payments.view" },
+  {
+    label: "Contacts",
+    href: "/dashboard/contacts",
+    icon: MailIcon,
+    permission: "contact.view",
+  },
+  {
+    label: "Vendors",
+    href: "/dashboard/vendors",
+    icon: CartIcon,
+    permission: "vendors.view",
+  },
+  {
+    label: "Payments",
+    href: "/dashboard/payments",
+    icon: WalletIcon,
+    permission: "payments.view",
+  },
   {
     label: "Styling",
     icon: PaletteIcon,
     children: [
-      { label: "Web Styling", href: "/dashboard/styling/web", icon: MonitorIcon, permission: "styling.view" },
-      { label: "Mobile Styling", href: "/dashboard/styling/mobile", icon: SmartphoneIcon, permission: "styling.view" },
+      {
+        label: "Web Styling",
+        href: "/dashboard/styling/web",
+        icon: MonitorIcon,
+        permission: "styling.view",
+      },
+      {
+        label: "Mobile Styling",
+        href: "/dashboard/styling/mobile",
+        icon: SmartphoneIcon,
+        permission: "styling.view",
+      },
     ],
   },
   {
     label: "Tools",
     icon: WrenchIcon,
     children: [
-      { label: "PDF Editor", href: "/dashboard/tools/pdf-editor", icon: FileTextIcon, permission: "pdf-editor.view" },
-      { label: "Resume Builder", href: "/dashboard/tools/resume-builder", icon: ClipboardIcon, permission: "resume-builder.view" },
+      {
+        label: "PDF Editor",
+        href: "/dashboard/tools/pdf-editor",
+        icon: FileTextIcon,
+        permission: "pdf-editor.view",
+      },
+      {
+        label: "Resume Builder",
+        href: "/dashboard/tools/resume-builder",
+        icon: ClipboardIcon,
+        permission: "resume-builder.view",
+      },
     ],
   },
   // Immersive AI teacher — grantable per role (admins hold "*").
-  { label: "AI Tutor", href: "/dashboard/tutor", icon: GraduationCapIcon, permission: "ai-tutor.view" },
+  {
+    label: "AI Tutor",
+    href: "/dashboard/tutor",
+    icon: GraduationCapIcon,
+    permission: "ai-tutor.view",
+  },
   // Aura — the AI life tracker's control room (its own React Native app).
   {
     label: "Aura",
     icon: AuraIcon,
     permission: "aura.view",
     children: [
-      { label: "Overview", href: "/dashboard/aura", icon: GridIcon, permission: "aura.view" },
-      { label: "Users", href: "/dashboard/aura/users", icon: UsersIcon, permission: "aura.view" },
-      { label: "App Catalog", href: "/dashboard/aura/catalog", icon: SmartphoneIcon, permission: "aura.view" },
-      { label: "Scoring", href: "/dashboard/aura/scoring", icon: ChartIcon, permission: "aura.manage" },
-      { label: "Settings", href: "/dashboard/aura/settings", icon: SettingsIcon, permission: "aura.manage" },
+      {
+        label: "Overview",
+        href: "/dashboard/aura",
+        icon: GridIcon,
+        permission: "aura.view",
+      },
+      {
+        label: "Users",
+        href: "/dashboard/aura/users",
+        icon: UsersIcon,
+        permission: "aura.view",
+      },
+      {
+        label: "App Catalog",
+        href: "/dashboard/aura/catalog",
+        icon: SmartphoneIcon,
+        permission: "aura.view",
+      },
+      {
+        label: "Scoring",
+        href: "/dashboard/aura/scoring",
+        icon: ChartIcon,
+        permission: "aura.manage",
+      },
+      {
+        label: "Settings",
+        href: "/dashboard/aura/settings",
+        icon: SettingsIcon,
+        permission: "aura.manage",
+      },
     ],
   },
   // Platform credentials page — visible to staff only when their role holds
   // configure.view (the super admin grants it per role; admins always see it).
-  { label: "Configure", href: "/dashboard/configure", icon: WrenchIcon, permission: "configure.view" },
-  { label: "Settings", href: "/dashboard/settings", icon: SettingsIcon, permission: "settings.view" },
+  {
+    label: "Configure",
+    href: "/dashboard/configure",
+    icon: WrenchIcon,
+    permission: "configure.view",
+  },
+  {
+    label: "Settings",
+    href: "/dashboard/settings",
+    icon: SettingsIcon,
+    permission: "settings.view",
+  },
 ];
 
 const CRM_NAV: NavGroup = {
   label: "CRM",
   icon: BriefcaseIcon,
   children: [
-    { label: "CRM Overview", href: "/dashboard/crm", icon: GridIcon, permission: "crm.view" },
-    { label: "Restaurants", href: "/dashboard/crm/restaurants", icon: StoreIcon, permission: "restaurants.view" },
-    { label: "Sales Leads", href: "/dashboard/crm/sales-leads", icon: TagIcon, permission: "sales-leads.view" },
-    { label: "Customers", href: "/dashboard/crm/customers", icon: UsersIcon, permission: "customers.view" },
-    { label: "Coupons", href: "/dashboard/crm/coupons", icon: TagIcon, permission: "customers.view" },
-    { label: "Partners", href: "/dashboard/crm/partners", icon: UsersIcon, permission: "partners.view" },
-    { label: "Bookings", href: "/dashboard/crm/bookings", icon: BagIcon, permission: "bookings.view" },
-    { label: "Operations", href: "/dashboard/crm/operations", icon: RouteIcon, permission: "ops.view" },
-    { label: "Finance", href: "/dashboard/crm/finance", icon: WalletIcon, permission: "finance.view" },
-    { label: "Support Tickets", href: "/dashboard/crm/tickets", icon: MailIcon, permission: "tickets.view" },
-    { label: "Campaigns", href: "/dashboard/crm/campaigns", icon: ImageIcon, permission: "campaigns.view" },
-    { label: "Reports", href: "/dashboard/crm/reports", icon: ChartIcon, permission: "crm-reports.view" },
+    {
+      label: "CRM Overview",
+      href: "/dashboard/crm",
+      icon: GridIcon,
+      permission: "crm.view",
+    },
+    {
+      label: "Restaurants",
+      href: "/dashboard/crm/restaurants",
+      icon: StoreIcon,
+      permission: "restaurants.view",
+    },
+    {
+      label: "Sales Leads",
+      href: "/dashboard/crm/sales-leads",
+      icon: TagIcon,
+      permission: "sales-leads.view",
+    },
+    {
+      label: "Customers",
+      href: "/dashboard/crm/customers",
+      icon: UsersIcon,
+      permission: "customers.view",
+    },
+    {
+      label: "Coupons",
+      href: "/dashboard/crm/coupons",
+      icon: TagIcon,
+      permission: "customers.view",
+    },
+    {
+      label: "Partners",
+      href: "/dashboard/crm/partners",
+      icon: UsersIcon,
+      permission: "partners.view",
+    },
+    {
+      label: "Bookings",
+      href: "/dashboard/crm/bookings",
+      icon: BagIcon,
+      permission: "bookings.view",
+    },
+    {
+      label: "Operations",
+      href: "/dashboard/crm/operations",
+      icon: RouteIcon,
+      permission: "ops.view",
+    },
+    {
+      label: "Finance",
+      href: "/dashboard/crm/finance",
+      icon: WalletIcon,
+      permission: "finance.view",
+    },
+    {
+      label: "Support Tickets",
+      href: "/dashboard/crm/tickets",
+      icon: MailIcon,
+      permission: "tickets.view",
+    },
+    {
+      label: "Campaigns",
+      href: "/dashboard/crm/campaigns",
+      icon: ImageIcon,
+      permission: "campaigns.view",
+    },
+    // Creating a template is a separate grant from sending one: it decides what
+    // the business may say to customers and goes through Meta review.
+    {
+      label: "WhatsApp Templates",
+      href: "/dashboard/crm/templates",
+      icon: ImageIcon,
+      permission: "campaigns.templates",
+    },
+    {
+      label: "Reports",
+      href: "/dashboard/crm/reports",
+      icon: ChartIcon,
+      permission: "crm-reports.view",
+    },
   ],
 };
 
@@ -196,17 +469,72 @@ const MY_SPACE_NAV: NavGroup = {
     // One permission per tab (ess.<tab>) so a role can be given the whole
     // section or just part of it. "ess.view" is the parent switch — the super
     // admin flips it in Roles & Permissions to show/hide My Space wholesale.
-    { label: "My Portal", href: "/dashboard/crm/my-portal", icon: GridIcon, permission: "ess.portal" },
-    { label: "My Attendance", href: "/dashboard/crm/my-attendance", icon: ClockIcon, permission: "ess.attendance" },
-    { label: "My Leaves", href: "/dashboard/crm/my-leaves", icon: CalendarIcon, permission: "ess.leaves" },
-    { label: "My Shift", href: "/dashboard/crm/my-shift", icon: ClockIcon, permission: "ess.shifts" },
-    { label: "Policies", href: "/dashboard/crm/my-policies", icon: FileTextIcon, permission: "ess.policies" },
-    { label: "Payslips", href: "/dashboard/crm/my-payslips", icon: WalletIcon, permission: "ess.payslips" },
-    { label: "Offer Letters", href: "/dashboard/crm/my-offer-letters", icon: FileTextIcon, permission: "ess.offer-letters" },
-    { label: "Increments", href: "/dashboard/crm/my-increments", icon: ChartIcon, permission: "ess.increments" },
-    { label: "Holidays", href: "/dashboard/crm/my-holidays", icon: CalendarIcon, permission: "ess.holidays" },
-    { label: "Open positions", href: "/dashboard/crm/my-positions", icon: BriefcaseIcon, permission: "ess.positions" },
-    { label: "My Tasks", href: "/dashboard/crm/my-tasks", icon: ClipboardIcon, permission: "ess.tasks" },
+    {
+      label: "My Portal",
+      href: "/dashboard/crm/my-portal",
+      icon: GridIcon,
+      permission: "ess.portal",
+    },
+    {
+      label: "My Attendance",
+      href: "/dashboard/crm/my-attendance",
+      icon: ClockIcon,
+      permission: "ess.attendance",
+    },
+    {
+      label: "My Leaves",
+      href: "/dashboard/crm/my-leaves",
+      icon: CalendarIcon,
+      permission: "ess.leaves",
+    },
+    {
+      label: "My Shift",
+      href: "/dashboard/crm/my-shift",
+      icon: ClockIcon,
+      permission: "ess.shifts",
+    },
+    {
+      label: "Policies",
+      href: "/dashboard/crm/my-policies",
+      icon: FileTextIcon,
+      permission: "ess.policies",
+    },
+    {
+      label: "Payslips",
+      href: "/dashboard/crm/my-payslips",
+      icon: WalletIcon,
+      permission: "ess.payslips",
+    },
+    {
+      label: "Offer Letters",
+      href: "/dashboard/crm/my-offer-letters",
+      icon: FileTextIcon,
+      permission: "ess.offer-letters",
+    },
+    {
+      label: "Increments",
+      href: "/dashboard/crm/my-increments",
+      icon: ChartIcon,
+      permission: "ess.increments",
+    },
+    {
+      label: "Holidays",
+      href: "/dashboard/crm/my-holidays",
+      icon: CalendarIcon,
+      permission: "ess.holidays",
+    },
+    {
+      label: "Open positions",
+      href: "/dashboard/crm/my-positions",
+      icon: BriefcaseIcon,
+      permission: "ess.positions",
+    },
+    {
+      label: "My Tasks",
+      href: "/dashboard/crm/my-tasks",
+      icon: ClipboardIcon,
+      permission: "ess.tasks",
+    },
   ],
 };
 
@@ -214,16 +542,66 @@ const HR_NAV: NavGroup = {
   label: "HR Management",
   icon: UsersIcon,
   children: [
-    { label: "Employees", href: "/dashboard/crm/employees", icon: BriefcaseIcon, permission: "employees.view" },
-    { label: "Attendance", href: "/dashboard/crm/attendance", icon: ClockIcon, permission: "attendance.view" },
-    { label: "Leaves", href: "/dashboard/crm/leaves", icon: CalendarIcon, permission: "leaves.view" },
-    { label: "Shifts", href: "/dashboard/crm/shifts", icon: ClockIcon, permission: "shifts.view" },
-    { label: "HR Policy", href: "/dashboard/crm/policies", icon: FileTextIcon, permission: "hr-policies.view" },
-    { label: "Appraisals", href: "/dashboard/crm/appraisals", icon: StarIcon, permission: "appraisals.view" },
-    { label: "Payroll", href: "/dashboard/crm/payroll", icon: WalletIcon, permission: "payroll.view" },
-    { label: "Offer Letters", href: "/dashboard/crm/offers", icon: FileTextIcon, permission: "offer-letters.view" },
-    { label: "Positions", href: "/dashboard/crm/positions", icon: BriefcaseIcon, permission: "positions.view" },
-    { label: "HR Settings", href: "/dashboard/crm/hr-settings", icon: ClipboardIcon, permission: "departments.view" },
+    {
+      label: "Employees",
+      href: "/dashboard/crm/employees",
+      icon: BriefcaseIcon,
+      permission: "employees.view",
+    },
+    {
+      label: "Attendance",
+      href: "/dashboard/crm/attendance",
+      icon: ClockIcon,
+      permission: "attendance.view",
+    },
+    {
+      label: "Leaves",
+      href: "/dashboard/crm/leaves",
+      icon: CalendarIcon,
+      permission: "leaves.view",
+    },
+    {
+      label: "Shifts",
+      href: "/dashboard/crm/shifts",
+      icon: ClockIcon,
+      permission: "shifts.view",
+    },
+    {
+      label: "HR Policy",
+      href: "/dashboard/crm/policies",
+      icon: FileTextIcon,
+      permission: "hr-policies.view",
+    },
+    {
+      label: "Appraisals",
+      href: "/dashboard/crm/appraisals",
+      icon: StarIcon,
+      permission: "appraisals.view",
+    },
+    {
+      label: "Payroll",
+      href: "/dashboard/crm/payroll",
+      icon: WalletIcon,
+      permission: "payroll.view",
+    },
+    {
+      label: "Offer Letters",
+      href: "/dashboard/crm/offers",
+      icon: FileTextIcon,
+      permission: "offer-letters.view",
+    },
+    {
+      label: "Positions",
+      href: "/dashboard/crm/positions",
+      icon: BriefcaseIcon,
+      permission: "positions.view",
+    },
+    {
+      label: "HR Settings",
+      href: "/dashboard/crm/hr-settings",
+      icon: ClipboardIcon,
+      permission: "departments.view",
+    },
   ],
 };
 
@@ -231,8 +609,18 @@ const ACCESS_NAV: NavGroup = {
   label: "Roles & Permissions",
   icon: ShieldIcon,
   children: [
-    { label: "Roles & Permissions", href: "/dashboard/crm/roles", icon: ShieldIcon, permission: "roles.view" },
-    { label: "Staff", href: "/dashboard/crm/staff", icon: UsersIcon, permission: "staff.view" },
+    {
+      label: "Roles & Permissions",
+      href: "/dashboard/crm/roles",
+      icon: ShieldIcon,
+      permission: "roles.view",
+    },
+    {
+      label: "Staff",
+      href: "/dashboard/crm/staff",
+      icon: UsersIcon,
+      permission: "staff.view",
+    },
   ],
 };
 
@@ -248,11 +636,36 @@ const REAL_ESTATE_NAV: NavGroup = {
   label: "SaaS",
   icon: BuildingIcon,
   children: [
-    { label: "Dashboard", href: "/real-estate", icon: GridIcon, permission: "saas.view" },
-    { label: "Add Clients", href: "/real-estate/client-management/add-clients", icon: UsersIcon, permission: "saas.view" },
-    { label: "Manage Clients", href: "/real-estate/client-management/manage-clients", icon: UsersIcon, permission: "saas.view" },
-    { label: "AI Training", href: "/real-estate/ai-training", icon: MonitorIcon, permission: "saas.view" },
-    { label: "Audit Logs", href: "/real-estate/audit-logs", icon: FileTextIcon, permission: "saas.view" },
+    {
+      label: "Dashboard",
+      href: "/real-estate",
+      icon: GridIcon,
+      permission: "saas.view",
+    },
+    {
+      label: "Add Clients",
+      href: "/real-estate/client-management/add-clients",
+      icon: UsersIcon,
+      permission: "saas.view",
+    },
+    {
+      label: "Manage Clients",
+      href: "/real-estate/client-management/manage-clients",
+      icon: UsersIcon,
+      permission: "saas.view",
+    },
+    {
+      label: "AI Training",
+      href: "/real-estate/ai-training",
+      icon: MonitorIcon,
+      permission: "saas.view",
+    },
+    {
+      label: "Audit Logs",
+      href: "/real-estate/audit-logs",
+      icon: FileTextIcon,
+      permission: "saas.view",
+    },
   ],
 };
 
@@ -276,9 +689,12 @@ function buildNav(): NavEntry[] {
     .map((g) => ({ ...g, children: g.children.filter(allowed) }))
     .filter((g) => g.children.length > 0);
   if (user?.role === "STAFF") {
-    const staffAllowed = (leaf: NavLeaf) => leaf.always === true || (!!leaf.permission && allowed(leaf));
+    const staffAllowed = (leaf: NavLeaf) =>
+      leaf.always === true || (!!leaf.permission && allowed(leaf));
     const adminEntries = ADMIN_NAV.map((entry) =>
-      "children" in entry ? { ...entry, children: entry.children.filter(staffAllowed) } : entry,
+      "children" in entry
+        ? { ...entry, children: entry.children.filter(staffAllowed) }
+        : entry,
     ).filter((entry) =>
       "children" in entry ? entry.children.length > 0 : staffAllowed(entry),
     );
@@ -296,14 +712,20 @@ function buildNav(): NavEntry[] {
   // module to every admin regardless of what the super admin assigned.
   // SUPER_ADMIN holds "*", so nothing is filtered away for them.
   const adminNav = ADMIN_NAV.map((entry) =>
-    "children" in entry ? { ...entry, children: entry.children.filter(allowed) } : entry,
-  ).filter((entry) => ("children" in entry ? entry.children.length > 0 : allowed(entry)));
+    "children" in entry
+      ? { ...entry, children: entry.children.filter(allowed) }
+      : entry,
+  ).filter((entry) =>
+    "children" in entry ? entry.children.length > 0 : allowed(entry),
+  );
   return [...adminNav.slice(0, 1), ...groups, ...adminNav.slice(1)];
 }
 
 /** Every page link the current session may open (permission-gated). */
 function allowedLeaves(): NavLeaf[] {
-  return buildNav().flatMap((entry) => ("children" in entry ? entry.children : [entry]));
+  return buildNav().flatMap((entry) =>
+    "children" in entry ? entry.children : [entry],
+  );
 }
 
 /**
@@ -323,7 +745,9 @@ export function firstAllowedRoute(): string {
 // (ADMIN / SUPER_ADMIN / STAFF) — e.g. a multi-tenant CRM member.
 export function isTenantUser(): boolean {
   const role = getStoredUser()?.role;
-  return !!role && role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "STAFF";
+  return (
+    !!role && role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "STAFF"
+  );
 }
 
 /**
@@ -346,7 +770,12 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
-export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: SidebarProps) {
+export function Sidebar({
+  collapsed,
+  mobileOpen,
+  onCloseMobile,
+  onLogout,
+}: SidebarProps) {
   const pathname = usePathname();
   // Redraw when the layout re-syncs permissions from the server, so a module
   // the super admin just revoked disappears without a reload. The snapshot is
@@ -388,7 +817,9 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onLogout }: Side
             className="h-9 w-auto shrink-0"
           />
           {!collapsed && (
-            <span className="truncate text-lg font-semibold text-foreground">RestoCare</span>
+            <span className="truncate text-lg font-semibold text-foreground">
+              RestoCare
+            </span>
           )}
         </Link>
 
