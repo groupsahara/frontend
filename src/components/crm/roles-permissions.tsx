@@ -47,9 +47,22 @@ type Icon = ComponentType<SVGProps<SVGSVGElement>>;
 /* ── Presentation metadata (icon / colour) keyed by backend module + action ──
    Falls back gracefully for any module/action the backend adds later. */
 
-const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc: string }> = {
-  crm: { icon: GridIcon, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", desc: "CRM overview access" },
-  analytics: { icon: ChartIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "KPIs, trends & breakdowns" },
+const MODULE_META: Record<
+  string,
+  { icon: Icon; color: string; bg: string; desc: string }
+> = {
+  crm: {
+    icon: GridIcon,
+    color: "#38bdf8",
+    bg: "rgba(56,189,248,0.12)",
+    desc: "CRM overview access",
+  },
+  analytics: {
+    icon: ChartIcon,
+    color: "#4f7cff",
+    bg: "rgba(79,124,255,0.12)",
+    desc: "KPIs, trends & breakdowns",
+  },
   // Separate from analytics on purpose: it reads the same numbers out loud and
   // holds the microphone open, so it is granted deliberately.
   "ai-analyst": {
@@ -58,38 +71,197 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
     bg: "rgba(167,139,250,0.12)",
     desc: "Voice analyst — clap twice, hear the week",
   },
-  categories: { icon: StoreIcon, color: "#ffc845", bg: "rgba(255,200,69,0.12)", desc: "Service categories" },
-  banners: { icon: ImageIcon, color: "#e879f9", bg: "rgba(232,121,249,0.12)", desc: "Landing page banners" },
-  dispatcher: { icon: RouteIcon, color: "#10b981", bg: "rgba(16,185,129,0.12)", desc: "Teams, zones & allocation" },
-  customers: { icon: UsersIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "Customer accounts" },
-  partners: { icon: BriefcaseIcon, color: "#38bdf8", bg: "rgba(56,189,248,0.12)", desc: "Service partners" },
-  bookings: { icon: BagIcon, color: "#3dd68c", bg: "rgba(61,214,140,0.12)", desc: "Bookings & jobs" },
-  contact: { icon: MailIcon, color: "#fb7185", bg: "rgba(251,113,133,0.12)", desc: "Contact us enquiries" },
-  wallets: { icon: WalletIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "Partner wallet balances" },
-  payouts: { icon: WalletIcon, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", desc: "Partner payout requests" },
-  vendors: { icon: CartIcon, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", desc: "Vendor storefronts" },
-  employees: { icon: UserCircleIcon, color: "#fb923c", bg: "rgba(251,146,60,0.12)", desc: "Employee records" },
-  attendance: { icon: ClockIcon, color: "#2dd4bf", bg: "rgba(45,212,191,0.12)", desc: "Attendance tracking" },
-  leaves: { icon: CalendarIcon, color: "#f472b6", bg: "rgba(244,114,182,0.12)", desc: "Leave requests" },
-  appraisals: { icon: StarIcon, color: "#ffc845", bg: "rgba(255,200,69,0.12)", desc: "Performance appraisals" },
-  staff: { icon: ShieldIcon, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", desc: "Panel staff logins" },
-  roles: { icon: LockIcon, color: "#ff7eb3", bg: "rgba(255,126,179,0.12)", desc: "Role configuration" },
-  departments: { icon: ClipboardIcon, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", desc: "Departments & designations" },
-  offices: { icon: MapPinIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Office locations" },
-  payments: { icon: WalletIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "Payments & payouts" },
-  tasks: { icon: ClipboardIcon, color: "#818cf8", bg: "rgba(129,140,248,0.12)", desc: "Task board & reports" },
-  workspaces: { icon: BuildingIcon, color: "#6366f1", bg: "rgba(99,102,241,0.12)", desc: "Workspace access & ownership" },
-  ess: { icon: UserCircleIcon, color: "#2dd4bf", bg: "rgba(45,212,191,0.12)", desc: "Tabs in the employee's panel" },
-  settings: { icon: SettingsIcon, color: "#94a3b8", bg: "rgba(148,163,184,0.12)", desc: "Panel settings & password" },
-  configure: { icon: WrenchIcon, color: "#fb923c", bg: "rgba(251,146,60,0.12)", desc: "Platform credentials" },
+  // WhatsApp marketing. "manage" can message every customer in a segment, so
+  // the super admin hands it out deliberately rather than it riding along with
+  // general CRM access.
+  campaigns: {
+    icon: ImageIcon,
+    color: "#22d3ee",
+    bg: "rgba(34,211,238,0.12)",
+    desc: "WhatsApp blasts to customer segments",
+  },
+  categories: {
+    icon: StoreIcon,
+    color: "#ffc845",
+    bg: "rgba(255,200,69,0.12)",
+    desc: "Service categories",
+  },
+  banners: {
+    icon: ImageIcon,
+    color: "#e879f9",
+    bg: "rgba(232,121,249,0.12)",
+    desc: "Landing page banners",
+  },
+  dispatcher: {
+    icon: RouteIcon,
+    color: "#10b981",
+    bg: "rgba(16,185,129,0.12)",
+    desc: "Teams, zones & allocation",
+  },
+  customers: {
+    icon: UsersIcon,
+    color: "#4f7cff",
+    bg: "rgba(79,124,255,0.12)",
+    desc: "Customer accounts",
+  },
+  partners: {
+    icon: BriefcaseIcon,
+    color: "#38bdf8",
+    bg: "rgba(56,189,248,0.12)",
+    desc: "Service partners",
+  },
+  bookings: {
+    icon: BagIcon,
+    color: "#3dd68c",
+    bg: "rgba(61,214,140,0.12)",
+    desc: "Bookings & jobs",
+  },
+  contact: {
+    icon: MailIcon,
+    color: "#fb7185",
+    bg: "rgba(251,113,133,0.12)",
+    desc: "Contact us enquiries",
+  },
+  wallets: {
+    icon: WalletIcon,
+    color: "#34d399",
+    bg: "rgba(52,211,153,0.12)",
+    desc: "Partner wallet balances",
+  },
+  payouts: {
+    icon: WalletIcon,
+    color: "#22d3ee",
+    bg: "rgba(34,211,238,0.12)",
+    desc: "Partner payout requests",
+  },
+  vendors: {
+    icon: CartIcon,
+    color: "#a78bfa",
+    bg: "rgba(167,139,250,0.12)",
+    desc: "Vendor storefronts",
+  },
+  employees: {
+    icon: UserCircleIcon,
+    color: "#fb923c",
+    bg: "rgba(251,146,60,0.12)",
+    desc: "Employee records",
+  },
+  attendance: {
+    icon: ClockIcon,
+    color: "#2dd4bf",
+    bg: "rgba(45,212,191,0.12)",
+    desc: "Attendance tracking",
+  },
+  leaves: {
+    icon: CalendarIcon,
+    color: "#f472b6",
+    bg: "rgba(244,114,182,0.12)",
+    desc: "Leave requests",
+  },
+  appraisals: {
+    icon: StarIcon,
+    color: "#ffc845",
+    bg: "rgba(255,200,69,0.12)",
+    desc: "Performance appraisals",
+  },
+  staff: {
+    icon: ShieldIcon,
+    color: "#a78bfa",
+    bg: "rgba(167,139,250,0.12)",
+    desc: "Panel staff logins",
+  },
+  roles: {
+    icon: LockIcon,
+    color: "#ff7eb3",
+    bg: "rgba(255,126,179,0.12)",
+    desc: "Role configuration",
+  },
+  departments: {
+    icon: ClipboardIcon,
+    color: "#22d3ee",
+    bg: "rgba(34,211,238,0.12)",
+    desc: "Departments & designations",
+  },
+  offices: {
+    icon: MapPinIcon,
+    color: "#818cf8",
+    bg: "rgba(129,140,248,0.12)",
+    desc: "Office locations",
+  },
+  payments: {
+    icon: WalletIcon,
+    color: "#34d399",
+    bg: "rgba(52,211,153,0.12)",
+    desc: "Payments & payouts",
+  },
+  tasks: {
+    icon: ClipboardIcon,
+    color: "#818cf8",
+    bg: "rgba(129,140,248,0.12)",
+    desc: "Task board & reports",
+  },
+  workspaces: {
+    icon: BuildingIcon,
+    color: "#6366f1",
+    bg: "rgba(99,102,241,0.12)",
+    desc: "Workspace access & ownership",
+  },
+  ess: {
+    icon: UserCircleIcon,
+    color: "#2dd4bf",
+    bg: "rgba(45,212,191,0.12)",
+    desc: "Tabs in the employee's panel",
+  },
+  settings: {
+    icon: SettingsIcon,
+    color: "#94a3b8",
+    bg: "rgba(148,163,184,0.12)",
+    desc: "Panel settings & password",
+  },
+  configure: {
+    icon: WrenchIcon,
+    color: "#fb923c",
+    bg: "rgba(251,146,60,0.12)",
+    desc: "Platform credentials",
+  },
   // SaaS platform (the /real-estate section) — its feature modules, so a panel
   // role can be granted access to each part of the SaaS app.
-  saas: { icon: BuildingIcon, color: "#6366f1", bg: "rgba(99,102,241,0.12)", desc: "SaaS · show the platform tab" },
-  users: { icon: UsersIcon, color: "#4f7cff", bg: "rgba(79,124,255,0.12)", desc: "SaaS · platform users" },
-  forms: { icon: ClipboardIcon, color: "#34d399", bg: "rgba(52,211,153,0.12)", desc: "SaaS · dynamic forms" },
-  leads: { icon: BriefcaseIcon, color: "#22d3ee", bg: "rgba(34,211,238,0.12)", desc: "SaaS · lead management" },
-  projects: { icon: MapPinIcon, color: "#fb923c", bg: "rgba(251,146,60,0.12)", desc: "SaaS · real-estate projects" },
-  reports: { icon: ChartIcon, color: "#a78bfa", bg: "rgba(167,139,250,0.12)", desc: "SaaS · reports & analytics" },
+  saas: {
+    icon: BuildingIcon,
+    color: "#6366f1",
+    bg: "rgba(99,102,241,0.12)",
+    desc: "SaaS · show the platform tab",
+  },
+  users: {
+    icon: UsersIcon,
+    color: "#4f7cff",
+    bg: "rgba(79,124,255,0.12)",
+    desc: "SaaS · platform users",
+  },
+  forms: {
+    icon: ClipboardIcon,
+    color: "#34d399",
+    bg: "rgba(52,211,153,0.12)",
+    desc: "SaaS · dynamic forms",
+  },
+  leads: {
+    icon: BriefcaseIcon,
+    color: "#22d3ee",
+    bg: "rgba(34,211,238,0.12)",
+    desc: "SaaS · lead management",
+  },
+  projects: {
+    icon: MapPinIcon,
+    color: "#fb923c",
+    bg: "rgba(251,146,60,0.12)",
+    desc: "SaaS · real-estate projects",
+  },
+  reports: {
+    icon: ChartIcon,
+    color: "#a78bfa",
+    bg: "rgba(167,139,250,0.12)",
+    desc: "SaaS · reports & analytics",
+  },
 };
 
 /* ── Parent tabs ──────────────────────────────────────────────────────────
@@ -98,7 +270,13 @@ const MODULE_META: Record<string, { icon: Icon; color: string; bg: string; desc:
    anything the backend adds later that isn't mapped falls into "Other modules"
    so it is never hidden from this screen. */
 
-const MODULE_GROUPS: { id: string; label: string; desc: string; icon: Icon; modules: string[] }[] = [
+const MODULE_GROUPS: {
+  id: string;
+  label: string;
+  desc: string;
+  icon: Icon;
+  modules: string[];
+}[] = [
   {
     id: "my-space",
     label: "My Space",
@@ -195,33 +373,101 @@ const MODULE_GROUPS: { id: string; label: string; desc: string; icon: Icon; modu
     label: "Real Estate (SaaS)",
     desc: "The platform section and its feature modules",
     icon: BuildingIcon,
-    modules: ["saas", "users", "forms", "leads", "projects", "reports", "configure"],
+    modules: [
+      "saas",
+      "users",
+      "forms",
+      "leads",
+      "projects",
+      "reports",
+      "configure",
+    ],
   },
 ];
 
 const ACTION_META: Record<string, { icon: Icon; cls: string }> = {
   view: { icon: EyeIcon, cls: "text-[#4f7cff] border-[rgba(79,124,255,0.25)]" },
-  create: { icon: PlusIcon, cls: "text-[#3dd68c] border-[rgba(61,214,140,0.25)]" },
-  update: { icon: PencilIcon, cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]" },
-  edit: { icon: PencilIcon, cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]" },
-  delete: { icon: TrashIcon, cls: "text-[#ff5e6b] border-[rgba(255,94,107,0.25)]" },
-  export: { icon: ChartIcon, cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]" },
-  manage: { icon: SettingsIcon, cls: "text-[#fb923c] border-[rgba(251,146,60,0.25)]" },
-  approve: { icon: ShieldIcon, cls: "text-[#2dd4bf] border-[rgba(45,212,191,0.25)]" },
-  assign: { icon: UsersIcon, cls: "text-[#a78bfa] border-[rgba(167,139,250,0.25)]" },
-  report: { icon: ChartIcon, cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]" },
-  "manage-types": { icon: SettingsIcon, cls: "text-[#fb923c] border-[rgba(251,146,60,0.25)]" },
-  "adjust-balance": { icon: WalletIcon, cls: "text-[#34d399] border-[rgba(52,211,153,0.25)]" },
+  create: {
+    icon: PlusIcon,
+    cls: "text-[#3dd68c] border-[rgba(61,214,140,0.25)]",
+  },
+  update: {
+    icon: PencilIcon,
+    cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]",
+  },
+  edit: {
+    icon: PencilIcon,
+    cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]",
+  },
+  delete: {
+    icon: TrashIcon,
+    cls: "text-[#ff5e6b] border-[rgba(255,94,107,0.25)]",
+  },
+  export: {
+    icon: ChartIcon,
+    cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]",
+  },
+  manage: {
+    icon: SettingsIcon,
+    cls: "text-[#fb923c] border-[rgba(251,146,60,0.25)]",
+  },
+  approve: {
+    icon: ShieldIcon,
+    cls: "text-[#2dd4bf] border-[rgba(45,212,191,0.25)]",
+  },
+  assign: {
+    icon: UsersIcon,
+    cls: "text-[#a78bfa] border-[rgba(167,139,250,0.25)]",
+  },
+  report: {
+    icon: ChartIcon,
+    cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]",
+  },
+  "manage-types": {
+    icon: SettingsIcon,
+    cls: "text-[#fb923c] border-[rgba(251,146,60,0.25)]",
+  },
+  "adjust-balance": {
+    icon: WalletIcon,
+    cls: "text-[#34d399] border-[rgba(52,211,153,0.25)]",
+  },
   // My Space tabs — each action is one sidebar entry in the employee's panel.
-  portal: { icon: GridIcon, cls: "text-[#4f7cff] border-[rgba(79,124,255,0.25)]" },
-  attendance: { icon: ClockIcon, cls: "text-[#2dd4bf] border-[rgba(45,212,191,0.25)]" },
-  leaves: { icon: CalendarIcon, cls: "text-[#f472b6] border-[rgba(244,114,182,0.25)]" },
-  payslips: { icon: WalletIcon, cls: "text-[#34d399] border-[rgba(52,211,153,0.25)]" },
-  "offer-letters": { icon: MailIcon, cls: "text-[#fb7185] border-[rgba(251,113,133,0.25)]" },
-  increments: { icon: ChartIcon, cls: "text-[#a78bfa] border-[rgba(167,139,250,0.25)]" },
-  holidays: { icon: CalendarIcon, cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]" },
-  positions: { icon: BriefcaseIcon, cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]" },
-  tasks: { icon: ClipboardIcon, cls: "text-[#818cf8] border-[rgba(129,140,248,0.25)]" },
+  portal: {
+    icon: GridIcon,
+    cls: "text-[#4f7cff] border-[rgba(79,124,255,0.25)]",
+  },
+  attendance: {
+    icon: ClockIcon,
+    cls: "text-[#2dd4bf] border-[rgba(45,212,191,0.25)]",
+  },
+  leaves: {
+    icon: CalendarIcon,
+    cls: "text-[#f472b6] border-[rgba(244,114,182,0.25)]",
+  },
+  payslips: {
+    icon: WalletIcon,
+    cls: "text-[#34d399] border-[rgba(52,211,153,0.25)]",
+  },
+  "offer-letters": {
+    icon: MailIcon,
+    cls: "text-[#fb7185] border-[rgba(251,113,133,0.25)]",
+  },
+  increments: {
+    icon: ChartIcon,
+    cls: "text-[#a78bfa] border-[rgba(167,139,250,0.25)]",
+  },
+  holidays: {
+    icon: CalendarIcon,
+    cls: "text-[#ffc845] border-[rgba(255,200,69,0.25)]",
+  },
+  positions: {
+    icon: BriefcaseIcon,
+    cls: "text-[#38bdf8] border-[rgba(56,189,248,0.25)]",
+  },
+  tasks: {
+    icon: ClipboardIcon,
+    cls: "text-[#818cf8] border-[rgba(129,140,248,0.25)]",
+  },
 };
 
 /* Where an action maps to a literal sidebar tab, label it as the user sees it
@@ -238,6 +484,14 @@ const ACTION_LABEL: Record<string, Record<string, string>> = {
     holidays: "Holidays",
     positions: "Open positions",
     tasks: "My Tasks",
+  },
+  campaigns: {
+    // "Manage" is the consequential one: it creates a campaign AND sends it,
+    // which puts a real WhatsApp message on hundreds of real phones and cannot
+    // be recalled. Naming that on the switch matters more than consistency
+    // with the generic View/Manage wording elsewhere.
+    view: "See campaigns & delivery results",
+    manage: "Create and SEND campaigns to customers",
   },
   tasks: {
     view: "All Tasks (tab)",
@@ -261,9 +515,13 @@ const moduleMeta = (id: string) =>
   };
 
 const actionMeta = (action: string) =>
-  ACTION_META[action] ?? { icon: GridIcon, cls: "text-muted-foreground border-border" };
+  ACTION_META[action] ?? {
+    icon: GridIcon,
+    cls: "text-muted-foreground border-border",
+  };
 
-const titleCase = (s: string) => s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const titleCase = (s: string) =>
+  s.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 /* ────────────────────────────── Switch ─────────────────────────────── */
 
@@ -351,7 +609,9 @@ function ModuleCard({
             <span className="block truncate text-sm font-semibold text-foreground">
               {titleCase(module)}
             </span>
-            <span className="block truncate text-xs text-muted-foreground">{meta.desc}</span>
+            <span className="block truncate text-xs text-muted-foreground">
+              {meta.desc}
+            </span>
           </span>
         </div>
         <Switch
@@ -399,7 +659,8 @@ function ModuleCard({
       {/* Card footer */}
       <div className="mt-3 border-t border-border pt-3">
         <span className="font-mono text-[11px] text-muted-foreground">
-          <span className="font-semibold text-primary">{onCount}</span>/{keys.length} permissions
+          <span className="font-semibold text-primary">{onCount}</span>/
+          {keys.length} permissions
         </span>
       </div>
     </div>
@@ -428,12 +689,16 @@ function GroupSection({
   const onCount = groupKeys.filter((k) => selected.has(k)).length;
   // "Highlight parent tab": lit whenever anything inside it is granted.
   const active = onCount > 0;
-  const activeModules = mods.filter((m) => m.keys.some((k) => selected.has(k))).length;
+  const activeModules = mods.filter((m) =>
+    m.keys.some((k) => selected.has(k)),
+  ).length;
 
   return (
     <section
       className={`overflow-hidden rounded-2xl border transition ${
-        active ? "border-primary/40 bg-primary/[0.04]" : "border-border bg-card/40"
+        active
+          ? "border-primary/40 bg-primary/[0.04]"
+          : "border-border bg-card/40"
       }`}
     >
       {/* Parent header — one switch flips every module inside. */}
@@ -445,7 +710,9 @@ function GroupSection({
         <div className="flex min-w-0 items-center gap-3">
           <span
             className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition ${
-              active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              active
+                ? "bg-primary/15 text-primary"
+                : "bg-muted text-muted-foreground"
             }`}
           >
             <GroupIcon className="h-5 w-5" />
@@ -463,12 +730,15 @@ function GroupSection({
                 {activeModules}/{mods.length} modules
               </span>
             </div>
-            <p className="truncate text-xs text-muted-foreground">{group.desc}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {group.desc}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <span className="font-mono text-[11px] text-muted-foreground">
-            <span className="font-semibold text-primary">{onCount}</span>/{groupKeys.length}
+            <span className="font-semibold text-primary">{onCount}</span>/
+            {groupKeys.length}
           </span>
           <Switch
             checked={active}
@@ -488,7 +758,10 @@ function GroupSection({
           <ModuleCard
             key={mod.module}
             module={mod.module}
-            actions={mod.actions.map((action, i) => ({ action, key: mod.keys[i] }))}
+            actions={mod.actions.map((action, i) => ({
+              action,
+              key: mod.keys[i],
+            }))}
             selected={selected}
             canEdit={canEdit}
             onToggleKey={onToggleKey}
@@ -515,9 +788,13 @@ function NewRoleModal({
 
   const create = useMutation({
     mutationFn: () =>
-      rbacApi.createRole({ name: name.trim(), description: description.trim() || undefined }),
+      rbacApi.createRole({
+        name: name.trim(),
+        description: description.trim() || undefined,
+      }),
     onSuccess: onCreated,
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not create the role."),
+    onError: (e) =>
+      setErr(e instanceof ApiError ? e.message : "Could not create the role."),
   });
 
   return (
@@ -555,7 +832,11 @@ function NewRoleModal({
           <Btn tone="ghost" onClick={onClose}>
             Cancel
           </Btn>
-          <Btn type="submit" busy={create.isPending} disabled={name.trim().length < 2}>
+          <Btn
+            type="submit"
+            busy={create.isPending}
+            disabled={name.trim().length < 2}
+          >
             Create role
           </Btn>
         </div>
@@ -580,9 +861,15 @@ export function RolesPermissionsPanel() {
   // the roles this panel created.
   const [showBuiltIn, setShowBuiltIn] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [notice, setNotice] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{
+    kind: "error" | "success";
+    text: string;
+  } | null>(null);
 
-  const rolesQuery = useQuery({ queryKey: crmQueryKeys.rbacRoles, queryFn: rbacApi.roles });
+  const rolesQuery = useQuery({
+    queryKey: crmQueryKeys.rbacRoles,
+    queryFn: rbacApi.roles,
+  });
   const catalogQuery = useQuery({
     queryKey: crmQueryKeys.rbacCatalog,
     queryFn: rbacApi.permissionCatalog,
@@ -591,7 +878,10 @@ export function RolesPermissionsPanel() {
   // The backend already omits super_admin for non-super-admin callers; this
   // client-side filter is belt-and-braces for cached/stale query data.
   const allRoles = useMemo(
-    () => (rolesQuery.data ?? []).filter((r) => r.name !== "super_admin" || isSuperAdmin()),
+    () =>
+      (rolesQuery.data ?? []).filter(
+        (r) => r.name !== "super_admin" || isSuperAdmin(),
+      ),
     [rolesQuery.data],
   );
   // Built-in roles are hidden by default so the list leads with the ones this
@@ -608,7 +898,10 @@ export function RolesPermissionsPanel() {
   const activeRole = roles.find((r) => r.roleId === effectiveRoleId) ?? null;
 
   // The permission set that lives on the server for the active role.
-  const serverSelected = useMemo(() => new Set(activeRole?.permissions ?? []), [activeRole]);
+  const serverSelected = useMemo(
+    () => new Set(activeRole?.permissions ?? []),
+    [activeRole],
+  );
 
   // Reset the editable selection whenever the active role (or its server-side
   // permissions) change — "adjust state during render", no effect needed.
@@ -678,10 +971,12 @@ export function RolesPermissionsPanel() {
   }, [catalog]);
 
   const allKeys = useMemo(() => catalog.flatMap((m) => m.keys), [catalog]);
-  const allEnabled = allKeys.length > 0 && allKeys.every((k) => selected.has(k));
+  const allEnabled =
+    allKeys.length > 0 && allKeys.every((k) => selected.has(k));
 
   const saveMutation = useMutation({
-    mutationFn: () => rbacApi.updateRole(effectiveRoleId!, { permissions: [...selected] }),
+    mutationFn: () =>
+      rbacApi.updateRole(effectiveRoleId!, { permissions: [...selected] }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["rbac"] });
       setNotice({ kind: "success", text: "Permissions saved." });
@@ -711,7 +1006,9 @@ export function RolesPermissionsPanel() {
   });
 
   // Derived stats for the chips row.
-  const activeModuleCount = catalog.filter((m) => m.keys.some((k) => selected.has(k))).length;
+  const activeModuleCount = catalog.filter((m) =>
+    m.keys.some((k) => selected.has(k)),
+  ).length;
 
   const loading = rolesQuery.isLoading || catalogQuery.isLoading;
   const loadError = rolesQuery.isError || catalogQuery.isError;
@@ -732,12 +1029,18 @@ export function RolesPermissionsPanel() {
       return (
         <Notice kind="error">
           Your role doesn’t have access to Roles &amp; Permissions
-          {err.message?.includes("Missing permissions") ? ` — ${err.message.toLowerCase()}` : ""}.
-          Ask a super admin to grant it.
+          {err.message?.includes("Missing permissions")
+            ? ` — ${err.message.toLowerCase()}`
+            : ""}
+          . Ask a super admin to grant it.
         </Notice>
       );
     }
-    return <Notice kind="error">Couldn’t load roles or the permission catalog.</Notice>;
+    return (
+      <Notice kind="error">
+        Couldn’t load roles or the permission catalog.
+      </Notice>
+    );
   }
 
   return (
@@ -777,13 +1080,20 @@ export function RolesPermissionsPanel() {
               onClick={() => setShowBuiltIn((v) => !v)}
               className="rounded-full border border-dashed border-border px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition hover:text-foreground"
             >
-              {showBuiltIn ? "Hide built-in" : `Show built-in (${builtInCount})`}
+              {showBuiltIn
+                ? "Hide built-in"
+                : `Show built-in (${builtInCount})`}
             </button>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Btn small tone="ghost" disabled={!dirty} onClick={() => setSelected(new Set(serverSelected))}>
+          <Btn
+            small
+            tone="ghost"
+            disabled={!dirty}
+            onClick={() => setSelected(new Set(serverSelected))}
+          >
             ↺ Reset
           </Btn>
           {canCreate && (
@@ -815,11 +1125,17 @@ export function RolesPermissionsPanel() {
       <div className="flex flex-wrap gap-3">
         <span className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs text-muted-foreground">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
-          Modules active: <strong className="font-semibold text-foreground">{activeModuleCount}</strong>
+          Modules active:{" "}
+          <strong className="font-semibold text-foreground">
+            {activeModuleCount}
+          </strong>
         </span>
         <span className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs text-muted-foreground">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-          Permissions on: <strong className="font-semibold text-foreground">{selected.size}</strong>
+          Permissions on:{" "}
+          <strong className="font-semibold text-foreground">
+            {selected.size}
+          </strong>
         </span>
         <span className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs text-muted-foreground">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
@@ -831,14 +1147,18 @@ export function RolesPermissionsPanel() {
         {activeRole != null && (
           <span className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-danger" />
-            Users: <strong className="font-semibold text-foreground">{activeRole.userCount ?? 0}</strong>
+            Users:{" "}
+            <strong className="font-semibold text-foreground">
+              {activeRole.userCount ?? 0}
+            </strong>
           </span>
         )}
       </div>
 
       {!canEditRoles && (
         <Notice kind="error">
-          You have read-only access to roles — editing requires the roles.update permission.
+          You have read-only access to roles — editing requires the roles.update
+          permission.
         </Notice>
       )}
 
@@ -881,7 +1201,10 @@ export function RolesPermissionsPanel() {
             qc.invalidateQueries({ queryKey: ["rbac"] });
             setActiveRoleId(created.roleId);
             setShowNewRole(false);
-            setNotice({ kind: "success", text: `Role “${created.name}” created.` });
+            setNotice({
+              kind: "success",
+              text: `Role “${created.name}” created.`,
+            });
           }}
         />
       )}
@@ -889,8 +1212,11 @@ export function RolesPermissionsPanel() {
       {confirmDelete && activeRole && (
         <Modal title="Delete role" onClose={() => setConfirmDelete(false)}>
           <p className="text-sm text-muted-foreground">
-            Delete <span className="font-medium text-foreground">{titleCase(activeRole.name)}</span>?
-            Staff members holding it lose its access. This cannot be undone.
+            Delete{" "}
+            <span className="font-medium text-foreground">
+              {titleCase(activeRole.name)}
+            </span>
+            ? Staff members holding it lose its access. This cannot be undone.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Btn tone="ghost" onClick={() => setConfirmDelete(false)}>

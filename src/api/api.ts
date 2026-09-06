@@ -6,7 +6,8 @@ import { apiClient, API_BASE_URL, downloadFile, uploadFile } from "./apiClient";
 
 /* ============================== Auth ==================================== */
 
-export type Role = "USER" | "SERVICE_PROFESSIONAL" | "ADMIN" | "SUPER_ADMIN" | "STAFF";
+export type Role =
+  "USER" | "SERVICE_PROFESSIONAL" | "ADMIN" | "SUPER_ADMIN" | "STAFF";
 
 export interface LoginRequest {
   email: string;
@@ -187,7 +188,12 @@ export interface AdminBookingListResponse {
   bookings: AdminBooking[];
   /** Count per status plus an `all` total, for the filter tabs. */
   counts: Record<string, number>;
-  pagination: { page: number; limit: number; total: number; totalPages: number };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 /* Bank & Payout MIS report — the money-side view of every partner. */
@@ -245,7 +251,10 @@ export interface BankPayoutMisResponse {
   partners: BankPayoutMisRow[];
   charts: {
     payoutStatus: { paid: number; pending: number; failed: number };
-    byCategory: { basis: "paid" | "netPayable"; bars: { category: string; amount: number }[] };
+    byCategory: {
+      basis: "paid" | "netPayable";
+      bars: { category: string; amount: number }[];
+    };
     dailyPaid: { date: string; amount: number }[];
   };
   filters: {
@@ -365,7 +374,13 @@ export interface PartnerProgressList {
   total: number;
   page: number;
   limit: number;
-  counts: { all: number; onboarding: number; training: number; deployment: number; live: number };
+  counts: {
+    all: number;
+    onboarding: number;
+    training: number;
+    deployment: number;
+    live: number;
+  };
 }
 
 /** A service the manual-booking form can be filled against, with its shifts. */
@@ -423,7 +438,8 @@ export interface CreateBookingResult {
 
 /* ----------------------------- Dispatcher ------------------------------- */
 
-export type PartnerOnboardingStatus = "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
+export type PartnerOnboardingStatus =
+  "PENDING" | "VERIFIED" | "ACTIVE" | "REJECTED";
 
 export interface PartnerRow {
   professionalId: number;
@@ -566,11 +582,7 @@ export interface UpdatePartnerInput {
 
 /** The KYC documents an admin can replace, keyed as the API expects them. */
 export type PartnerDocumentField =
-  | "aadharFront"
-  | "aadharBack"
-  | "licenseDoc"
-  | "panCard"
-  | "bankPassbook";
+  "aadharFront" | "aadharBack" | "licenseDoc" | "panCard" | "bankPassbook";
 
 export interface WalletRow {
   /** Null until money first moves — a wallet row is created on demand. */
@@ -713,7 +725,8 @@ export interface EligibleOwner {
 
 export const workspacesApi = {
   /** The permission catalog a workspace builds its roles from. */
-  catalog: () => apiClient.get<WorkspaceCatalogEntry[]>("/v1/workspaces/catalog"),
+  catalog: () =>
+    apiClient.get<WorkspaceCatalogEntry[]>("/v1/workspaces/catalog"),
   /** Panel users who may be made a workspace admin. */
   eligibleOwners: (search?: string) =>
     apiClient.get<EligibleOwner[]>(
@@ -724,26 +737,52 @@ export const workspacesApi = {
   get: (id: number) => apiClient.get<WorkspaceDetail>(`/v1/workspaces/${id}`),
   /** Needs workspaces.manage — hands a workspace to a panel user. */
   create: (body: { name: string; description?: string; ownerId: number }) =>
-    apiClient.post<{ workspaceId: number; message: string }>("/v1/workspaces", body),
-  update: (id: number, body: { name?: string; description?: string; isActive?: boolean }) =>
-    apiClient.patch<{ message: string }>(`/v1/workspaces/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/workspaces/${id}`),
+    apiClient.post<{ workspaceId: number; message: string }>(
+      "/v1/workspaces",
+      body,
+    ),
+  update: (
+    id: number,
+    body: { name?: string; description?: string; isActive?: boolean },
+  ) => apiClient.patch<{ message: string }>(`/v1/workspaces/${id}`, body),
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/workspaces/${id}`),
 
-  roles: (id: number) => apiClient.get<WorkspaceRoleRow[]>(`/v1/workspaces/${id}/roles`),
-  createRole: (id: number, body: { name: string; description?: string; permissions?: string[] }) =>
-    apiClient.post<{ workspaceRoleId: number; message: string }>(`/v1/workspaces/${id}/roles`, body),
+  roles: (id: number) =>
+    apiClient.get<WorkspaceRoleRow[]>(`/v1/workspaces/${id}/roles`),
+  createRole: (
+    id: number,
+    body: { name: string; description?: string; permissions?: string[] },
+  ) =>
+    apiClient.post<{ workspaceRoleId: number; message: string }>(
+      `/v1/workspaces/${id}/roles`,
+      body,
+    ),
   updateRole: (
     id: number,
     roleId: number,
     body: { name?: string; description?: string; permissions?: string[] },
-  ) => apiClient.patch<{ message: string }>(`/v1/workspaces/${id}/roles/${roleId}`, body),
+  ) =>
+    apiClient.patch<{ message: string }>(
+      `/v1/workspaces/${id}/roles/${roleId}`,
+      body,
+    ),
   removeRole: (id: number, roleId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/workspaces/${id}/roles/${roleId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/workspaces/${id}/roles/${roleId}`,
+    ),
 
-  members: (id: number) => apiClient.get<WorkspaceMemberRow[]>(`/v1/workspaces/${id}/members`),
+  members: (id: number) =>
+    apiClient.get<WorkspaceMemberRow[]>(`/v1/workspaces/${id}/members`),
   inviteMember: (
     id: number,
-    body: { email: string; name: string; mobile?: string; password?: string; workspaceRoleId?: number },
+    body: {
+      email: string;
+      name: string;
+      mobile?: string;
+      password?: string;
+      workspaceRoleId?: number;
+    },
   ) =>
     apiClient.post<{ memberId: number; userId: number; message: string }>(
       `/v1/workspaces/${id}/members`,
@@ -753,9 +792,15 @@ export const workspacesApi = {
     id: number,
     memberId: number,
     body: { workspaceRoleId?: number | null; isActive?: boolean },
-  ) => apiClient.patch<{ message: string }>(`/v1/workspaces/${id}/members/${memberId}`, body),
+  ) =>
+    apiClient.patch<{ message: string }>(
+      `/v1/workspaces/${id}/members/${memberId}`,
+      body,
+    ),
   removeMember: (id: number, memberId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/workspaces/${id}/members/${memberId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/workspaces/${id}/members/${memberId}`,
+    ),
 };
 
 /** Platform switch for the grooming module, with its blast radius. */
@@ -775,7 +820,9 @@ export interface GroomingSetting {
 export const groomingApi = {
   /** GET /v1/service-professional-manage/grooming/settings */
   getSetting: () =>
-    apiClient.get<GroomingSetting>("/v1/service-professional-manage/grooming/settings"),
+    apiClient.get<GroomingSetting>(
+      "/v1/service-professional-manage/grooming/settings",
+    ),
 
   /** PATCH /v1/service-professional-manage/grooming/settings — activate/deactivate. */
   setSetting: (enforced: boolean) =>
@@ -808,7 +855,9 @@ export const dispatcherApi = {
 
   /** GET /v1/admin/wallets — partner wallet balances. */
   listWallets: (search?: string, status?: string) =>
-    apiClient.get<WalletListResponse>(`/v1/admin/wallets${toQueryString({ search, status })}`),
+    apiClient.get<WalletListResponse>(
+      `/v1/admin/wallets${toQueryString({ search, status })}`,
+    ),
 
   /** GET /v1/admin/partners/:id — a single partner's full profile. */
   getPartner: (professionalId: number) =>
@@ -817,10 +866,14 @@ export const dispatcherApi = {
   /** POST /v1/admin/partners — register a partner exactly like first-time app
    *  signup (multipart: photo required, KYC docs optional). */
   createPartner: (fd: FormData) =>
-    uploadFile<{ message: string; professionalId: number | null }>("/v1/admin/partners", fd),
+    uploadFile<{ message: string; professionalId: number | null }>(
+      "/v1/admin/partners",
+      fd,
+    ),
 
   /** GET /v1/admin/partners/import-template — the CSV an admin fills in. */
-  partnerImportTemplate: () => downloadFile("/v1/admin/partners/import-template"),
+  partnerImportTemplate: () =>
+    downloadFile("/v1/admin/partners/import-template"),
 
   /** POST /v1/admin/partners/import — bulk-register partners from a filled
    *  sheet. Rows are independent, so the result lists every failure by row. */
@@ -839,7 +892,10 @@ export const dispatcherApi = {
 
   /** PATCH /v1/admin/partners/:id — edit a partner's basic profile. */
   updatePartner: (professionalId: number, body: UpdatePartnerInput) =>
-    apiClient.patch<{ message: string }>(`/v1/admin/partners/${professionalId}`, body),
+    apiClient.patch<{ message: string }>(
+      `/v1/admin/partners/${professionalId}`,
+      body,
+    ),
 
   /**
    * PATCH /v1/admin/partners/:id/documents — replace one KYC document.
@@ -847,7 +903,11 @@ export const dispatcherApi = {
    * One field at a time: the API only touches what it receives, so replacing a
    * blurred Aadhaar never disturbs the licence next to it.
    */
-  updatePartnerDocument: (professionalId: number, field: PartnerDocumentField, file: File) => {
+  updatePartnerDocument: (
+    professionalId: number,
+    field: PartnerDocumentField,
+    file: File,
+  ) => {
     const fd = new FormData();
     fd.append(field, file);
     return uploadFile<{ message: string }>(
@@ -870,26 +930,40 @@ export const dispatcherApi = {
     status: PartnerOnboardingStatus,
     reason?: string,
   ) =>
-    apiClient.patch<{ message: string; onboardingStatus: PartnerOnboardingStatus }>(
-      `/v1/admin/partners/${professionalId}/onboarding`,
-      { status, reason },
-    ),
+    apiClient.patch<{
+      message: string;
+      onboardingStatus: PartnerOnboardingStatus;
+    }>(`/v1/admin/partners/${professionalId}/onboarding`, { status, reason }),
 
   /** GET /v1/admin/partners/:id/earnings — lifetime money + job history. */
   getPartnerEarnings: (professionalId: number) =>
-    apiClient.get<PartnerEarnings>(`/v1/admin/partners/${professionalId}/earnings`),
+    apiClient.get<PartnerEarnings>(
+      `/v1/admin/partners/${professionalId}/earnings`,
+    ),
 
   /** DELETE /v1/admin/partners/:id — remove a partner. */
   deletePartner: (professionalId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/admin/partners/${professionalId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/admin/partners/${professionalId}`,
+    ),
 
   /** POST /v1/admin/wallets/:id/credit — add balance to a partner's wallet. */
-  creditWallet: (professionalId: number, amount: number, description?: string) =>
-    apiClient.post<unknown>(`/v1/admin/wallets/${professionalId}/credit`, { amount, description }),
+  creditWallet: (
+    professionalId: number,
+    amount: number,
+    description?: string,
+  ) =>
+    apiClient.post<unknown>(`/v1/admin/wallets/${professionalId}/credit`, {
+      amount,
+      description,
+    }),
 
   /** POST /v1/admin/wallets/:id/debit — deduct balance from a partner's wallet. */
   debitWallet: (professionalId: number, amount: number, description?: string) =>
-    apiClient.post<unknown>(`/v1/admin/wallets/${professionalId}/debit`, { amount, description }),
+    apiClient.post<unknown>(`/v1/admin/wallets/${professionalId}/debit`, {
+      amount,
+      description,
+    }),
 
   /** GET /v1/admin/payouts — partner payout requests, filterable by status. */
   listPayouts: (search?: string, status?: PayoutStatus | "ALL") =>
@@ -939,7 +1013,11 @@ export interface ReferralRow {
   joinedAt: string;
   completedBookings: number;
   /** The partner who referred them. */
-  referrer: { professionalId: number; name: string; referralCode: string | null } | null;
+  referrer: {
+    professionalId: number;
+    name: string;
+    referralCode: string | null;
+  } | null;
   /** PENDING until the referee completes their first booking. */
   status: "PENDING" | "REWARDED";
   rewardedAt: string | null;
@@ -947,7 +1025,8 @@ export interface ReferralRow {
 
 export const referralApi = {
   /** GET /v1/admin/referrals/settings — the referral program config. */
-  settings: () => apiClient.get<ReferralSettings>("/v1/admin/referrals/settings"),
+  settings: () =>
+    apiClient.get<ReferralSettings>("/v1/admin/referrals/settings"),
 
   /** PATCH /v1/admin/referrals/settings — enable/disable + reward amount. */
   updateSettings: (body: { enabled?: boolean; rewardAmount?: number }) =>
@@ -955,7 +1034,9 @@ export const referralApi = {
 
   /** GET /v1/admin/referrals — referred partners + reward status. */
   list: (search?: string) =>
-    apiClient.get<ReferralRow[]>(`/v1/admin/referrals${toQueryString({ search })}`),
+    apiClient.get<ReferralRow[]>(
+      `/v1/admin/referrals${toQueryString({ search })}`,
+    ),
 };
 
 /* --------------------- Configure (platform credentials) ----------------- */
@@ -1051,7 +1132,12 @@ export interface CustomerDetail {
   /** Admin block flag — a blocked customer cannot log in. */
   isBlocked: boolean;
   joinedAt: string;
-  stats: { totalBookings: number; completed: number; cancelled: number; totalSpent: number };
+  stats: {
+    totalBookings: number;
+    completed: number;
+    cancelled: number;
+    totalSpent: number;
+  };
   addresses: CustomerAddress[];
   bookings: CustomerBooking[];
 }
@@ -1089,17 +1175,21 @@ export interface AdminCoupon {
 export const customersApi = {
   /** GET /v1/admin/customers — all customers (USER accounts). */
   list: (search?: string) =>
-    apiClient.get<CustomerRow[]>(`/v1/admin/customers${toQueryString({ search })}`),
+    apiClient.get<CustomerRow[]>(
+      `/v1/admin/customers${toQueryString({ search })}`,
+    ),
 
   /** GET /v1/admin/customers/:id — a single customer's full profile. */
-  get: (userId: number) => apiClient.get<CustomerDetail>(`/v1/admin/customers/${userId}`),
+  get: (userId: number) =>
+    apiClient.get<CustomerDetail>(`/v1/admin/customers/${userId}`),
 
   /** GET /v1/admin/customers/:id/coupons — every coupon the customer holds. */
   coupons: (userId: number) =>
     apiClient.get<AdminCoupon[]>(`/v1/admin/customers/${userId}/coupons`),
 
   /** GET /v1/admin/coupons/campaigns — coupons any customer may redeem once. */
-  campaigns: () => apiClient.get<CampaignCoupon[]>("/v1/admin/coupons/campaigns"),
+  campaigns: () =>
+    apiClient.get<CampaignCoupon[]>("/v1/admin/coupons/campaigns"),
 
   /** POST /v1/admin/coupons/campaigns — create one (e.g. pay ₹1 for any service). */
   createCampaign: (body: {
@@ -1114,7 +1204,11 @@ export const customersApi = {
   updateCampaign: (
     couponId: number,
     body: { isActive?: boolean; validTill?: string; maxRedemptions?: number },
-  ) => apiClient.patch<CampaignCoupon>(`/v1/admin/coupons/campaigns/${couponId}`, body),
+  ) =>
+    apiClient.patch<CampaignCoupon>(
+      `/v1/admin/coupons/campaigns/${couponId}`,
+      body,
+    ),
 
   /** POST /v1/admin/customers/:id/coupons — grant N one-time 50%-off coupons. */
   grantCoupons: (userId: number, count: number) =>
@@ -1242,7 +1336,8 @@ export interface AnalyticsResponse {
 
 export const dashboardApi = {
   /** GET /v1/admin/dashboard/overview — real metrics aggregated by the backend. */
-  getOverview: () => apiClient.get<DashboardOverview>("/v1/admin/dashboard/overview"),
+  getOverview: () =>
+    apiClient.get<DashboardOverview>("/v1/admin/dashboard/overview"),
 
   /** GET /v1/admin/analytics — KPIs, series and breakdowns for a time range. */
   getAnalytics: (range: AnalyticsRange, from?: string, to?: string) =>
@@ -1267,7 +1362,8 @@ export const dashboardApi = {
 
   /** GET /v1/admin/bookings/services — the services (and their shifts) a manual
    *  booking can be created against. */
-  bookableServices: () => apiClient.get<BookableService[]>("/v1/admin/bookings/services"),
+  bookableServices: () =>
+    apiClient.get<BookableService[]>("/v1/admin/bookings/services"),
 
   /** POST /v1/admin/bookings — create a booking on a customer's behalf (phone
    *  orders, walk-ins). `baseAmount` is pre-GST; tax and the total are added by
@@ -1309,7 +1405,14 @@ export const dashboardApi = {
   /* ── Partner pipeline (Onboarding → Training → Deployment) ─────────────── */
 
   /** GET /v1/admin/partner-progress — pipeline list with training + grooming state. */
-  partnerProgress: (params: { search?: string; stage?: string; page?: number; limit?: number } = {}) =>
+  partnerProgress: (
+    params: {
+      search?: string;
+      stage?: string;
+      page?: number;
+      limit?: number;
+    } = {},
+  ) =>
     apiClient.get<PartnerProgressList>(
       `/v1/admin/partner-progress${toQueryString({
         search: params.search,
@@ -1320,7 +1423,10 @@ export const dashboardApi = {
     ),
   /** Start the partner's 15-day training clock. */
   startTraining: (professionalId: number) =>
-    apiClient.patch<{ message: string }>(`/v1/admin/partner-progress/${professionalId}/training/start`, {}),
+    apiClient.patch<{ message: string }>(
+      `/v1/admin/partner-progress/${professionalId}/training/start`,
+      {},
+    ),
   /** Trainer signs off the completed 15-day training. */
   completeTraining: (professionalId: number, note?: string) =>
     apiClient.patch<{ message: string }>(
@@ -1329,7 +1435,10 @@ export const dashboardApi = {
     ),
   /** Final activation — partner goes live. */
   deployPartner: (professionalId: number) =>
-    apiClient.patch<{ message: string }>(`/v1/admin/partner-progress/${professionalId}/deploy`, {}),
+    apiClient.patch<{ message: string }>(
+      `/v1/admin/partner-progress/${professionalId}/deploy`,
+      {},
+    ),
 
   /** PATCH /v1/admin/bookings/:id/allocate — manually assign a partner to a
    *  booking nobody accepted. Sets the booking ACCEPTED with a fresh start-OTP. */
@@ -1377,7 +1486,12 @@ export interface VendorListResponse {
     activeVendors: number;
   };
   tabs: { active: number; awaitingApproval: number; blocked: number };
-  pagination: { page: number; limit: number; total: number; totalPages: number };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface VendorInput {
@@ -1400,10 +1514,16 @@ export interface VendorListParams {
   search?: string;
 }
 
-function toQueryString(params: Record<string, string | number | boolean | undefined>): string {
-  const entries = Object.entries(params).filter(([, v]) => v !== undefined && v !== "");
+function toQueryString(
+  params: Record<string, string | number | boolean | undefined>,
+): string {
+  const entries = Object.entries(params).filter(
+    ([, v]) => v !== undefined && v !== "",
+  );
   if (entries.length === 0) return "";
-  const qs = new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString();
+  const qs = new URLSearchParams(
+    entries.map(([k, v]) => [k, String(v)]),
+  ).toString();
   return `?${qs}`;
 }
 
@@ -1420,7 +1540,8 @@ export const vendorApi = {
   create: (body: VendorInput) => apiClient.post<Vendor>("/v1/vendor", body),
   update: (id: number, body: Partial<VendorInput>) =>
     apiClient.patch<Vendor>(`/v1/vendor/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/vendor/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/vendor/${id}`),
 };
 
 /* ============================= Categories =============================== */
@@ -1467,21 +1588,32 @@ export const categoryApi = {
 
   /** PATCH /v1/catagories/:id — multipart, image optional. */
   update: (id: number, body: CategoryInput) =>
-    uploadFile<CategoryTreeNode>(`/v1/catagories/${id}`, categoryFormData(body), "PATCH"),
+    uploadFile<CategoryTreeNode>(
+      `/v1/catagories/${id}`,
+      categoryFormData(body),
+      "PATCH",
+    ),
 
   /** DELETE /v1/catagories/service-categories/:id */
   remove: (id: number) =>
-    apiClient.delete<{ message: string }>(`/v1/catagories/service-categories/${id}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/catagories/service-categories/${id}`,
+    ),
 
   /** PATCH /v1/catagories/reorder — persist admin drag-and-drop order so the
    *  web storefront and customer app show categories in the same sequence. */
   reorder: (ids: number[]) =>
-    apiClient.patch<{ message: string; count: number }>("/v1/catagories/reorder", { ids }),
+    apiClient.patch<{ message: string; count: number }>(
+      "/v1/catagories/reorder",
+      { ids },
+    ),
 
   /** PATCH /v1/catagories/:id/publish — publish or unpublish a category.
    *  Unpublished categories still appear on the storefront but as "Coming soon". */
   setPublished: (id: number, isPublished: boolean) =>
-    apiClient.patch<CategoryTreeNode>(`/v1/catagories/${id}/publish`, { isPublished }),
+    apiClient.patch<CategoryTreeNode>(`/v1/catagories/${id}/publish`, {
+      isPublished,
+    }),
 };
 
 /* ====================== Services (catalog) & variants =================== */
@@ -1521,7 +1653,12 @@ export interface ServiceListResponse {
     featuredServices: number;
     newServices: number;
   };
-  pagination: { page: number; limit: number; total: number; totalPages: number };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface ServiceVariantInput {
@@ -1572,10 +1709,12 @@ export const serviceApi = {
       })}`,
     ),
   get: (id: number) => apiClient.get<CatalogService>(`/v1/service/${id}`),
-  create: (body: ServiceInput) => apiClient.post<CatalogService>("/v1/service", body),
+  create: (body: ServiceInput) =>
+    apiClient.post<CatalogService>("/v1/service", body),
   update: (id: number, body: Partial<ServiceInput>) =>
     apiClient.patch<CatalogService>(`/v1/service/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/service/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/service/${id}`),
 
   /** POST /v1/service/:id/image — multipart image upload to Cloudinary. */
   uploadImage: (id: number, image: File) => {
@@ -1585,7 +1724,9 @@ export const serviceApi = {
   },
 
   listVariants: (serviceId: number) =>
-    apiClient.get<{ variants: ServiceVariant[] }>(`/v1/service/${serviceId}/variants`),
+    apiClient.get<{ variants: ServiceVariant[] }>(
+      `/v1/service/${serviceId}/variants`,
+    ),
   addVariant: (serviceId: number, body: ServiceVariantInput) =>
     apiClient.post<ServiceVariant>(`/v1/service/${serviceId}/variants`, body),
   removeVariant: (variantId: number) =>
@@ -1756,7 +1897,8 @@ function bannerFormData(body: BannerInput): FormData {
   if (body.subtitle !== undefined) fd.append("subtitle", body.subtitle);
   if (body.linkUrl !== undefined) fd.append("linkUrl", body.linkUrl);
   if (body.isActive !== undefined) fd.append("isActive", String(body.isActive));
-  if (body.sortOrder !== undefined) fd.append("sortOrder", String(body.sortOrder));
+  if (body.sortOrder !== undefined)
+    fd.append("sortOrder", String(body.sortOrder));
   if (body.platform !== undefined) fd.append("platform", body.platform);
   if (body.image) fd.append("bannerImage", body.image);
   return fd;
@@ -1774,14 +1916,16 @@ export const bannerApi = {
     ),
 
   /** POST /v1/banner — multipart, image required. */
-  create: (body: BannerInput) => uploadFile<Banner>("/v1/banner", bannerFormData(body)),
+  create: (body: BannerInput) =>
+    uploadFile<Banner>("/v1/banner", bannerFormData(body)),
 
   /** PATCH /v1/banner/:id — multipart, image optional. */
   update: (id: number, body: BannerInput) =>
     uploadFile<Banner>(`/v1/banner/${id}`, bannerFormData(body), "PATCH"),
 
   /** DELETE /v1/banner/:id */
-  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/banner/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/banner/${id}`),
 };
 
 /* =============================== Cart ==================================== */
@@ -1929,14 +2073,27 @@ function collectRecords(value: unknown): Record<string, unknown>[] {
     if (!current || visited.has(current)) continue;
     visited.add(current);
     records.push(current);
-    for (const key of ["data", "payload", "result", "tokens", "auth", "user", "profile", "booking"]) {
-      if (current[key] && typeof current[key] === "object") queue.push(current[key]);
+    for (const key of [
+      "data",
+      "payload",
+      "result",
+      "tokens",
+      "auth",
+      "user",
+      "profile",
+      "booking",
+    ]) {
+      if (current[key] && typeof current[key] === "object")
+        queue.push(current[key]);
     }
   }
   return records;
 }
 
-function pickString(records: Record<string, unknown>[], keys: string[]): string | undefined {
+function pickString(
+  records: Record<string, unknown>[],
+  keys: string[],
+): string | undefined {
   for (const record of records) {
     for (const key of keys) {
       const v = record[key];
@@ -1946,18 +2103,25 @@ function pickString(records: Record<string, unknown>[], keys: string[]): string 
   return undefined;
 }
 
-function pickNumber(records: Record<string, unknown>[], keys: string[]): number | undefined {
+function pickNumber(
+  records: Record<string, unknown>[],
+  keys: string[],
+): number | undefined {
   for (const record of records) {
     for (const key of keys) {
       const v = record[key];
       if (typeof v === "number" && Number.isFinite(v)) return v;
-      if (typeof v === "string" && v.trim() && Number.isFinite(Number(v))) return Number(v);
+      if (typeof v === "string" && v.trim() && Number.isFinite(Number(v)))
+        return Number(v);
     }
   }
   return undefined;
 }
 
-function pickBoolean(records: Record<string, unknown>[], keys: string[]): boolean | undefined {
+function pickBoolean(
+  records: Record<string, unknown>[],
+  keys: string[],
+): boolean | undefined {
   for (const record of records) {
     for (const key of keys) {
       if (typeof record[key] === "boolean") return record[key] as boolean;
@@ -1966,10 +2130,16 @@ function pickBoolean(records: Record<string, unknown>[], keys: string[]): boolea
   return undefined;
 }
 
-function normalizeCustomerUser(records: Record<string, unknown>[]): CustomerUser | undefined {
+function normalizeCustomerUser(
+  records: Record<string, unknown>[],
+): CustomerUser | undefined {
   for (const record of records) {
     const hasShape =
-      ("id" in record || "userId" in record || "mobile" in record || "phone" in record || "email" in record) &&
+      ("id" in record ||
+        "userId" in record ||
+        "mobile" in record ||
+        "phone" in record ||
+        "email" in record) &&
       !("accessToken" in record) &&
       !("refreshToken" in record);
     if (!hasShape) continue;
@@ -1984,7 +2154,14 @@ function normalizeCustomerUser(records: Record<string, unknown>[]): CustomerUser
     const email = pickString([record], ["email"]);
     const name = pickString([record], ["name"]);
     if (!id && !mobile && !email) continue;
-    return { ...record, id: id ?? mobile ?? email ?? "user", mobile, phone: mobile, email, name };
+    return {
+      ...record,
+      id: id ?? mobile ?? email ?? "user",
+      mobile,
+      phone: mobile,
+      email,
+      name,
+    };
   }
   return undefined;
 }
@@ -2006,7 +2183,11 @@ export const customerAuthApi = {
   /** POST /v1/auth/otp-generate-user — send an OTP to the mobile number. */
   generateOtp: (mobile: string) =>
     apiClient
-      .post<unknown>("/v1/auth/otp-generate-user", { mobile }, { skipAuth: true })
+      .post<unknown>(
+        "/v1/auth/otp-generate-user",
+        { mobile },
+        { skipAuth: true },
+      )
       .then(normalizeAuthResult),
 
   /** POST /v1/auth/resend-otp — re-send the OTP. */
@@ -2148,7 +2329,8 @@ function normalizeBookingResponse(value: unknown): BookingSummary {
   const records = collectRecords(value);
   return {
     bookingId: pickNumber(records, ["bookingId", "id"]) ?? 0,
-    status: pickString(records, ["status", "bookingStatus", "action"]) ?? "Pending",
+    status:
+      pickString(records, ["status", "bookingStatus", "action"]) ?? "Pending",
     message: pickString(records, ["message", "msg"]),
     raw: value,
   };
@@ -2158,7 +2340,11 @@ function normalizeBookingResponse(value: unknown): BookingSummary {
 export interface BookingProfessional {
   professionalId?: number;
   rating?: number | null;
-  user?: { name?: string | null; email?: string | null; mobile?: string | null } | null;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+    mobile?: string | null;
+  } | null;
 }
 
 /** A booking row as returned by GET /v1/booking/get (loosely shaped). */
@@ -2169,7 +2355,11 @@ export interface BookingRecord {
   variantId?: number | null;
   serviceName?: string;
   variantName?: string | null;
-  service?: { serviceId?: number; name?: string; profileImage?: string | null } | null;
+  service?: {
+    serviceId?: number;
+    name?: string;
+    profileImage?: string | null;
+  } | null;
   variant?: { variantId?: number; name?: string } | null;
   professionalId?: number | null;
   professional?: BookingProfessional | null;
@@ -2184,12 +2374,21 @@ export interface BookingRecord {
 
 export interface UserBookingsResponse {
   bookings: BookingRecord[];
-  pagination?: { page: number; limit: number; total: number; totalPages: number };
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export const bookingApi = {
   /** GET /v1/booking/get/slots — professional availability for a service+date. */
-  getAvailableSlots: (params: { serviceId: number; variantId: number; date: string }) =>
+  getAvailableSlots: (params: {
+    serviceId: number;
+    variantId: number;
+    date: string;
+  }) =>
     apiClient.get<unknown>(
       `/v1/booking/get/slots${toQueryString({
         serviceId: params.serviceId,
@@ -2200,7 +2399,9 @@ export const bookingApi = {
 
   /** POST /v1/booking/book — create a booking for one cart item. */
   create: (payload: CreateBookingPayload) =>
-    apiClient.post<unknown>("/v1/booking/book", payload).then(normalizeBookingResponse),
+    apiClient
+      .post<unknown>("/v1/booking/book", payload)
+      .then(normalizeBookingResponse),
 
   /** GET /v1/booking/get?userId — the signed-in customer's bookings. */
   listByUser: (userId: string | number, page = 1, limit = 50) =>
@@ -2242,7 +2443,10 @@ export interface VerifyRazorpayResult {
 export const paymentsApi = {
   /** POST /v1/payments/create-order — amount in INR (backend converts to paise). */
   createOrder: (amount: number, currency = "INR") =>
-    apiClient.post<CreatedRazorpayOrder>("/v1/payments/create-order", { amount, currency }),
+    apiClient.post<CreatedRazorpayOrder>("/v1/payments/create-order", {
+      amount,
+      currency,
+    }),
 
   /** POST /v1/payments/verify — verify the Razorpay signature server-side. */
   verify: (payload: VerifyRazorpayPayload) =>
@@ -2285,7 +2489,12 @@ export interface DispatchTeamDetail {
   createdAt: string;
   updatedAt: string;
   members: DispatchPartnerRow[];
-  geofences: { geofenceId: number; name: string; color: string; isActive: boolean }[];
+  geofences: {
+    geofenceId: number;
+    name: string;
+    color: string;
+    isActive: boolean;
+  }[];
 }
 
 export interface GeofenceRow {
@@ -2437,7 +2646,9 @@ export const dispatchApi = {
 
   /** GET /v1/admin/dispatch/teams — teams with member/geofence counts. */
   listTeams: (search?: string) =>
-    apiClient.get<DispatchTeamRow[]>(`/v1/admin/dispatch/teams${toQueryString({ search })}`),
+    apiClient.get<DispatchTeamRow[]>(
+      `/v1/admin/dispatch/teams${toQueryString({ search })}`,
+    ),
 
   /** GET /v1/admin/dispatch/teams/:id — a team with members and geofences. */
   getTeam: (teamId: number) =>
@@ -2449,7 +2660,10 @@ export const dispatchApi = {
 
   /** PATCH /v1/admin/dispatch/teams/:id — rename / redescribe a team. */
   updateTeam: (teamId: number, body: { name?: string; description?: string }) =>
-    apiClient.patch<DispatchTeamRow>(`/v1/admin/dispatch/teams/${teamId}`, body),
+    apiClient.patch<DispatchTeamRow>(
+      `/v1/admin/dispatch/teams/${teamId}`,
+      body,
+    ),
 
   /** DELETE /v1/admin/dispatch/teams/:id — members/zones are unassigned, not deleted. */
   deleteTeam: (teamId: number) =>
@@ -2457,13 +2671,18 @@ export const dispatchApi = {
 
   /** PUT /v1/admin/dispatch/teams/:id/members — replace the full member list. */
   setTeamMembers: (teamId: number, professionalIds: number[]) =>
-    apiClient.put<DispatchTeamDetail>(`/v1/admin/dispatch/teams/${teamId}/members`, {
-      professionalIds,
-    }),
+    apiClient.put<DispatchTeamDetail>(
+      `/v1/admin/dispatch/teams/${teamId}/members`,
+      {
+        professionalIds,
+      },
+    ),
 
   /** GET /v1/admin/dispatch/geofences — zones with team + partner counts. */
   listGeofences: (search?: string) =>
-    apiClient.get<GeofenceRow[]>(`/v1/admin/dispatch/geofences${toQueryString({ search })}`),
+    apiClient.get<GeofenceRow[]>(
+      `/v1/admin/dispatch/geofences${toQueryString({ search })}`,
+    ),
 
   /** GET /v1/admin/dispatch/geofences/:id — polygon, team and partners. */
   getGeofence: (geofenceId: number) =>
@@ -2475,15 +2694,22 @@ export const dispatchApi = {
 
   /** PATCH /v1/admin/dispatch/geofences/:id */
   updateGeofence: (geofenceId: number, body: Partial<GeofenceInput>) =>
-    apiClient.patch<GeofenceDetail>(`/v1/admin/dispatch/geofences/${geofenceId}`, body),
+    apiClient.patch<GeofenceDetail>(
+      `/v1/admin/dispatch/geofences/${geofenceId}`,
+      body,
+    ),
 
   /** DELETE /v1/admin/dispatch/geofences/:id */
   deleteGeofence: (geofenceId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/geofences/${geofenceId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/admin/dispatch/geofences/${geofenceId}`,
+    ),
 
   /** GET /v1/admin/dispatch/warehouses */
   listWarehouses: (search?: string) =>
-    apiClient.get<WarehouseRow[]>(`/v1/admin/dispatch/warehouses${toQueryString({ search })}`),
+    apiClient.get<WarehouseRow[]>(
+      `/v1/admin/dispatch/warehouses${toQueryString({ search })}`,
+    ),
 
   /** POST /v1/admin/dispatch/warehouses */
   createWarehouse: (body: WarehouseInput) =>
@@ -2491,22 +2717,29 @@ export const dispatchApi = {
 
   /** PATCH /v1/admin/dispatch/warehouses/:id */
   updateWarehouse: (warehouseId: number, body: Partial<WarehouseInput>) =>
-    apiClient.patch<WarehouseRow>(`/v1/admin/dispatch/warehouses/${warehouseId}`, body),
+    apiClient.patch<WarehouseRow>(
+      `/v1/admin/dispatch/warehouses/${warehouseId}`,
+      body,
+    ),
 
   /** DELETE /v1/admin/dispatch/warehouses/:id */
   deleteWarehouse: (warehouseId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/warehouses/${warehouseId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/admin/dispatch/warehouses/${warehouseId}`,
+    ),
 
   /** GET /v1/admin/dispatch/allocation — the auto-allocation settings singleton. */
   getAllocationSettings: () =>
     apiClient.get<AllocationSettings>(`/v1/admin/dispatch/allocation`),
 
   /** PUT /v1/admin/dispatch/allocation — update the auto-allocation settings. */
-  updateAllocationSettings: (body: Partial<Omit<AllocationSettings, "settingId" | "updatedAt">>) =>
-    apiClient.put<AllocationSettings>(`/v1/admin/dispatch/allocation`, body),
+  updateAllocationSettings: (
+    body: Partial<Omit<AllocationSettings, "settingId" | "updatedAt">>,
+  ) => apiClient.put<AllocationSettings>(`/v1/admin/dispatch/allocation`, body),
 
   /** GET /v1/admin/dispatch/pricing-rules */
-  listPricingRules: () => apiClient.get<PricingRuleRow[]>(`/v1/admin/dispatch/pricing-rules`),
+  listPricingRules: () =>
+    apiClient.get<PricingRuleRow[]>(`/v1/admin/dispatch/pricing-rules`),
 
   /** POST /v1/admin/dispatch/pricing-rules */
   createPricingRule: (body: PricingRuleInput) =>
@@ -2514,18 +2747,24 @@ export const dispatchApi = {
 
   /** PATCH /v1/admin/dispatch/pricing-rules/:id */
   updatePricingRule: (ruleId: number, body: Partial<PricingRuleInput>) =>
-    apiClient.patch<PricingRuleRow>(`/v1/admin/dispatch/pricing-rules/${ruleId}`, body),
+    apiClient.patch<PricingRuleRow>(
+      `/v1/admin/dispatch/pricing-rules/${ruleId}`,
+      body,
+    ),
 
   /** DELETE /v1/admin/dispatch/pricing-rules/:id */
   deletePricingRule: (ruleId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/admin/dispatch/pricing-rules/${ruleId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/admin/dispatch/pricing-rules/${ruleId}`,
+    ),
 };
 
 /* ============================ Query keys ================================ */
 
 /* =============================== Tasks ================================= */
 
-export type TaskStatus = "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "BLOCKED";
+export type TaskStatus =
+  "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE" | "BLOCKED";
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export interface TaskAssignee {
@@ -2594,7 +2833,12 @@ export interface TaskDetail extends TaskRow {
 export interface TaskListResponse {
   tasks: TaskRow[];
   counts: Record<string, number>;
-  pagination: { page: number; limit: number; total: number; totalPages: number };
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 export interface AssignableEmployee {
@@ -2644,7 +2888,6 @@ export interface TaskListParams {
 
 export type TaskRepeat = "DAILY" | "WEEKLY" | "MONTHLY";
 
-
 export interface CreateTaskInput {
   title: string;
   description?: string;
@@ -2679,16 +2922,28 @@ export const taskApi = {
       })}`,
     ),
   employees: (search?: string) =>
-    apiClient.get<AssignableEmployee[]>(`/v1/tasks/employees${toQueryString({ search })}`),
+    apiClient.get<AssignableEmployee[]>(
+      `/v1/tasks/employees${toQueryString({ search })}`,
+    ),
   get: (taskId: number) => apiClient.get<TaskDetail>(`/v1/tasks/${taskId}`),
   create: (body: CreateTaskInput) => apiClient.post<TaskRow>("/v1/tasks", body),
   update: (taskId: number, body: UpdateTaskInput) =>
     apiClient.patch<TaskRow>(`/v1/tasks/${taskId}`, body),
-  remove: (taskId: number) => apiClient.delete<{ message: string }>(`/v1/tasks/${taskId}`),
+  remove: (taskId: number) =>
+    apiClient.delete<{ message: string }>(`/v1/tasks/${taskId}`),
   addComment: (taskId: number, body: string) =>
     apiClient.post<TaskCommentRow>(`/v1/tasks/${taskId}/comments`, { body }),
-  report: (params: { group?: "day" | "week" | "month"; from?: string; to?: string; assigneeId?: number } = {}) =>
-    apiClient.get<TaskReport>(`/v1/tasks/report${toQueryString({ ...params })}`),
+  report: (
+    params: {
+      group?: "day" | "week" | "month";
+      from?: string;
+      to?: string;
+      assigneeId?: number;
+    } = {},
+  ) =>
+    apiClient.get<TaskReport>(
+      `/v1/tasks/report${toQueryString({ ...params })}`,
+    ),
 
   // Attachments (management side — permission: tasks.update).
   addAttachment: (taskId: number, file: File) => {
@@ -2697,23 +2952,31 @@ export const taskApi = {
     return uploadFile<TaskAttachmentRow>(`/v1/tasks/${taskId}/attachments`, fd);
   },
   removeAttachment: (attachmentId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/tasks/attachments/${attachmentId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/tasks/attachments/${attachmentId}`,
+    ),
 
   // Subtasks (management side).
   addSubtask: (taskId: number, title: string) =>
     apiClient.post<TaskSubtaskRow>(`/v1/tasks/${taskId}/subtasks`, { title }),
-  updateSubtask: (subtaskId: number, body: { title?: string; isDone?: boolean }) =>
-    apiClient.patch<TaskSubtaskRow>(`/v1/tasks/subtasks/${subtaskId}`, body),
+  updateSubtask: (
+    subtaskId: number,
+    body: { title?: string; isDone?: boolean },
+  ) => apiClient.patch<TaskSubtaskRow>(`/v1/tasks/subtasks/${subtaskId}`, body),
   removeSubtask: (subtaskId: number) =>
     apiClient.delete<{ message: string }>(`/v1/tasks/subtasks/${subtaskId}`),
 
   /** Employee self-service (JWT-only). */
   myTasks: (status?: TaskStatus) =>
-    apiClient.get<{ employee: { employeeId: number; name: string }; tasks: TaskRow[]; counts: Record<string, number> }>(
-      `/v1/tasks/me${toQueryString({ status })}`,
-    ),
-  createMyTask: (body: Omit<CreateTaskInput, "assigneeId">) => apiClient.post<TaskRow>("/v1/tasks/me", body),
-  getMyTask: (taskId: number) => apiClient.get<TaskDetail>(`/v1/tasks/me/${taskId}`),
+    apiClient.get<{
+      employee: { employeeId: number; name: string };
+      tasks: TaskRow[];
+      counts: Record<string, number>;
+    }>(`/v1/tasks/me${toQueryString({ status })}`),
+  createMyTask: (body: Omit<CreateTaskInput, "assigneeId">) =>
+    apiClient.post<TaskRow>("/v1/tasks/me", body),
+  getMyTask: (taskId: number) =>
+    apiClient.get<TaskDetail>(`/v1/tasks/me/${taskId}`),
   updateMyTask: (taskId: number, body: UpdateTaskInput) =>
     apiClient.patch<TaskRow>(`/v1/tasks/me/${taskId}`, body),
   updateMyStatus: (taskId: number, status: TaskStatus, note?: string) =>
@@ -2723,13 +2986,23 @@ export const taskApi = {
   addMyAttachment: (taskId: number, file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-    return uploadFile<TaskAttachmentRow>(`/v1/tasks/me/${taskId}/attachments`, fd);
+    return uploadFile<TaskAttachmentRow>(
+      `/v1/tasks/me/${taskId}/attachments`,
+      fd,
+    );
   },
   removeMyAttachment: (attachmentId: number) =>
-    apiClient.delete<{ message: string }>(`/v1/tasks/me/attachments/${attachmentId}`),
+    apiClient.delete<{ message: string }>(
+      `/v1/tasks/me/attachments/${attachmentId}`,
+    ),
   addMySubtask: (taskId: number, title: string) =>
-    apiClient.post<TaskSubtaskRow>(`/v1/tasks/me/${taskId}/subtasks`, { title }),
-  updateMySubtask: (subtaskId: number, body: { title?: string; isDone?: boolean }) =>
+    apiClient.post<TaskSubtaskRow>(`/v1/tasks/me/${taskId}/subtasks`, {
+      title,
+    }),
+  updateMySubtask: (
+    subtaskId: number,
+    body: { title?: string; isDone?: boolean },
+  ) =>
     apiClient.patch<TaskSubtaskRow>(`/v1/tasks/me/subtasks/${subtaskId}`, body),
   removeMySubtask: (subtaskId: number) =>
     apiClient.delete<{ message: string }>(`/v1/tasks/me/subtasks/${subtaskId}`),
@@ -2740,12 +3013,14 @@ export const queryKeys = {
   tasks: (params: TaskListParams) => ["tasks", params] as const,
   task: (id: number) => ["task", id] as const,
   taskEmployees: (search: string) => ["task-employees", search] as const,
-  taskReport: (params: Record<string, unknown>) => ["task-report", params] as const,
+  taskReport: (params: Record<string, unknown>) =>
+    ["task-report", params] as const,
   myTasks: (status: string) => ["my-tasks", status] as const,
   dashboardOverview: ["dashboard", "overview"] as const,
   analytics: (range: string, from?: string, to?: string) =>
     ["dashboard", "analytics", range, from ?? "", to ?? ""] as const,
-  adminBookings: (params: AdminBookingListParams) => ["admin-bookings", params] as const,
+  adminBookings: (params: AdminBookingListParams) =>
+    ["admin-bookings", params] as const,
   partners: (search: string, status: string, categoryId?: number) =>
     ["dispatcher", "partners", status, search, categoryId ?? "all"] as const,
   partnerStatusCounts: ["dispatcher", "partners", "status-counts"] as const,
@@ -2777,18 +3052,24 @@ export const queryKeys = {
   categoryTree: ["categoryTree"] as const,
   /** Location-scoped tree: a Delhi answer must never be reused in Mumbai. */
   categoryTreeAt: (coords?: { lat: number; lng: number } | null) =>
-    ["categoryTree", coords ? `${coords.lat.toFixed(3)},${coords.lng.toFixed(3)}` : "all"] as const,
+    [
+      "categoryTree",
+      coords ? `${coords.lat.toFixed(3)},${coords.lng.toFixed(3)}` : "all",
+    ] as const,
   banners: ["banners"] as const,
   bannersActive: ["banners", "active"] as const,
   cart: (sessionId: string) => ["cart", sessionId] as const,
   userAddresses: (userId: string | number) => ["addresses", userId] as const,
-  userBookings: (userId: string | number) => ["bookings", "user", userId] as const,
+  userBookings: (userId: string | number) =>
+    ["bookings", "user", userId] as const,
   contactSubmissions: (search: string) => ["contacts", search] as const,
   configure: ["configure"] as const,
   auraOverview: ["aura", "overview"] as const,
-  auraUsers: (params: Record<string, unknown>) => ["aura", "users", params] as const,
+  auraUsers: (params: Record<string, unknown>) =>
+    ["aura", "users", params] as const,
   auraUser: (userId: number) => ["aura", "user", userId] as const,
-  auraCatalog: (params: Record<string, unknown>) => ["aura", "catalog", params] as const,
+  auraCatalog: (params: Record<string, unknown>) =>
+    ["aura", "catalog", params] as const,
   auraScoreRules: ["aura", "score-rules"] as const,
   auraSettings: ["aura", "settings"] as const,
 };
@@ -2824,7 +3105,9 @@ export interface ContactSubmitRequest {
 export const contactApi = {
   /** POST /v1/contact — public endpoint, no auth required. */
   submit: (body: ContactSubmitRequest) =>
-    apiClient.post<{ message: string }>("/v1/contact", body, { skipAuth: true }),
+    apiClient.post<{ message: string }>("/v1/contact", body, {
+      skipAuth: true,
+    }),
 
   /** GET /v1/admin/contact — admin only, lists all submissions. */
   list: (search?: string) =>
@@ -2834,7 +3117,10 @@ export const contactApi = {
 
   /** PATCH /v1/admin/contact/:id — update status (READ / RESOLVED). */
   updateStatus: (id: number, status: ContactStatus) =>
-    apiClient.patch<{ message: string; data: ContactSubmission }>(`/v1/admin/contact/${id}`, { status }),
+    apiClient.patch<{ message: string; data: ContactSubmission }>(
+      `/v1/admin/contact/${id}`,
+      { status },
+    ),
 };
 
 /* ============================== CRM / HR ================================ */
@@ -2912,7 +3198,10 @@ export interface CrmBookingRow {
   user: { userId: number; name: string | null; mobile: string | null } | null;
   service: { name: string } | null;
   variant: { name: string } | null;
-  professional: { professionalId: number; user: { name: string | null } | null } | null;
+  professional: {
+    professionalId: number;
+    user: { name: string | null } | null;
+  } | null;
 }
 export type CrmBookingList = CrmPage & { bookings: CrmBookingRow[] };
 
@@ -2922,10 +3211,17 @@ export const crmApi = {
     apiClient.get<CrmCustomerList>(`/v1/crm/customers${toQueryString(params)}`),
   updateCustomer: (id: number, body: { name?: string; mobile?: string }) =>
     apiClient.patch(`/v1/crm/customers/${id}`, body),
-  partners: (params: { search?: string; status?: string; page?: number; limit?: number }) =>
+  partners: (params: {
+    search?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) =>
     apiClient.get<CrmPartnerList>(`/v1/crm/partners${toQueryString(params)}`),
-  updatePartner: (id: number, body: { isBlocked?: boolean; onboardingStatus?: string }) =>
-    apiClient.patch(`/v1/crm/partners/${id}`, body),
+  updatePartner: (
+    id: number,
+    body: { isBlocked?: boolean; onboardingStatus?: string },
+  ) => apiClient.patch(`/v1/crm/partners/${id}`, body),
   bookings: (params: {
     search?: string;
     status?: string;
@@ -2933,7 +3229,8 @@ export const crmApi = {
     to?: string;
     page?: number;
     limit?: number;
-  }) => apiClient.get<CrmBookingList>(`/v1/crm/bookings${toQueryString(params)}`),
+  }) =>
+    apiClient.get<CrmBookingList>(`/v1/crm/bookings${toQueryString(params)}`),
   /** Cancel/complete a booking from the panel. `reason` is recorded on cancel
    *  so the bookings table can show WHY it was cancelled. */
   /** PATCH /v1/admin/bookings/:id — edit date, slot, address or amount. */
@@ -2961,8 +3258,11 @@ export const crmApi = {
       skipped: { bookingId: number; reason: string }[];
     }>("/v1/admin/bookings/bulk-delete", { bookingIds }),
 
-  updateBookingStatus: (id: number, status: "CANCELLED" | "COMPLETED", reason?: string) =>
-    apiClient.patch(`/v1/crm/bookings/${id}/status`, { status, reason }),
+  updateBookingStatus: (
+    id: number,
+    status: "CANCELLED" | "COMPLETED",
+    reason?: string,
+  ) => apiClient.patch(`/v1/crm/bookings/${id}/status`, { status, reason }),
 };
 
 /* ----------------------- CRM: Restaurant clients ----------------------- */
@@ -2991,7 +3291,11 @@ export interface RestaurantRow {
   fssaiNumber: string | null;
   notes: string | null;
   linkedUserId: number | null;
-  linkedUser?: { userId: number; name: string | null; email: string | null } | null;
+  linkedUser?: {
+    userId: number;
+    name: string | null;
+    email: string | null;
+  } | null;
   _count?: { tickets: number };
   createdAt: string;
   /* Field-sales visit capture — filled during onboarding. */
@@ -3041,7 +3345,11 @@ export const RESTAURANT_DECISIONS = [
 
 export interface RestaurantDetail extends RestaurantRow {
   orderStats: { totalBookings: number; revenue: number } | null;
-  convertedFromLead?: { leadId: number; restaurantName: string; wonAt: string | null } | null;
+  convertedFromLead?: {
+    leadId: number;
+    restaurantName: string;
+    wonAt: string | null;
+  } | null;
   tickets: {
     ticketId: number;
     subject: string;
@@ -3052,7 +3360,9 @@ export interface RestaurantDetail extends RestaurantRow {
   }[];
 }
 
-export type RestaurantBody = Partial<Omit<RestaurantRow, "restaurantId" | "createdAt">> & {
+export type RestaurantBody = Partial<
+  Omit<RestaurantRow, "restaurantId" | "createdAt">
+> & {
   name?: string;
 };
 
@@ -3074,7 +3384,9 @@ export interface CustomerRestaurantRow {
   isAlsoPartner: boolean;
   joinedAt: string;
 }
-export type CustomerRestaurantList = CrmPage & { restaurants: CustomerRestaurantRow[] };
+export type CustomerRestaurantList = CrmPage & {
+  restaurants: CustomerRestaurantRow[];
+};
 
 export const crmRestaurantsApi = {
   /** GET /v1/crm/restaurants/from-customers — restaurant name / owner / GST as
@@ -3083,22 +3395,37 @@ export const crmRestaurantsApi = {
     apiClient.get<CustomerRestaurantList>(
       `/v1/crm/restaurants/from-customers${toQueryString(params)}`,
     ),
-  list: (params: { search?: string; status?: string; city?: string; page?: number; limit?: number }) =>
-    apiClient.get<RestaurantList>(`/v1/crm/restaurants${toQueryString(params)}`),
-  get: (id: number) => apiClient.get<RestaurantDetail>(`/v1/crm/restaurants/${id}`),
+  list: (params: {
+    search?: string;
+    status?: string;
+    city?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    apiClient.get<RestaurantList>(
+      `/v1/crm/restaurants${toQueryString(params)}`,
+    ),
+  get: (id: number) =>
+    apiClient.get<RestaurantDetail>(`/v1/crm/restaurants/${id}`),
   bookings: (id: number, params: { page?: number; limit?: number }) =>
-    apiClient.get<CrmBookingList>(`/v1/crm/restaurants/${id}/bookings${toQueryString(params)}`),
+    apiClient.get<CrmBookingList>(
+      `/v1/crm/restaurants/${id}/bookings${toQueryString(params)}`,
+    ),
   create: (body: RestaurantBody & { name: string }) =>
     apiClient.post<RestaurantRow>("/v1/crm/restaurants", body),
   /** POST /v1/crm/restaurants/photo — store a visit photo, get its URL back. */
   uploadPhoto: (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-    return uploadFile<{ url: string; publicId: string }>("/v1/crm/restaurants/photo", fd);
+    return uploadFile<{ url: string; publicId: string }>(
+      "/v1/crm/restaurants/photo",
+      fd,
+    );
   },
   update: (id: number, body: RestaurantBody) =>
     apiClient.patch<RestaurantRow>(`/v1/crm/restaurants/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/restaurants/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/crm/restaurants/${id}`),
 };
 
 /* ------------------------ CRM: Sales lead pipeline ---------------------- */
@@ -3146,7 +3473,11 @@ export interface SalesLeadRow {
   lostReason: string | null;
   wonAt: string | null;
   assignedToId: number | null;
-  assignedTo?: { userId: number; name: string | null; email: string | null } | null;
+  assignedTo?: {
+    userId: number;
+    name: string | null;
+    email: string | null;
+  } | null;
   convertedRestaurantId: number | null;
   convertedRestaurant?: { restaurantId: number; name: string } | null;
   nextFollowUp?: SalesFollowUpRow | null;
@@ -3186,20 +3517,34 @@ export const crmSalesApi = {
     assignedToId?: number;
     page?: number;
     limit?: number;
-  }) => apiClient.get<SalesLeadList>(`/v1/crm/sales-leads${toQueryString(params)}`),
+  }) =>
+    apiClient.get<SalesLeadList>(`/v1/crm/sales-leads${toQueryString(params)}`),
   get: (id: number) => apiClient.get<SalesLeadRow>(`/v1/crm/sales-leads/${id}`),
   create: (body: SalesLeadBody & { restaurantName: string }) =>
     apiClient.post<SalesLeadRow>("/v1/crm/sales-leads", body),
   update: (id: number, body: SalesLeadBody) =>
     apiClient.patch<SalesLeadRow>(`/v1/crm/sales-leads/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/sales-leads/${id}`),
-  convert: (id: number) => apiClient.post<RestaurantRow>(`/v1/crm/sales-leads/${id}/convert`, {}),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/crm/sales-leads/${id}`),
+  convert: (id: number) =>
+    apiClient.post<RestaurantRow>(`/v1/crm/sales-leads/${id}/convert`, {}),
   addFollowUp: (leadId: number, body: { dueAt: string; note?: string }) =>
-    apiClient.post<SalesFollowUpRow>(`/v1/crm/sales-leads/${leadId}/follow-ups`, body),
-  updateFollowUp: (followUpId: number, body: { dueAt?: string; note?: string; status?: string }) =>
-    apiClient.patch<SalesFollowUpRow>(`/v1/crm/sales-leads/follow-ups/${followUpId}`, body),
+    apiClient.post<SalesFollowUpRow>(
+      `/v1/crm/sales-leads/${leadId}/follow-ups`,
+      body,
+    ),
+  updateFollowUp: (
+    followUpId: number,
+    body: { dueAt?: string; note?: string; status?: string },
+  ) =>
+    apiClient.patch<SalesFollowUpRow>(
+      `/v1/crm/sales-leads/follow-ups/${followUpId}`,
+      body,
+    ),
   removeFollowUp: (followUpId: number) =>
-    apiClient.delete<{ deleted: boolean }>(`/v1/crm/sales-leads/follow-ups/${followUpId}`),
+    apiClient.delete<{ deleted: boolean }>(
+      `/v1/crm/sales-leads/follow-ups/${followUpId}`,
+    ),
 };
 
 /* -------------------------- CRM: Support desk --------------------------- */
@@ -3229,7 +3574,11 @@ export interface TicketRow {
   status: TicketStatus;
   priority: TicketPriority;
   restaurantId: number | null;
-  restaurant?: { restaurantId: number; name: string; contactNumber?: string | null } | null;
+  restaurant?: {
+    restaurantId: number;
+    name: string;
+    contactNumber?: string | null;
+  } | null;
   /** Booking customer the ticket is about — their restaurantName is the
    *  restaurant shown in the panel (the CRM Restaurant table is separate). */
   customerId?: number | null;
@@ -3243,7 +3592,11 @@ export interface TicketRow {
   raisedByName: string | null;
   raisedByContact: string | null;
   assignedToId: number | null;
-  assignedTo?: { userId: number; name: string | null; email?: string | null } | null;
+  assignedTo?: {
+    userId: number;
+    name: string | null;
+    email?: string | null;
+  } | null;
   firstResponseAt: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
@@ -3291,9 +3644,12 @@ export const crmTicketsApi = {
     apiClient.post<TicketRow>("/v1/crm/tickets", body),
   update: (id: number, body: TicketBody) =>
     apiClient.patch<TicketRow>(`/v1/crm/tickets/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/tickets/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/crm/tickets/${id}`),
   addMessage: (id: number, body: string) =>
-    apiClient.post<TicketMessageRow>(`/v1/crm/tickets/${id}/messages`, { body }),
+    apiClient.post<TicketMessageRow>(`/v1/crm/tickets/${id}/messages`, {
+      body,
+    }),
 };
 
 /* ------------------------ CRM: Marketing campaigns ---------------------- */
@@ -3304,7 +3660,9 @@ export type CampaignSegment =
   | "ACTIVE_CLIENTS"
   | "INACTIVE_CLIENTS"
   | "HIGH_REVENUE_CLIENTS"
-  | "POTENTIAL_CLIENTS";
+  | "POTENTIAL_CLIENTS"
+  /** Not a rule — the exact customers an admin ticked. */
+  | "SELECTED_CUSTOMERS";
 export type CampaignStatus = "DRAFT" | "SENDING" | "SENT" | "FAILED";
 
 export interface CampaignRow {
@@ -3319,20 +3677,83 @@ export interface CampaignRow {
   sentCount: number;
   failedCount: number;
   sentAt: string | null;
+  templateName: string | null;
+  templateLanguage: string | null;
+  templateParams: string[] | null;
+  dailyCap: number | null;
   createdBy?: { userId: number; name: string | null } | null;
   createdAt: string;
 }
 export type CampaignList = CrmPage & { campaigns: CampaignRow[] };
 
+/** Live counts for a running blast, polled while a campaign is SENDING. */
+export interface CampaignProgress {
+  campaignId: number;
+  status: CampaignStatus;
+  template: string | null;
+  counts: {
+    total: number;
+    pending: number;
+    sent: number;
+    delivered: number;
+    read: number;
+    failed: number;
+    skipped: number;
+  };
+  sampleFailures: { mobile: string; error: string | null }[];
+}
+
 export interface SegmentPreview {
   segment: string;
   channel: string | null;
   count: number;
-  sample: { name: string | null; email: string | null; mobile: string | null }[];
+  sample: {
+    name: string | null;
+    email: string | null;
+    mobile: string | null;
+  }[];
+}
+
+export type CampaignRecipientStatus =
+  "PENDING" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "SKIPPED";
+
+/** One row of a campaign's send ledger. */
+export interface CampaignRecipientRow {
+  recipientId: number;
+  userId: number | null;
+  name: string | null;
+  mobile: string;
+  status: CampaignRecipientStatus;
+  error: string | null;
+  sentAt: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
+}
+export interface CampaignRecipientList {
+  total: number;
+  page: number;
+  limit: number;
+  recipients: CampaignRecipientRow[];
+}
+
+/** An approved template on the WABA, as Meta reports it. */
+export interface WhatsappTemplate {
+  name: string;
+  language: string;
+  status: string;
+  category: string;
+  body: string;
+  variableCount: number;
+  example: string[];
 }
 
 export const crmCampaignsApi = {
-  list: (params: { status?: string; channel?: string; page?: number; limit?: number }) =>
+  list: (params: {
+    status?: string;
+    channel?: string;
+    page?: number;
+    limit?: number;
+  }) =>
     apiClient.get<CampaignList>(`/v1/crm/campaigns${toQueryString(params)}`),
   get: (id: number) => apiClient.get<CampaignRow>(`/v1/crm/campaigns/${id}`),
   previewSegment: (segment: string, channel?: string) =>
@@ -3345,13 +3766,74 @@ export const crmCampaignsApi = {
     segment: string;
     subject?: string;
     message: string;
+    templateName?: string;
+    templateLanguage?: string;
+    templateParams?: string[];
+    dailyCap?: number;
+    recipientUserIds?: number[];
   }) => apiClient.post<CampaignRow>("/v1/crm/campaigns", body),
   update: (
     id: number,
-    body: { name?: string; channel?: string; segment?: string; subject?: string; message?: string },
+    body: {
+      name?: string;
+      channel?: string;
+      segment?: string;
+      subject?: string;
+      message?: string;
+      templateName?: string;
+      templateLanguage?: string;
+      templateParams?: string[];
+      dailyCap?: number;
+    },
   ) => apiClient.patch<CampaignRow>(`/v1/crm/campaigns/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/crm/campaigns/${id}`),
-  send: (id: number) => apiClient.post<CampaignRow>(`/v1/crm/campaigns/${id}/send`, {}),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/crm/campaigns/${id}`),
+  send: (id: number) =>
+    apiClient.post<CampaignRow>(`/v1/crm/campaigns/${id}/send`, {}),
+  /**
+   * Start a WhatsApp template blast. Returns as soon as the run starts —
+   * hundreds of paced sends outlive any request timeout — so the caller polls
+   * progress() rather than waiting on this.
+   */
+  sendTemplate: (id: number) =>
+    apiClient.post<{ started: boolean; pending: number }>(
+      `/v1/crm/campaigns/${id}/send-template`,
+      {},
+    ),
+  /** One message to one number, to see the template render before the blast. */
+  test: (id: number, mobile: string, name?: string) =>
+    apiClient.post<{ to: string; messageId: string | null }>(
+      `/v1/crm/campaigns/${id}/test`,
+      {
+        mobile,
+        name,
+      },
+    ),
+  progress: (id: number) =>
+    apiClient.get<CampaignProgress>(`/v1/crm/campaigns/${id}/progress`),
+  /** Approved templates, read live from Meta so a paused one never shows. */
+  templates: () =>
+    apiClient.get<WhatsappTemplate[]>("/v1/crm/campaigns/templates"),
+  /** One template message to one customer, outside any campaign. */
+  sendOne: (body: {
+    userId?: number;
+    mobile?: string;
+    templateName: string;
+    templateLanguage: string;
+    templateParams?: string[];
+  }) =>
+    apiClient.post<{
+      to: string;
+      name: string | null;
+      messageId: string | null;
+    }>("/v1/crm/campaigns/send-one", body),
+  recipients: (
+    id: number,
+    params: { status?: string; page?: number; limit?: number },
+  ) =>
+    apiClient.get<CampaignRecipientList>(
+      `/v1/crm/campaigns/${id}/recipients${toQueryString(params)}`,
+    ),
 };
 
 /* --------------------------- CRM: Finance ------------------------------- */
@@ -3376,7 +3858,11 @@ export interface InvoiceRow {
     bookingId: number;
     serviceCity?: string;
     bookingDate?: string;
-    user: { userId: number; name: string | null; restaurantName: string | null } | null;
+    user: {
+      userId: number;
+      name: string | null;
+      restaurantName: string | null;
+    } | null;
     service: { name: string } | null;
   } | null;
 }
@@ -3417,11 +3903,19 @@ export const crmFinanceApi = {
     to?: string;
     page?: number;
     limit?: number;
-  }) => apiClient.get<InvoiceList>(`/v1/crm/finance/invoices${toQueryString(params)}`),
-  invoice: (id: number) => apiClient.get<InvoiceRow>(`/v1/crm/finance/invoices/${id}`),
+  }) =>
+    apiClient.get<InvoiceList>(
+      `/v1/crm/finance/invoices${toQueryString(params)}`,
+    ),
+  invoice: (id: number) =>
+    apiClient.get<InvoiceRow>(`/v1/crm/finance/invoices/${id}`),
   updateInvoice: (
     id: number,
-    body: { paymentStatus: string; paymentMethod?: string; transactionId?: string },
+    body: {
+      paymentStatus: string;
+      paymentMethod?: string;
+      transactionId?: string;
+    },
   ) => apiClient.patch<InvoiceRow>(`/v1/crm/finance/invoices/${id}`, body),
   revenue: (by: "restaurant" | "city" | "month") =>
     apiClient.get<RevenueReport>(`/v1/crm/finance/revenue?by=${by}`),
@@ -3443,7 +3937,9 @@ export interface OpsBoard {
       startTime: string;
       user: { name: string | null } | null;
       service: { name: string } | null;
-      professional: { user: { name: string | null; mobile: string | null } | null } | null;
+      professional: {
+        user: { name: string | null; mobile: string | null } | null;
+      } | null;
     }[];
     emergencyReplacements: {
       bookingId: number;
@@ -3460,8 +3956,17 @@ export interface OpsBoard {
     checkedIn: number;
     checkedOut: number;
     lateAfter: string;
-    lateCheckIns: { employeeId: number; name: string; designation: string | null; checkInAt: string }[];
-    notCheckedIn: { employeeId: number; name: string; designation: string | null }[];
+    lateCheckIns: {
+      employeeId: number;
+      name: string;
+      designation: string | null;
+      checkInAt: string;
+    }[];
+    notCheckedIn: {
+      employeeId: number;
+      name: string;
+      designation: string | null;
+    }[];
   };
 }
 
@@ -3472,7 +3977,12 @@ export const crmOpsApi = {
 /* --------------------------- CRM: Reports ------------------------------- */
 
 export interface SalesReport {
-  monthly: { month: string; revenue: number; bookings: number; newLeads: number }[];
+  monthly: {
+    month: string;
+    revenue: number;
+    bookings: number;
+    newLeads: number;
+  }[];
   funnel: { stage: SalesLeadStage; count: number }[];
   totalLeads: number;
   won: number;
@@ -3504,15 +4014,23 @@ export interface RestaurantsReport {
   repeatCustomers: number;
   totalCustomersWithBookings: number;
   repeatRatePct: number | null;
-  topByRevenue: { userId: number; name: string; bookings: number; revenue: number }[];
+  topByRevenue: {
+    userId: number;
+    name: string;
+    bookings: number;
+    revenue: number;
+  }[];
   serviceFrequency: { serviceId: number; name: string; bookings: number }[];
 }
 
 export const crmReportsApi = {
   sales: (months?: number) =>
-    apiClient.get<SalesReport>(`/v1/crm/reports/sales${months ? `?months=${months}` : ""}`),
+    apiClient.get<SalesReport>(
+      `/v1/crm/reports/sales${months ? `?months=${months}` : ""}`,
+    ),
   workforce: () => apiClient.get<WorkforceReport>("/v1/crm/reports/workforce"),
-  restaurants: () => apiClient.get<RestaurantsReport>("/v1/crm/reports/restaurants"),
+  restaurants: () =>
+    apiClient.get<RestaurantsReport>("/v1/crm/reports/restaurants"),
 };
 
 /* ------------------------------- RBAC ---------------------------------- */
@@ -3542,10 +4060,15 @@ export interface StaffRow {
   mobile: string | null;
   createdAt: string;
   roles: { roleId: number; name: string }[];
-  employee: { employeeId: number; employeeCode: string; designation: string | null } | null;
+  employee: {
+    employeeId: number;
+    employeeCode: string;
+    designation: string | null;
+  } | null;
 }
 
-export type NotificationCategory = "POLICY" | "ATTENDANCE" | "SHIFT" | "LEAVE" | "GENERAL";
+export type NotificationCategory =
+  "POLICY" | "ATTENDANCE" | "SHIFT" | "LEAVE" | "GENERAL";
 
 export interface NotificationRow {
   notificationId: number;
@@ -3563,22 +4086,35 @@ export const notificationsApi = {
     apiClient.get<{ notifications: NotificationRow[]; unreadCount: number }>(
       `/v1/notifications?limit=${limit}`,
     ),
-  unreadCount: () => apiClient.get<{ unreadCount: number }>("/v1/notifications/unread-count"),
-  markRead: (id: number) => apiClient.patch<NotificationRow>(`/v1/notifications/${id}/read`, {}),
+  unreadCount: () =>
+    apiClient.get<{ unreadCount: number }>("/v1/notifications/unread-count"),
+  markRead: (id: number) =>
+    apiClient.patch<NotificationRow>(`/v1/notifications/${id}/read`, {}),
   markAllRead: () =>
-    apiClient.patch<{ message: string; count: number }>("/v1/notifications/read-all", {}),
-  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/notifications/${id}`),
+    apiClient.patch<{ message: string; count: number }>(
+      "/v1/notifications/read-all",
+      {},
+    ),
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/notifications/${id}`),
 };
 
 export const rbacApi = {
-  permissionCatalog: () => apiClient.get<PermissionCatalogEntry[]>("/v1/rbac/permissions"),
+  permissionCatalog: () =>
+    apiClient.get<PermissionCatalogEntry[]>("/v1/rbac/permissions"),
   myPermissions: () => apiClient.get<string[]>("/v1/rbac/me/permissions"),
   roles: () => apiClient.get<RbacRoleRow[]>("/v1/rbac/roles"),
-  createRole: (body: { name: string; description?: string; permissions?: string[] }) =>
-    apiClient.post<RbacRoleRow>("/v1/rbac/roles", body),
-  updateRole: (id: number, body: { name?: string; description?: string; permissions?: string[] }) =>
-    apiClient.patch<RbacRoleRow>(`/v1/rbac/roles/${id}`, body),
-  deleteRole: (id: number) => apiClient.delete<{ message: string }>(`/v1/rbac/roles/${id}`),
+  createRole: (body: {
+    name: string;
+    description?: string;
+    permissions?: string[];
+  }) => apiClient.post<RbacRoleRow>("/v1/rbac/roles", body),
+  updateRole: (
+    id: number,
+    body: { name?: string; description?: string; permissions?: string[] },
+  ) => apiClient.patch<RbacRoleRow>(`/v1/rbac/roles/${id}`, body),
+  deleteRole: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/rbac/roles/${id}`),
   staff: () => apiClient.get<StaffRow[]>("/v1/rbac/staff"),
   createStaff: (body: {
     name: string;
@@ -3586,10 +4122,16 @@ export const rbacApi = {
     mobile?: string;
     password: string;
     roleIds?: number[];
-  }) => apiClient.post<{ userId: number; message: string }>("/v1/rbac/staff", body),
+  }) =>
+    apiClient.post<{ userId: number; message: string }>("/v1/rbac/staff", body),
   updateStaff: (
     userId: number,
-    body: { name?: string; mobile?: string; password?: string; roleIds?: number[] },
+    body: {
+      name?: string;
+      mobile?: string;
+      password?: string;
+      roleIds?: number[];
+    },
   ) => apiClient.patch<{ message: string }>(`/v1/rbac/staff/${userId}`, body),
   deleteStaff: (userId: number) =>
     apiClient.delete<{ message: string }>(`/v1/rbac/staff/${userId}`),
@@ -3635,7 +4177,12 @@ export interface EmployeeRow {
   manager: { employeeId: number; name: string } | null;
   user: { userId: number; email: string | null } | null;
   shiftId?: number | null;
-  shift?: { shiftId: number; name: string; startTime: string; endTime: string } | null;
+  shift?: {
+    shiftId: number;
+    name: string;
+    startTime: string;
+    endTime: string;
+  } | null;
 }
 
 export interface LinkableUser {
@@ -3750,24 +4297,35 @@ export const hrApi = {
   departments: () => apiClient.get<DepartmentRow[]>("/v1/hr/departments"),
   createDepartment: (body: { name: string; description?: string }) =>
     apiClient.post<DepartmentRow>("/v1/hr/departments", body),
-  updateDepartment: (id: number, body: { name?: string; description?: string }) =>
-    apiClient.patch<DepartmentRow>(`/v1/hr/departments/${id}`, body),
+  updateDepartment: (
+    id: number,
+    body: { name?: string; description?: string },
+  ) => apiClient.patch<DepartmentRow>(`/v1/hr/departments/${id}`, body),
   deleteDepartment: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/hr/departments/${id}`),
 
   offices: () => apiClient.get<OfficeRow[]>("/v1/hr/offices"),
-  createOffice: (body: Partial<OfficeRow> & { name: string; address: string }) =>
-    apiClient.post<OfficeRow>("/v1/hr/offices", body),
+  createOffice: (
+    body: Partial<OfficeRow> & { name: string; address: string },
+  ) => apiClient.post<OfficeRow>("/v1/hr/offices", body),
   updateOffice: (id: number, body: Partial<OfficeRow>) =>
     apiClient.patch<OfficeRow>(`/v1/hr/offices/${id}`, body),
-  deleteOffice: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/offices/${id}`),
+  deleteOffice: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/offices/${id}`),
 
-  employees: (params: { search?: string; departmentId?: number; status?: string }) =>
+  employees: (params: {
+    search?: string;
+    departmentId?: number;
+    status?: string;
+  }) =>
     apiClient.get<EmployeeRow[]>(`/v1/hr/employees${toQueryString(params)}`),
   employee: (id: number) =>
-    apiClient.get<EmployeeRow & { leaveBalances: LeaveBalanceRow[]; appraisals: AppraisalRow[] }>(
-      `/v1/hr/employees/${id}`,
-    ),
+    apiClient.get<
+      EmployeeRow & {
+        leaveBalances: LeaveBalanceRow[];
+        appraisals: AppraisalRow[];
+      }
+    >(`/v1/hr/employees/${id}`),
   createEmployee: (body: Record<string, unknown>) =>
     apiClient.post<EmployeeRow>("/v1/hr/employees", body),
   updateEmployee: (id: number, body: Record<string, unknown>) =>
@@ -3776,8 +4334,10 @@ export const hrApi = {
     apiClient.delete<{ message: string }>(`/v1/hr/employees/${id}`),
 
   linkableUsers: () => apiClient.get<LinkableUser[]>("/v1/hr/linkable-users"),
-  linkEmployeeUser: (id: number, body: { userId?: number; password?: string }) =>
-    apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/link-user`, body),
+  linkEmployeeUser: (
+    id: number,
+    body: { userId?: number; password?: string },
+  ) => apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/link-user`, body),
   unlinkEmployeeUser: (id: number) =>
     apiClient.post<EmployeeRow>(`/v1/hr/employees/${id}/unlink-user`, {}),
 
@@ -3786,8 +4346,15 @@ export const hrApi = {
   checkOut: (body: { lat: number; lng: number }) =>
     apiClient.post<AttendanceRow>("/v1/hr/attendance/check-out", body),
   myAttendance: (month?: string) =>
-    apiClient.get<MyAttendance>(`/v1/hr/attendance/me${month ? `?month=${month}` : ""}`),
-  attendance: (params: { date?: string; from?: string; to?: string; employeeId?: number }) =>
+    apiClient.get<MyAttendance>(
+      `/v1/hr/attendance/me${month ? `?month=${month}` : ""}`,
+    ),
+  attendance: (params: {
+    date?: string;
+    from?: string;
+    to?: string;
+    employeeId?: number;
+  }) =>
     apiClient.get<AttendanceRow[]>(`/v1/hr/attendance${toQueryString(params)}`),
 
   leaveTypes: () => apiClient.get<LeaveTypeRow[]>("/v1/hr/leave-types"),
@@ -3807,7 +4374,9 @@ export const hrApi = {
       `/v1/hr/leave-balances/${employeeId}${year ? `?year=${year}` : ""}`,
     ),
   adjustBalance: (balanceId: number, allocated: number) =>
-    apiClient.patch<LeaveBalanceRow>(`/v1/hr/leave-balances/${balanceId}`, { allocated }),
+    apiClient.patch<LeaveBalanceRow>(`/v1/hr/leave-balances/${balanceId}`, {
+      allocated,
+    }),
 
   myLeaves: () => apiClient.get<MyLeaves>("/v1/hr/leaves/me"),
   applyLeave: (body: {
@@ -3816,21 +4385,28 @@ export const hrApi = {
     endDate: string;
     reason?: string;
   }) => apiClient.post<LeaveRequestRow>("/v1/hr/leaves/apply", body),
-  cancelLeave: (id: number) => apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/cancel`, {}),
+  cancelLeave: (id: number) =>
+    apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/cancel`, {}),
   leaves: (params: { status?: string; employeeId?: number }) =>
     apiClient.get<LeaveRequestRow[]>(`/v1/hr/leaves${toQueryString(params)}`),
-  approveLeave: (id: number) => apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/approve`, {}),
+  approveLeave: (id: number) =>
+    apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/approve`, {}),
   rejectLeave: (id: number, reason?: string) =>
     apiClient.post<LeaveRequestRow>(`/v1/hr/leaves/${id}/reject`, { reason }),
 
-  appraisals: (params: { cycle?: string; employeeId?: number; status?: string }) =>
+  appraisals: (params: {
+    cycle?: string;
+    employeeId?: number;
+    status?: string;
+  }) =>
     apiClient.get<AppraisalRow[]>(`/v1/hr/appraisals${toQueryString(params)}`),
   myAppraisals: () => apiClient.get<AppraisalRow[]>("/v1/hr/appraisals/me"),
   createAppraisal: (body: Record<string, unknown>) =>
     apiClient.post<AppraisalRow>("/v1/hr/appraisals", body),
   updateAppraisal: (id: number, body: Record<string, unknown>) =>
     apiClient.patch<AppraisalRow>(`/v1/hr/appraisals/${id}`, body),
-  submitAppraisal: (id: number) => apiClient.post<AppraisalRow>(`/v1/hr/appraisals/${id}/submit`, {}),
+  submitAppraisal: (id: number) =>
+    apiClient.post<AppraisalRow>(`/v1/hr/appraisals/${id}/submit`, {}),
   acknowledgeAppraisal: (id: number) =>
     apiClient.post<AppraisalRow>(`/v1/hr/appraisals/${id}/acknowledge`, {}),
   deleteAppraisal: (id: number) =>
@@ -3838,21 +4414,31 @@ export const hrApi = {
 
   /* ── Shifts: the organisation's working windows + the reschedule queue ── */
   shifts: (includeInactive?: boolean) =>
-    apiClient.get<ShiftRow[]>(`/v1/hr/shifts${includeInactive ? "?includeInactive=true" : ""}`),
+    apiClient.get<ShiftRow[]>(
+      `/v1/hr/shifts${includeInactive ? "?includeInactive=true" : ""}`,
+    ),
   shiftRoster: (shiftId: number) =>
     apiClient.get<{ shift: ShiftRow; employees: ShiftRosterEmployee[] }>(
       `/v1/hr/shifts/${shiftId}/roster`,
     ),
-  createShift: (body: ShiftInput) => apiClient.post<ShiftRow>("/v1/hr/shifts", body),
+  createShift: (body: ShiftInput) =>
+    apiClient.post<ShiftRow>("/v1/hr/shifts", body),
   updateShift: (id: number, body: Partial<ShiftInput>) =>
     apiClient.patch<ShiftRow>(`/v1/hr/shifts/${id}`, body),
-  deleteShift: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/shifts/${id}`),
+  deleteShift: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/shifts/${id}`),
   assignShift: (id: number, employeeIds: number[]) =>
-    apiClient.post<{ message: string; assigned: number }>(`/v1/hr/shifts/${id}/assign`, {
-      employeeIds,
-    }),
+    apiClient.post<{ message: string; assigned: number }>(
+      `/v1/hr/shifts/${id}/assign`,
+      {
+        employeeIds,
+      },
+    ),
   unassignShift: (employeeId: number) =>
-    apiClient.post<{ message: string }>(`/v1/hr/shifts/employees/${employeeId}/unassign`, {}),
+    apiClient.post<{ message: string }>(
+      `/v1/hr/shifts/employees/${employeeId}/unassign`,
+      {},
+    ),
   shiftRequests: (status?: string) =>
     apiClient.get<{ requests: ShiftRequestRow[]; pendingCount: number }>(
       `/v1/hr/shifts/requests${status ? `?status=${status}` : ""}`,
@@ -3860,10 +4446,13 @@ export const hrApi = {
   approveShiftRequest: (id: number) =>
     apiClient.post<ShiftRequestRow>(`/v1/hr/shifts/requests/${id}/approve`, {}),
   rejectShiftRequest: (id: number, reason?: string) =>
-    apiClient.post<ShiftRequestRow>(`/v1/hr/shifts/requests/${id}/reject`, { reason }),
+    apiClient.post<ShiftRequestRow>(`/v1/hr/shifts/requests/${id}/reject`, {
+      reason,
+    }),
 
   /* ── HR policy: the attendance rulebook + written documents ── */
-  attendancePolicy: () => apiClient.get<AttendancePolicy>("/v1/hr/policies/attendance"),
+  attendancePolicy: () =>
+    apiClient.get<AttendancePolicy>("/v1/hr/policies/attendance"),
   updateAttendancePolicy: (body: Partial<AttendancePolicyInput>) =>
     apiClient.patch<AttendancePolicy>("/v1/hr/policies/attendance", body),
   policies: (params: { published?: boolean; category?: string } = {}) =>
@@ -3873,14 +4462,17 @@ export const hrApi = {
         category: params.category,
       })}`,
     ),
-  createPolicy: (body: HrPolicyInput) => apiClient.post<HrPolicyRow>("/v1/hr/policies", body),
+  createPolicy: (body: HrPolicyInput) =>
+    apiClient.post<HrPolicyRow>("/v1/hr/policies", body),
   updatePolicy: (id: number, body: Partial<HrPolicyInput>) =>
     apiClient.patch<HrPolicyRow>(`/v1/hr/policies/${id}`, body),
-  deletePolicy: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/policies/${id}`),
+  deletePolicy: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/policies/${id}`),
   myPolicies: () =>
-    apiClient.get<{ policies: HrPolicyRow[]; attendancePolicy: AttendancePolicy }>(
-      "/v1/hr/me/policies",
-    ),
+    apiClient.get<{
+      policies: HrPolicyRow[];
+      attendancePolicy: AttendancePolicy;
+    }>("/v1/hr/me/policies"),
 
   /* ── My shift (employee self-service) ── */
   myShift: () => apiClient.get<MyShift>("/v1/hr/me/shift"),
@@ -3929,7 +4521,8 @@ export interface ShiftRosterEmployee {
   department: { name: string } | null;
 }
 
-export type ShiftRequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+export type ShiftRequestStatus =
+  "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
 
 export interface ShiftRequestRow {
   shiftRequestId: number;
@@ -3970,7 +4563,10 @@ export interface AttendancePolicy {
   updatedAt: string;
 }
 
-export type AttendancePolicyInput = Omit<AttendancePolicy, "attendancePolicyId" | "updatedAt">;
+export type AttendancePolicyInput = Omit<
+  AttendancePolicy,
+  "attendancePolicyId" | "updatedAt"
+>;
 
 export interface HrPolicyRow {
   hrPolicyId: number;
@@ -4069,11 +4665,19 @@ export interface Celebrations {
 
 export interface MyPortal {
   employee: EmployeeRow & {
-    manager: { employeeId: number; name: string; designation: string | null } | null;
+    manager: {
+      employeeId: number;
+      name: string;
+      designation: string | null;
+    } | null;
     /** The raw shift row — no derived `hours`/`overnight` on this endpoint. */
     shift: Omit<ShiftRow, "hours" | "overnight" | "employeeCount"> | null;
   };
-  leave: { totalAllocated: number; totalUsed: number; balances: LeaveBalanceRow[] };
+  leave: {
+    totalAllocated: number;
+    totalUsed: number;
+    balances: LeaveBalanceRow[];
+  };
   attendanceThisMonth: {
     month: string;
     presentDays: number;
@@ -4103,18 +4707,25 @@ export interface MyIncrements {
 export const essApi = {
   portal: () => apiClient.get<MyPortal>("/v1/hr/me/portal"),
   myPayslips: () => apiClient.get<PayslipRow[]>("/v1/hr/me/payslips"),
-  myPayslip: (id: number) => apiClient.get<PayslipRow>(`/v1/hr/me/payslips/${id}`),
+  myPayslip: (id: number) =>
+    apiClient.get<PayslipRow>(`/v1/hr/me/payslips/${id}`),
   myIncrements: () => apiClient.get<MyIncrements>("/v1/hr/me/increments"),
   celebrations: () => apiClient.get<Celebrations>("/v1/hr/celebrations"),
   holidays: (year?: number) =>
-    apiClient.get<HolidayRow[]>(`/v1/hr/holidays${year ? `?year=${year}` : ""}`),
+    apiClient.get<HolidayRow[]>(
+      `/v1/hr/holidays${year ? `?year=${year}` : ""}`,
+    ),
   openPositions: () => apiClient.get<JobPostingRow[]>("/v1/hr/positions/open"),
-  myOfferLetters: () => apiClient.get<OfferLetterRow[]>("/v1/hr/me/offer-letters"),
-  myOfferLetter: (id: number) => apiClient.get<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}`),
+  myOfferLetters: () =>
+    apiClient.get<OfferLetterRow[]>("/v1/hr/me/offer-letters"),
+  myOfferLetter: (id: number) =>
+    apiClient.get<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}`),
   acceptOffer: (id: number) =>
     apiClient.post<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}/accept`, {}),
   declineOffer: (id: number, reason?: string) =>
-    apiClient.post<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}/decline`, { reason }),
+    apiClient.post<OfferLetterRow>(`/v1/hr/me/offer-letters/${id}/decline`, {
+      reason,
+    }),
 };
 
 export const payrollApi = {
@@ -4123,32 +4734,47 @@ export const payrollApi = {
       "/v1/hr/payroll/generate",
       { month },
     ),
-  list: (params: { month?: string; status?: string; page?: number; limit?: number }) =>
-    apiClient.get<PayrollList>(`/v1/hr/payroll${toQueryString(params)}`),
+  list: (params: {
+    month?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }) => apiClient.get<PayrollList>(`/v1/hr/payroll${toQueryString(params)}`),
   update: (id: number, body: Record<string, unknown>) =>
     apiClient.patch<PayslipRow>(`/v1/hr/payroll/${id}`, body),
-  publish: (id: number) => apiClient.post<PayslipRow>(`/v1/hr/payroll/${id}/publish`, {}),
+  publish: (id: number) =>
+    apiClient.post<PayslipRow>(`/v1/hr/payroll/${id}/publish`, {}),
   publishMonth: (month: string) =>
-    apiClient.post<{ month: string; published: number }>("/v1/hr/payroll/publish-month", { month }),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/payroll/${id}`),
+    apiClient.post<{ month: string; published: number }>(
+      "/v1/hr/payroll/publish-month",
+      { month },
+    ),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/hr/payroll/${id}`),
 };
 
 export const holidayApi = {
   create: (body: { name: string; date: string; isOptional?: boolean }) =>
     apiClient.post<HolidayRow>("/v1/hr/holidays", body),
-  update: (id: number, body: { name?: string; date?: string; isOptional?: boolean }) =>
-    apiClient.patch<HolidayRow>(`/v1/hr/holidays/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/holidays/${id}`),
+  update: (
+    id: number,
+    body: { name?: string; date?: string; isOptional?: boolean },
+  ) => apiClient.patch<HolidayRow>(`/v1/hr/holidays/${id}`, body),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/hr/holidays/${id}`),
 };
 
 export const positionsApi = {
   list: (status?: string) =>
-    apiClient.get<JobPostingRow[]>(`/v1/hr/positions${status ? `?status=${status}` : ""}`),
+    apiClient.get<JobPostingRow[]>(
+      `/v1/hr/positions${status ? `?status=${status}` : ""}`,
+    ),
   create: (body: Record<string, unknown>) =>
     apiClient.post<JobPostingRow>("/v1/hr/positions", body),
   update: (id: number, body: Record<string, unknown>) =>
     apiClient.patch<JobPostingRow>(`/v1/hr/positions/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/hr/positions/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/hr/positions/${id}`),
 };
 
 /* --------------------------- Offer letters ----------------------------- */
@@ -4157,7 +4783,8 @@ export const positionsApi = {
 // where they can accept/decline and download a PDF. `computed` is a
 // server-derived salary breakup + amount-in-words shared by every render.
 
-export type OfferLetterStatus = "DRAFT" | "ISSUED" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
+export type OfferLetterStatus =
+  "DRAFT" | "ISSUED" | "ACCEPTED" | "DECLINED" | "WITHDRAWN";
 
 export interface OfferLetterComputed {
   monthlyCtc: number;
@@ -4205,16 +4832,21 @@ export interface OfferLetterRow {
 
 export const offerLetterApi = {
   list: (params: { status?: string; employeeId?: number; search?: string }) =>
-    apiClient.get<OfferLetterRow[]>(`/v1/hr/offer-letters${toQueryString(params)}`),
-  get: (id: number) => apiClient.get<OfferLetterRow>(`/v1/hr/offer-letters/${id}`),
+    apiClient.get<OfferLetterRow[]>(
+      `/v1/hr/offer-letters${toQueryString(params)}`,
+    ),
+  get: (id: number) =>
+    apiClient.get<OfferLetterRow>(`/v1/hr/offer-letters/${id}`),
   create: (body: Record<string, unknown>) =>
     apiClient.post<OfferLetterRow>("/v1/hr/offer-letters", body),
   update: (id: number, body: Record<string, unknown>) =>
     apiClient.patch<OfferLetterRow>(`/v1/hr/offer-letters/${id}`, body),
-  issue: (id: number) => apiClient.post<OfferLetterRow>(`/v1/hr/offer-letters/${id}/issue`, {}),
+  issue: (id: number) =>
+    apiClient.post<OfferLetterRow>(`/v1/hr/offer-letters/${id}/issue`, {}),
   withdraw: (id: number) =>
     apiClient.post<OfferLetterRow>(`/v1/hr/offer-letters/${id}/withdraw`, {}),
-  remove: (id: number) => apiClient.delete<{ message: string }>(`/v1/hr/offer-letters/${id}`),
+  remove: (id: number) =>
+    apiClient.delete<{ message: string }>(`/v1/hr/offer-letters/${id}`),
 };
 
 export const crmQueryKeys = {
@@ -4224,7 +4856,8 @@ export const crmQueryKeys = {
   crmBookings: (p: object) => ["crm", "bookings", p] as const,
   restaurants: (p: object) => ["crm", "restaurants", p] as const,
   restaurant: (id: number) => ["crm", "restaurant", id] as const,
-  restaurantBookings: (id: number, p: object) => ["crm", "restaurant", id, "bookings", p] as const,
+  restaurantBookings: (id: number, p: object) =>
+    ["crm", "restaurant", id, "bookings", p] as const,
   salesPipeline: ["crm", "sales-pipeline"] as const,
   salesLeads: (p: object) => ["crm", "sales-leads", p] as const,
   salesLead: (id: number) => ["crm", "sales-lead", id] as const,
@@ -4235,12 +4868,18 @@ export const crmQueryKeys = {
   campaign: (id: number) => ["crm", "campaign", id] as const,
   segmentPreview: (segment: string, channel?: string) =>
     ["crm", "segment-preview", segment, channel] as const,
+  campaignProgress: (id: number) =>
+    ["crm", "campaigns", "progress", id] as const,
+  campaignRecipients: (id: number, p: object) =>
+    ["crm", "campaigns", "recipients", id, p] as const,
+  whatsappTemplates: ["crm", "campaigns", "templates"] as const,
   financeSummary: ["crm", "finance", "summary"] as const,
   invoices: (p: object) => ["crm", "invoices", p] as const,
   invoice: (id: number) => ["crm", "invoice", id] as const,
   revenue: (by: string) => ["crm", "revenue", by] as const,
   opsBoard: ["crm", "ops", "board"] as const,
-  reportSales: (months?: number) => ["crm", "reports", "sales", months] as const,
+  reportSales: (months?: number) =>
+    ["crm", "reports", "sales", months] as const,
   reportWorkforce: ["crm", "reports", "workforce"] as const,
   reportRestaurants: ["crm", "reports", "restaurants"] as const,
   rbacRoles: ["rbac", "roles"] as const,
@@ -4258,9 +4897,11 @@ export const crmQueryKeys = {
   myLeaves: ["hr", "leaves", "me"] as const,
   leaves: (p: object) => ["hr", "leaves", p] as const,
   linkableUsers: ["hr", "linkable-users"] as const,
-  shifts: (includeInactive?: boolean) => ["hr", "shifts", includeInactive ?? false] as const,
+  shifts: (includeInactive?: boolean) =>
+    ["hr", "shifts", includeInactive ?? false] as const,
   shiftRoster: (shiftId: number) => ["hr", "shift-roster", shiftId] as const,
-  shiftRequests: (status?: string) => ["hr", "shift-requests", status ?? "ALL"] as const,
+  shiftRequests: (status?: string) =>
+    ["hr", "shift-requests", status ?? "ALL"] as const,
   myShift: ["ess", "shift"] as const,
   attendancePolicy: ["hr", "attendance-policy"] as const,
   policies: (p: object) => ["hr", "policies", p] as const,
@@ -4300,12 +4941,19 @@ export interface ResumeDetail extends ResumeSummaryRow {
   data: unknown;
 }
 
-export type ResumeAiMode = "improve" | "shorten" | "expand" | "grammar" | "keywords";
+export type ResumeAiMode =
+  "improve" | "shorten" | "expand" | "grammar" | "keywords";
 
 export interface AtsReport {
   score: number;
   wordCount: number;
-  checks: { id: string; label: string; passed: boolean; tip: string; weight: number }[];
+  checks: {
+    id: string;
+    label: string;
+    passed: boolean;
+    tip: string;
+    weight: number;
+  }[];
   aiSuggestions: string[];
   missingKeywords: string[];
   aiAvailable: boolean;
@@ -4317,16 +4965,26 @@ export const resumeApi = {
   get: (id: number) => apiClient.get<ResumeDetail>(`/v1/resume/${id}`),
   create: (body: { title?: string; template?: string; data?: unknown }) =>
     apiClient.post<ResumeDetail>("/v1/resume", body),
-  update: (id: number, body: { title?: string; template?: string; data?: unknown }) =>
-    apiClient.patch<ResumeDetail>(`/v1/resume/${id}`, body),
-  remove: (id: number) => apiClient.delete<{ deleted: boolean }>(`/v1/resume/${id}`),
-  duplicate: (id: number) => apiClient.post<ResumeDetail>(`/v1/resume/${id}/duplicate`),
+  update: (
+    id: number,
+    body: { title?: string; template?: string; data?: unknown },
+  ) => apiClient.patch<ResumeDetail>(`/v1/resume/${id}`, body),
+  remove: (id: number) =>
+    apiClient.delete<{ deleted: boolean }>(`/v1/resume/${id}`),
+  duplicate: (id: number) =>
+    apiClient.post<ResumeDetail>(`/v1/resume/${id}/duplicate`),
   enhance: (body: { text: string; mode?: ResumeAiMode; context?: string }) =>
-    apiClient.post<{ text: string; mode: ResumeAiMode }>("/v1/resume/ai/enhance", body),
+    apiClient.post<{ text: string; mode: ResumeAiMode }>(
+      "/v1/resume/ai/enhance",
+      body,
+    ),
   /** POST /v1/resume/ai/import — AI-structure an uploaded resume's plain text. */
-  import: (body: { text: string }) => apiClient.post<unknown>("/v1/resume/ai/import", body),
+  import: (body: { text: string }) =>
+    apiClient.post<unknown>("/v1/resume/ai/import", body),
   ats: (id: number, targetRole?: string) =>
-    apiClient.post<AtsReport>(`/v1/resume/${id}/ats`, { targetRole: targetRole || undefined }),
+    apiClient.post<AtsReport>(`/v1/resume/${id}/ats`, {
+      targetRole: targetRole || undefined,
+    }),
 };
 
 export const resumeQueryKeys = {
@@ -4353,7 +5011,8 @@ export interface PdfRegionAnalysis {
 
 export const pdfAiApi = {
   /** POST /v1/pdf-ai/analyze — image is a PNG/JPEG data URL of the cropped region. */
-  analyze: (image: string) => apiClient.post<PdfRegionAnalysis>("/v1/pdf-ai/analyze", { image }),
+  analyze: (image: string) =>
+    apiClient.post<PdfRegionAnalysis>("/v1/pdf-ai/analyze", { image }),
 };
 
 /* ============================== AI Tutor ================================ */
@@ -4373,17 +5032,80 @@ export type TutorSpeechLang = "hi-IN" | "en-IN";
 // cumulative across steps.
 export type TutorVisualColor = "ink" | "gold" | "sky" | "rose" | "mint";
 export type TutorVisualItem =
-  | { type: "text"; x: number; y: number; text: string; size: number; color: TutorVisualColor }
-  | { type: "line"; x1: number; y1: number; x2: number; y2: number; color: TutorVisualColor; dashed: boolean }
-  | { type: "arrow"; x1: number; y1: number; x2: number; y2: number; color: TutorVisualColor }
-  | { type: "circle"; x: number; y: number; r: number; color: TutorVisualColor; fill: boolean }
-  | { type: "rect"; x: number; y: number; w: number; h: number; color: TutorVisualColor; fill: boolean }
-  | { type: "polygon"; points: [number, number][]; color: TutorVisualColor; fill: boolean }
+  | {
+      type: "text";
+      x: number;
+      y: number;
+      text: string;
+      size: number;
+      color: TutorVisualColor;
+    }
+  | {
+      type: "line";
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      color: TutorVisualColor;
+      dashed: boolean;
+    }
+  | {
+      type: "arrow";
+      x1: number;
+      y1: number;
+      x2: number;
+      y2: number;
+      color: TutorVisualColor;
+    }
+  | {
+      type: "circle";
+      x: number;
+      y: number;
+      r: number;
+      color: TutorVisualColor;
+      fill: boolean;
+    }
+  | {
+      type: "rect";
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      color: TutorVisualColor;
+      fill: boolean;
+    }
+  | {
+      type: "polygon";
+      points: [number, number][];
+      color: TutorVisualColor;
+      fill: boolean;
+    }
   | { type: "polyline"; points: [number, number][]; color: TutorVisualColor }
   | { type: "point"; x: number; y: number; label: string }
-  | { type: "number-line"; y: number; from: number; to: number; highlights: number[] }
-  | { type: "fraction-circle"; x: number; y: number; r: number; num: number; den: number }
-  | { type: "angle"; x: number; y: number; start: number; end: number; r: number; label: string };
+  | {
+      type: "number-line";
+      y: number;
+      from: number;
+      to: number;
+      highlights: number[];
+    }
+  | {
+      type: "fraction-circle";
+      x: number;
+      y: number;
+      r: number;
+      num: number;
+      den: number;
+    }
+  | {
+      type: "angle";
+      x: number;
+      y: number;
+      start: number;
+      end: number;
+      r: number;
+      label: string;
+    };
 export interface TutorVisualStep {
   caption: string;
   items: TutorVisualItem[];
@@ -4471,7 +5193,11 @@ export interface AuraOverview {
     chatTurns7d: number;
     unclassifiedApps: number;
   };
-  averages: { productivityScore: number; screenMinutes: number; trackedDays: number };
+  averages: {
+    productivityScore: number;
+    screenMinutes: number;
+    trackedDays: number;
+  };
   dau: { day: string; users: number; averageScore: number }[];
   topApps: { appLabel: string; category: AuraCategory; minutes: number }[];
 }
@@ -4555,7 +5281,13 @@ export interface AuraUserDetail {
     distractingMinutes: number;
   }[];
   topApps: { appLabel: string; category: AuraCategory; minutes: number }[];
-  reports: { id: string; kind: "DAILY" | "WEEKLY"; periodStart: string; score: number; summary: string }[];
+  reports: {
+    id: string;
+    kind: "DAILY" | "WEEKLY";
+    periodStart: string;
+    score: number;
+    summary: string;
+  }[];
 }
 
 export interface AuraCatalogEntry {
@@ -4593,7 +5325,11 @@ export interface AuraSettings {
   leadAlertMinutes: number[];
   registrationOpen: boolean;
   updatedAt: string;
-  updatedBy?: { userId: number; name: string | null; email: string | null } | null;
+  updatedBy?: {
+    userId: number;
+    name: string | null;
+    email: string | null;
+  } | null;
 }
 
 export interface AuraUsersParams {
@@ -4615,24 +5351,41 @@ export const auraApi = {
     if (params.page) query.set("page", String(params.page));
     if (params.limit) query.set("limit", String(params.limit));
     const suffix = query.toString();
-    return apiClient.get<AuraUsersPage>(`/v1/aura/admin/users${suffix ? `?${suffix}` : ""}`);
+    return apiClient.get<AuraUsersPage>(
+      `/v1/aura/admin/users${suffix ? `?${suffix}` : ""}`,
+    );
   },
 
   /** GET /v1/aura/admin/users/:userId — 30-day trend, devices, top apps. */
-  user: (userId: number) => apiClient.get<AuraUserDetail>(`/v1/aura/admin/users/${userId}`),
+  user: (userId: number) =>
+    apiClient.get<AuraUserDetail>(`/v1/aura/admin/users/${userId}`),
 
   /** PATCH /v1/aura/admin/users/:userId/status — suspend or restore access. */
-  setUserStatus: (userId: number, body: { isActive: boolean; reason?: string }) =>
-    apiClient.patch<{ isActive: boolean }>(`/v1/aura/admin/users/${userId}/status`, body),
+  setUserStatus: (
+    userId: number,
+    body: { isActive: boolean; reason?: string },
+  ) =>
+    apiClient.patch<{ isActive: boolean }>(
+      `/v1/aura/admin/users/${userId}/status`,
+      body,
+    ),
 
   /** GET /v1/aura/admin/catalog — package → category map, ranked by usage. */
-  catalog: (params: { search?: string; category?: AuraCategory; unclassified?: boolean } = {}) => {
+  catalog: (
+    params: {
+      search?: string;
+      category?: AuraCategory;
+      unclassified?: boolean;
+    } = {},
+  ) => {
     const query = new URLSearchParams();
     if (params.search) query.set("search", params.search);
     if (params.category) query.set("category", params.category);
     if (params.unclassified) query.set("unclassified", "true");
     const suffix = query.toString();
-    return apiClient.get<AuraCatalogEntry[]>(`/v1/aura/admin/catalog${suffix ? `?${suffix}` : ""}`);
+    return apiClient.get<AuraCatalogEntry[]>(
+      `/v1/aura/admin/catalog${suffix ? `?${suffix}` : ""}`,
+    );
   },
 
   /** PUT /v1/aura/admin/catalog — classify an app (re-tags existing usage). */
@@ -4652,22 +5405,30 @@ export const auraApi = {
     ),
 
   /** GET /v1/aura/admin/score-rules — per-category scoring weights. */
-  scoreRules: () => apiClient.get<AuraScoreRule[]>("/v1/aura/admin/score-rules"),
+  scoreRules: () =>
+    apiClient.get<AuraScoreRule[]>("/v1/aura/admin/score-rules"),
 
   /** PUT /v1/aura/admin/score-rules — retune one category. */
-  saveScoreRule: (body: { category: AuraCategory; pointsPerHour: number; maxPoints: number }) =>
-    apiClient.put<AuraScoreRule>("/v1/aura/admin/score-rules", body),
+  saveScoreRule: (body: {
+    category: AuraCategory;
+    pointsPerHour: number;
+    maxPoints: number;
+  }) => apiClient.put<AuraScoreRule>("/v1/aura/admin/score-rules", body),
 
   /** GET /v1/aura/admin/settings */
   settings: () => apiClient.get<AuraSettings>("/v1/aura/admin/settings"),
 
   /** PATCH /v1/aura/admin/settings */
-  saveSettings: (body: Partial<Omit<AuraSettings, "settingId" | "updatedAt" | "updatedBy">>) =>
-    apiClient.patch<AuraSettings>("/v1/aura/admin/settings", body),
+  saveSettings: (
+    body: Partial<Omit<AuraSettings, "settingId" | "updatedAt" | "updatedBy">>,
+  ) => apiClient.patch<AuraSettings>("/v1/aura/admin/settings", body),
 
   /** POST /v1/aura/admin/broadcast — announcement push to active users. */
   broadcast: (body: { title: string; body: string; userIds?: number[] }) =>
-    apiClient.post<{ targeted: number; sent: number }>("/v1/aura/admin/broadcast", body),
+    apiClient.post<{ targeted: number; sent: number }>(
+      "/v1/aura/admin/broadcast",
+      body,
+    ),
 };
 
 /* ═══════════════════ Quick Commerce (store 2) ═══════════════════ */
@@ -4710,7 +5471,8 @@ export interface QcVendorRow {
   _count?: { products: number };
 }
 
-export type QcOrderStatus = "PLACED" | "ACCEPTED" | "PICKED_UP" | "DELIVERED" | "CANCELLED";
+export type QcOrderStatus =
+  "PLACED" | "ACCEPTED" | "PICKED_UP" | "DELIVERED" | "CANCELLED";
 
 export interface QcAdminOrder {
   qcOrderId: number;
@@ -4725,7 +5487,12 @@ export interface QcAdminOrder {
   deliveredAt: string | null;
   customer?: { name: string | null; mobile: string | null };
   partner?: { professionalId: number; user: { name: string | null } } | null;
-  items: { name: string; quantity: number; amount: number; qcVendorId: number }[];
+  items: {
+    name: string;
+    quantity: number;
+    amount: number;
+    qcVendorId: number;
+  }[];
 }
 
 export interface QcVendorOrder {
@@ -4746,11 +5513,17 @@ export interface QcVendorRevenue {
   month: number;
   allTime: number;
   unitsSold: number;
-  products: { qcProductId: number; name: string; units: number; revenue: number }[];
+  products: {
+    qcProductId: number;
+    name: string;
+    units: number;
+    revenue: number;
+  }[];
 }
 
 export const qcApi = {
-  categories: () => apiClient.get<QcCategory[]>("/v1/qc/categories", { skipAuth: true }),
+  categories: () =>
+    apiClient.get<QcCategory[]>("/v1/qc/categories", { skipAuth: true }),
 
   /* admin */
   vendors: () => apiClient.get<QcVendorRow[]>("/v1/qc/admin/vendors"),
@@ -4764,19 +5537,43 @@ export const qcApi = {
     city?: string;
     lat?: number;
     lng?: number;
-  }) => apiClient.post<{ message: string; vendor: QcVendorRow }>("/v1/qc/admin/vendors", body),
-  updateVendor: (id: number, body: Partial<{ storeName: string; ownerName: string; mobile: string; address: string; city: string; lat: number; lng: number; isActive: boolean; password: string }>) =>
-    apiClient.patch<QcVendorRow>(`/v1/qc/admin/vendors/${id}`, body),
-  adminOrders: (status?: string) =>
-    apiClient.get<QcAdminOrder[]>(`/v1/qc/admin/orders${toQueryString({ status })}`),
-  adminStats: () =>
-    apiClient.get<{ orders: number; revenue: number; vendors: number; products: number; pendingOrders: number }>(
-      "/v1/qc/admin/stats",
+  }) =>
+    apiClient.post<{ message: string; vendor: QcVendorRow }>(
+      "/v1/qc/admin/vendors",
+      body,
     ),
+  updateVendor: (
+    id: number,
+    body: Partial<{
+      storeName: string;
+      ownerName: string;
+      mobile: string;
+      address: string;
+      city: string;
+      lat: number;
+      lng: number;
+      isActive: boolean;
+      password: string;
+    }>,
+  ) => apiClient.patch<QcVendorRow>(`/v1/qc/admin/vendors/${id}`, body),
+  adminOrders: (status?: string) =>
+    apiClient.get<QcAdminOrder[]>(
+      `/v1/qc/admin/orders${toQueryString({ status })}`,
+    ),
+  adminStats: () =>
+    apiClient.get<{
+      orders: number;
+      revenue: number;
+      vendors: number;
+      products: number;
+      pendingOrders: number;
+    }>("/v1/qc/admin/stats"),
 
   /* vendor portal (scoped server-side to the caller's store) */
   vendorMe: () =>
-    apiClient.get<QcVendorRow & { productCount: number; inStock: number }>("/v1/qc/vendor/me"),
+    apiClient.get<QcVendorRow & { productCount: number; inStock: number }>(
+      "/v1/qc/vendor/me",
+    ),
   vendorProducts: () => apiClient.get<QcProduct[]>("/v1/qc/vendor/products"),
   vendorCreateProduct: (body: {
     name: string;
@@ -4787,8 +5584,18 @@ export const qcApi = {
     description?: string;
     isActive?: boolean;
   }) => apiClient.post<QcProduct>("/v1/qc/vendor/products", body),
-  vendorUpdateProduct: (id: number, body: Partial<{ name: string; qcCategoryId: number; price: number; mrp: number; stock: number; description: string; isActive: boolean }>) =>
-    apiClient.patch<QcProduct>(`/v1/qc/vendor/products/${id}`, body),
+  vendorUpdateProduct: (
+    id: number,
+    body: Partial<{
+      name: string;
+      qcCategoryId: number;
+      price: number;
+      mrp: number;
+      stock: number;
+      description: string;
+      isActive: boolean;
+    }>,
+  ) => apiClient.patch<QcProduct>(`/v1/qc/vendor/products/${id}`, body),
   vendorDeleteProduct: (id: number) =>
     apiClient.delete<{ message: string }>(`/v1/qc/vendor/products/${id}`),
   vendorUploadImage: (id: number, image: File) => {
@@ -4804,11 +5611,15 @@ export const qcApi = {
 
   /* settings (refund policy shown in the customer app) */
   settings: () =>
-    apiClient.get<{ refundPolicy: string | null; supportPhone: string | null; supportEmail: string | null }>(
-      "/v1/qc/settings",
-      { skipAuth: true },
-    ),
-  updateSettings: (body: { refundPolicy?: string; supportPhone?: string; supportEmail?: string }) =>
-    apiClient.patch<{ message: string }>("/v1/qc/admin/settings", body),
+    apiClient.get<{
+      refundPolicy: string | null;
+      supportPhone: string | null;
+      supportEmail: string | null;
+    }>("/v1/qc/settings", { skipAuth: true }),
+  updateSettings: (body: {
+    refundPolicy?: string;
+    supportPhone?: string;
+    supportEmail?: string;
+  }) => apiClient.patch<{ message: string }>("/v1/qc/admin/settings", body),
   vendorRevenue: () => apiClient.get<QcVendorRevenue>("/v1/qc/vendor/revenue"),
 };
