@@ -3745,6 +3745,12 @@ export interface TemplateButton {
 }
 
 /** An approved template on the WABA, as Meta reports it. */
+export interface TemplateButtonInfo {
+  type: string;
+  text: string;
+  url: string | null;
+  example: string | null;
+}
 export interface WhatsappTemplate {
   name: string;
   language: string;
@@ -3753,6 +3759,11 @@ export interface WhatsappTemplate {
   body: string;
   variableCount: number;
   example: string[];
+  /** null for a plain text header, else "IMAGE" | "VIDEO" | "DOCUMENT". */
+  headerFormat: string | null;
+  /** The picture/file Meta approved the template with — the sensible default. */
+  headerMediaExample: string | null;
+  buttons: TemplateButtonInfo[];
 }
 
 export const crmCampaignsApi = {
@@ -3779,6 +3790,8 @@ export const crmCampaignsApi = {
     templateParams?: string[];
     dailyCap?: number;
     recipientUserIds?: number[];
+    headerMediaUrl?: string;
+    couponCode?: string;
   }) => apiClient.post<CampaignRow>("/v1/crm/campaigns", body),
   update: (
     id: number,
@@ -3849,6 +3862,8 @@ export const crmCampaignsApi = {
     templateName: string;
     templateLanguage: string;
     templateParams?: string[];
+    headerMediaUrl?: string;
+    couponCode?: string;
   }) =>
     apiClient.post<{
       to: string;

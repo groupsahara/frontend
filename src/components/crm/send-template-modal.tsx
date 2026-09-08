@@ -46,6 +46,8 @@ export function SendTemplateModal({
         templateName: choice.name,
         templateLanguage: choice.language,
         templateParams: choice.params,
+        headerMediaUrl: choice.headerMediaUrl,
+        couponCode: choice.couponCode,
       }),
     onSuccess: (r) => onSent(r.to),
     onError: (e) =>

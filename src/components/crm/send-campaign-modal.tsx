@@ -51,6 +51,8 @@ export function SendCampaignModal({
         templateLanguage: choice.language,
         templateParams: choice.params,
         recipientUserIds: userIds,
+        headerMediaUrl: choice.headerMediaUrl,
+        couponCode: choice.couponCode,
       });
       const started = await crmCampaignsApi.sendTemplate(campaign.campaignId);
       return { campaign, started };
