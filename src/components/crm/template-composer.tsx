@@ -13,7 +13,31 @@ export type TemplateChoice = {
   name: string;
   language: string;
   params: string[];
+  /** Picture for a media header — required by the template's shape, not its text. */
+  headerMediaUrl?: string;
+  /** Code for a COPY_CODE button. */
+  couponCode?: string;
 };
+
+/** The COPY_CODE button on a template, if it has one. */
+const copyCodeButton = (t: WhatsappTemplate) =>
+  t.buttons?.find((b) => b.type === "COPY_CODE");
+
+const hasMediaHeader = (t: WhatsappTemplate) =>
+  ["IMAGE", "VIDEO", "DOCUMENT"].includes(t.headerFormat ?? "");
+
+/**
+ * Everything a send needs for this template, defaulted to exactly what Meta
+ * approved: the header picture IS the creative, and the button's own example is
+ * the code it was reviewed with.
+ */
+const choiceFor = (t: WhatsappTemplate): TemplateChoice => ({
+  name: t.name,
+  language: t.language,
+  params: defaultParams(t),
+  headerMediaUrl: hasMediaHeader(t) ? (t.headerMediaExample ?? "") : undefined,
+  couponCode: copyCodeButton(t)?.example ?? undefined,
+});
 
 export const templateKey = (t: { name: string; language: string }) =>
   `${t.name}|${t.language}`;
@@ -89,19 +113,14 @@ export function TemplateComposer({
   // marketing template on a campaign meant to go out as free-form text.
   useEffect(() => {
     if (allowNone || value.name || !usable.length) return;
-    const first = usable[0];
-    onChange({
-      name: first.name,
-      language: first.language,
-      params: defaultParams(first),
-    });
+    onChange(choiceFor(usable[0]));
   }, [usable, value.name, allowNone, onChange]);
 
   const pick = (key: string) => {
     if (!key) return onChange({ name: "", language: "", params: [] });
     const t = usable.find((x) => templateKey(x) === key);
     if (!t) return;
-    onChange({ name: t.name, language: t.language, params: defaultParams(t) });
+    onChange(choiceFor(t));
   };
 
   const setParamAt = (i: number, v: string) =>
@@ -174,9 +193,31 @@ export function TemplateComposer({
             <p className="text-xs text-muted-foreground">Preview</p>
             {previewTo && <Badge tone="muted">{previewTo}</Badge>}
           </div>
+          {hasMediaHeader(template) && value.headerMediaUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={value.headerMediaUrl}
+              alt=""
+              className="mb-2 max-h-40 w-full rounded-lg object-cover"
+            />
+          )}
           <p className="whitespace-pre-wrap text-sm text-foreground">
             {preview}
           </p>
+          {template.buttons?.length > 0 && (
+            <div className="mt-3 space-y-1 border-t border-border pt-2">
+              {template.buttons.map((b, i) => (
+                <p
+                  key={i}
+                  className="text-center text-sm font-medium text-primary"
+                >
+                  {b.type === "COPY_CODE"
+                    ? `${b.text} · ${value.couponCode ?? ""}`
+                    : b.text}
+                </p>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

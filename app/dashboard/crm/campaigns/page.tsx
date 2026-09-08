@@ -564,6 +564,8 @@ function CampaignFormModal({
         templateName: isWhatsapp ? choice.name || undefined : undefined,
         templateLanguage: isWhatsapp ? choice.language || undefined : undefined,
         templateParams: isWhatsapp && choice.name ? choice.params : undefined,
+        headerMediaUrl: isWhatsapp ? choice.headerMediaUrl : undefined,
+        couponCode: isWhatsapp ? choice.couponCode : undefined,
         dailyCap: isWhatsapp && cap > 0 ? cap : undefined,
       };
       return campaign
