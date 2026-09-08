@@ -9,13 +9,9 @@
  */
 
 function resolveApiBaseUrl(): string {
-  // Local development must always talk to the local backend, so it works even
-  // if a production URL was baked into the build.
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") return "http://localhost:8000/api";
-  }
-  // Everywhere else: the env-configured URL, falling back to production.
+  // The env-configured URL wins everywhere, localhost included, so `next dev`
+  // talks to the live API by default. To develop against a local backend, set
+  // NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api in .env.local.
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://api.restocare.in/api";
 }
 
