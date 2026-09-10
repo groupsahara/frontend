@@ -44,6 +44,11 @@ const isAccepted = (status?: string) =>
     normalizeStatus(status),
   );
 
+/** Show the start OTP once a professional has accepted, and hide it the
+ *  moment the service starts / finishes (same rule as the customer app). */
+const shouldShowStartOtp = (b: BookingRecord) =>
+  normalizeStatus(b.status) === "accepted" && !b.otpVerified && b.otp != null && b.otp !== "";
+
 /** Friendly label for the current status. */
 function statusLabel(status?: string): string {
   const s = normalizeStatus(status);
@@ -350,6 +355,22 @@ export default function MyBookingsPage() {
                           📞 Call
                         </a>
                       ) : null}
+                    </div>
+                  )}
+
+                  {/* Start OTP — shown after a professional accepts so the
+                      customer can read it out to start the service. */}
+                  {shouldShowStartOtp(b) && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-amber-800">
+                        🔑 Start OTP
+                      </p>
+                      <p className="mt-1 text-3xl font-bold tracking-[0.35em] text-gray-900">
+                        {String(b.otp)}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-600">
+                        Share this code with the professional to start the service
+                      </p>
                     </div>
                   )}
 

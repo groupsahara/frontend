@@ -2369,6 +2369,8 @@ export interface BookingRecord {
   paymentMode?: string;
   status?: string;
   otpVerified?: boolean;
+  /** Start code the customer reads out to the professional; sent while accepted. */
+  otp?: string | number;
   createdAt?: string;
 }
 
