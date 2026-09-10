@@ -1238,6 +1238,8 @@ export interface CampaignCoupon {
   validTill: string;
   isActive: boolean;
   maxRedemptions: number | null;
+  /** Only redeemable when the customer pays online, never on COD. */
+  prepaidOnly: boolean;
   redemptions: number;
   status: "ACTIVE" | "DISABLED" | "EXPIRED" | "EXHAUSTED";
   createdAt: string;
@@ -1283,12 +1285,18 @@ export const customersApi = {
     validTill: string;
     description?: string;
     maxRedemptions?: number;
+    prepaidOnly?: boolean;
   }) => apiClient.post<CampaignCoupon>("/v1/admin/coupons/campaigns", body),
 
   /** PATCH /v1/admin/coupons/campaigns/:id — switch off or change validity. */
   updateCampaign: (
     couponId: number,
-    body: { isActive?: boolean; validTill?: string; maxRedemptions?: number },
+    body: {
+      isActive?: boolean;
+      validTill?: string;
+      maxRedemptions?: number;
+      prepaidOnly?: boolean;
+    },
   ) =>
     apiClient.patch<CampaignCoupon>(
       `/v1/admin/coupons/campaigns/${couponId}`,
@@ -2371,6 +2379,8 @@ export interface CustomerCoupon {
   isApplied: boolean;
   isUsed: boolean;
   expiresAt: string;
+  /** Refused on cash on delivery — the customer must pay online to use it. */
+  prepaidOnly?: boolean;
   /** FLAT_TOTAL fixes the whole bill; a percentage cannot express that. */
   discountType?: "PERCENT" | "FLAT_TOTAL";
   /** For FLAT_TOTAL: the total the customer pays, GST included. */

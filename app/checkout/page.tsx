@@ -27,7 +27,12 @@ import {
   type CustomerCoupon,
   type UserAddress,
 } from "@/src/api/api";
-import { SpinnerIcon, CloseIcon, TrashIcon, PencilIcon } from "@/src/components/icons";
+import {
+  SpinnerIcon,
+  CloseIcon,
+  TrashIcon,
+  PencilIcon,
+} from "@/src/components/icons";
 import { GOOGLE_MAPS_API_KEY } from "@/src/lib/maps";
 
 function inr(n: number): string {
@@ -73,7 +78,10 @@ const EMPTY_GEOCODE: GeocodeResult = {
 /** Precise reverse geocoding via the Google Maps Geocoding API (full address
  *  components), matching the customer app. Returns null so the caller can fall
  *  back to a key-less provider. */
-async function reverseGeocodeGoogle(lat: number, lng: number): Promise<GeocodeResult | null> {
+async function reverseGeocodeGoogle(
+  lat: number,
+  lng: number,
+): Promise<GeocodeResult | null> {
   try {
     const res = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}`,
@@ -110,7 +118,10 @@ async function reverseGeocodeGoogle(lat: number, lng: number): Promise<GeocodeRe
 /** OpenStreetMap (Nominatim) reverse geocoder — free, key-less, returns the full
  *  street-level address (display_name) like Google Maps. Used when the Google
  *  Geocoding API is unavailable (e.g. the key has it disabled). */
-async function reverseGeocodeNominatim(lat: number, lng: number): Promise<GeocodeResult | null> {
+async function reverseGeocodeNominatim(
+  lat: number,
+  lng: number,
+): Promise<GeocodeResult | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
@@ -135,7 +146,8 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Geocod
     const city = a.city || a.town || a.village || a.suburb || a.county || "";
     if (!d.display_name && !city) return null;
     return {
-      address: d.display_name || [a.road, a.suburb, city].filter(Boolean).join(", "),
+      address:
+        d.display_name || [a.road, a.suburb, city].filter(Boolean).join(", "),
       city,
       state: a.state || "",
       country: a.country || "India",
@@ -148,7 +160,10 @@ async function reverseGeocodeNominatim(lat: number, lng: number): Promise<Geocod
 
 /** Reverse geocode to a full, precise address. Google first (if its Geocoding
  *  API is enabled), then OpenStreetMap, then the coarse BigDataCloud fallback. */
-async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResult> {
+async function reverseGeocode(
+  lat: number,
+  lng: number,
+): Promise<GeocodeResult> {
   const google = await reverseGeocodeGoogle(lat, lng);
   if (google && google.address) return google;
 
@@ -210,7 +225,9 @@ export default function CheckoutPage() {
   }, [user]);
 
   const [savedAddresses, setSavedAddresses] = useState<UserAddress[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
+    null,
+  );
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [addressesError, setAddressesError] = useState<string | null>(null);
   const [isSavingAddress, setIsSavingAddress] = useState(false);
@@ -230,7 +247,9 @@ export default function CheckoutPage() {
   // 🎟️ Coupons — the same /v1/coupons endpoints the mobile app uses.
   const [myCoupons, setMyCoupons] = useState<CustomerCoupon[]>([]);
   const [couponInput, setCouponInput] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<CustomerCoupon | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<CustomerCoupon | null>(
+    null,
+  );
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
 
@@ -239,12 +258,15 @@ export default function CheckoutPage() {
   // exactly as the server redeems it. Discount is that item × the coupon %.
   const cartItems2 = cart?.items ?? [];
   const couponTarget = appliedCoupon
-    ? [...cartItems2].sort((a, b) => (b.total || b.price) - (a.total || a.price))[0]
+    ? [...cartItems2].sort(
+        (a, b) => (b.total || b.price) - (a.total || a.price),
+      )[0]
     : undefined;
   // A FLAT_TOTAL coupon fixes the whole bill (e.g. ₹1) whatever the service
   // costs, so the saving is the remainder rather than a percentage of one line.
   const isFlatCoupon =
-    appliedCoupon?.discountType === "FLAT_TOTAL" && appliedCoupon.flatTotal != null;
+    appliedCoupon?.discountType === "FLAT_TOTAL" &&
+    appliedCoupon.flatTotal != null;
   // Mirror the customer app: the payable amount is item total + GST, less the
   // coupon — nothing else. The cart API also returns a `discount` and a
   // `grandTotal` with it already taken off, but no booking honours that
@@ -253,13 +275,30 @@ export default function CheckoutPage() {
   const cartGrandTotal = (summary.itemTotal ?? 0) + (summary.tax ?? 0);
   const couponBaseDiscount =
     appliedCoupon && couponTarget && !isFlatCoupon
-      ? Math.round((couponTarget.total || couponTarget.price) * (appliedCoupon.discountPercent / 100) * 100) / 100
+      ? Math.round(
+          (couponTarget.total || couponTarget.price) *
+            (appliedCoupon.discountPercent / 100) *
+            100,
+        ) / 100
       : 0;
   // What the customer saves is GST-inclusive — the same maths the app shows.
   const couponSaving = isFlatCoupon
-    ? Math.max(0, Math.round((cartGrandTotal - (appliedCoupon!.flatTotal as number)) * 100) / 100)
+    ? Math.max(
+        0,
+        Math.round(
+          (cartGrandTotal - (appliedCoupon!.flatTotal as number)) * 100,
+        ) / 100,
+      )
     : Math.round(couponBaseDiscount * 1.18 * 100) / 100;
-  const grandTotal = Math.max(0, Math.round((cartGrandTotal - couponSaving) * 100) / 100);
+  const grandTotal = Math.max(
+    0,
+    Math.round((cartGrandTotal - couponSaving) * 100) / 100,
+  );
+  // Some coupons are funded by the platform and only offered when the money is
+  // collected up front. Caught here so the customer is told before they try to
+  // book, rather than by the server refusing the booking afterwards.
+  const couponNeedsPrepay =
+    !!appliedCoupon?.prepaidOnly && paymentMode === "COD";
 
   useEffect(() => {
     if (!user) return;
@@ -283,7 +322,9 @@ export default function CheckoutPage() {
       setAppliedCoupon(applied);
       setCouponInput("");
     } catch (e) {
-      setCouponError(e instanceof Error ? e.message : "Could not apply the coupon.");
+      setCouponError(
+        e instanceof Error ? e.message : "Could not apply the coupon.",
+      );
     } finally {
       setCouponBusy(false);
     }
@@ -307,14 +348,15 @@ export default function CheckoutPage() {
     setAddressesError(null);
     try {
       const res = (await userApi.getAddresses(userId)) as
-        | { data?: UserAddress[]; addresses?: UserAddress[] }
-        | UserAddress[];
+        { data?: UserAddress[]; addresses?: UserAddress[] } | UserAddress[];
       const list = Array.isArray(res)
         ? res
         : (res?.data ?? res?.addresses ?? []);
       setSavedAddresses(Array.isArray(list) ? list : []);
     } catch (e) {
-      setAddressesError(e instanceof Error ? e.message : "Unable to load saved addresses.");
+      setAddressesError(
+        e instanceof Error ? e.message : "Unable to load saved addresses.",
+      );
       setSavedAddresses([]);
     } finally {
       setAddressesLoading(false);
@@ -354,7 +396,9 @@ export default function CheckoutPage() {
         setIsLocating(false);
       },
       (err) => {
-        setAddressesError(err.message || "Unable to fetch your current location.");
+        setAddressesError(
+          err.message || "Unable to fetch your current location.",
+        );
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 12000 },
@@ -387,7 +431,9 @@ export default function CheckoutPage() {
       await fetchAddresses(user.id);
       setAddressModal(false);
     } catch (e) {
-      setAddressesError(e instanceof Error ? e.message : "Unable to save address.");
+      setAddressesError(
+        e instanceof Error ? e.message : "Unable to save address.",
+      );
     } finally {
       setIsSavingAddress(false);
     }
@@ -428,7 +474,8 @@ export default function CheckoutPage() {
       // The server expects the PRE-TAX, post-discount amount plus the code on
       // the one booking that redeems the coupon; it reconstructs the list
       // price and reimburses the partner from the percentage.
-      const discounted = appliedCoupon && couponTarget && item.id === couponTarget.id;
+      const discounted =
+        appliedCoupon && couponTarget && item.id === couponTarget.id;
       const base = item.total || item.price;
       return {
         userId: Number(user?.id),
@@ -471,7 +518,8 @@ export default function CheckoutPage() {
 
   const payWithRazorpayThenBook = async (payloads: CreateBookingPayload[]) => {
     const ok = await loadRazorpay();
-    if (!ok) throw new Error("Could not load the payment gateway. Please try again.");
+    if (!ok)
+      throw new Error("Could not load the payment gateway. Please try again.");
 
     const order = await paymentsApi.createOrder(
       grandTotal || payloads.reduce((s, p) => s + p.totalAmount, 0),
@@ -513,7 +561,9 @@ export default function CheckoutPage() {
       razorpay_signature: checkoutResult.razorpay_signature,
     });
     if (!verification?.success) {
-      throw new Error(verification?.message ?? "Payment could not be verified.");
+      throw new Error(
+        verification?.message ?? "Payment could not be verified.",
+      );
     }
 
     await submitBookings(payloads);
@@ -534,7 +584,9 @@ export default function CheckoutPage() {
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || (!lat && !lng)) {
-      setError("Location coordinates are invalid. Use 'Current location' in the address form.");
+      setError(
+        "Location coordinates are invalid. Use 'Current location' in the address form.",
+      );
       setAddressModal(true);
       return;
     }
@@ -547,6 +599,13 @@ export default function CheckoutPage() {
     }
     if (!paymentMode) {
       setError("Please select a payment method.");
+      setPaymentModal(true);
+      return;
+    }
+    if (couponNeedsPrepay) {
+      setError(
+        `Coupon ${appliedCoupon?.code} only works with online payment. Switch to Razorpay, or remove the coupon.`,
+      );
       setPaymentModal(true);
       return;
     }
@@ -567,7 +626,9 @@ export default function CheckoutPage() {
         await submitBookings(payloads);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Booking failed. Please try again.");
+      setError(
+        e instanceof Error ? e.message : "Booking failed. Please try again.",
+      );
     } finally {
       setIsPlacing(false);
     }
@@ -628,7 +689,8 @@ export default function CheckoutPage() {
                     </p>
                     <p className="mt-0.5 line-clamp-2 text-sm text-gray-500">
                       {address
-                        ? city && !address.toLowerCase().includes(city.toLowerCase())
+                        ? city &&
+                          !address.toLowerCase().includes(city.toLowerCase())
                           ? `${address}, ${city}`
                           : address
                         : isLocating
@@ -648,25 +710,38 @@ export default function CheckoutPage() {
 
             {/* Business details (for GST invoice) */}
             <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-              <p className="text-sm font-bold text-gray-900">Your business details</p>
+              <p className="text-sm font-bold text-gray-900">
+                Your business details
+              </p>
               <p className="mt-0.5 text-xs text-gray-500">
                 Used for your booking &amp; GST invoice. GST number is optional.
               </p>
               <div className="mt-3 space-y-2">
-                <Input value={ownerName} onChange={setOwnerName} placeholder="Owner name *" />
+                <Input
+                  value={ownerName}
+                  onChange={setOwnerName}
+                  placeholder="Owner name *"
+                />
                 <Input
                   value={restaurantName}
                   onChange={setRestaurantName}
                   placeholder="Restaurant name *"
                 />
-                <Input value={gstNumber} onChange={setGstNumber} placeholder="GST number (optional)" />
+                <Input
+                  value={gstNumber}
+                  onChange={setGstNumber}
+                  placeholder="GST number (optional)"
+                />
               </div>
             </section>
 
             {/* Items */}
             <section className="space-y-3">
               {cartItems.map((item) => {
-                const sched = getBookingSchedule(item.serviceId, item.variantId);
+                const sched = getBookingSchedule(
+                  item.serviceId,
+                  item.variantId,
+                );
                 return (
                   <div
                     key={item.id}
@@ -675,7 +750,11 @@ export default function CheckoutPage() {
                     <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
                       {item.image ? (
                         // eslint-disable-next-line @next/next/no-img-element -- external image
-                        <img src={item.image} alt="" className="h-full w-full object-cover" />
+                        <img
+                          src={item.image}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-2xl">
                           🧰
@@ -687,7 +766,9 @@ export default function CheckoutPage() {
                         {item.name}
                       </p>
                       {item.variantName ? (
-                        <p className="truncate text-xs text-gray-400">{item.variantName}</p>
+                        <p className="truncate text-xs text-gray-400">
+                          {item.variantName}
+                        </p>
                       ) : null}
                       <button
                         onClick={() => setSlotModalFor(item)}
@@ -735,7 +816,9 @@ export default function CheckoutPage() {
 
             {/* Coupons */}
             <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-gray-900">Apply coupon</h2>
+              <h2 className="text-base font-bold text-gray-900">
+                Apply coupon
+              </h2>
               {appliedCoupon ? (
                 <div className="mt-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5">
                   <div>
@@ -745,7 +828,9 @@ export default function CheckoutPage() {
                         ? `pay only ₹${appliedCoupon.flatTotal}`
                         : `${appliedCoupon.discountPercent}% off`}
                     </p>
-                    <p className="text-xs text-green-600">You save {inr(couponSaving)}</p>
+                    <p className="text-xs text-green-600">
+                      You save {inr(couponSaving)}
+                    </p>
                   </div>
                   <button
                     onClick={removeCoupon}
@@ -760,7 +845,9 @@ export default function CheckoutPage() {
                   <div className="mt-3 flex gap-2">
                     <input
                       value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        setCouponInput(e.target.value.toUpperCase())
+                      }
                       placeholder="Enter coupon code"
                       className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm uppercase text-gray-900 placeholder:normal-case placeholder:text-gray-400 outline-none focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10"
                     />
@@ -791,10 +878,17 @@ export default function CheckoutPage() {
                                 {c.code}
                               </span>
                               <span className="block text-xs text-gray-500">
-                                {c.discountType === "FLAT_TOTAL" && c.flatTotal != null
+                                {c.discountType === "FLAT_TOTAL" &&
+                                c.flatTotal != null
                                   ? `Pay only ₹${c.flatTotal} for this booking`
-                                  : c.description || `${c.discountPercent}% off your booking`}
+                                  : c.description ||
+                                    `${c.discountPercent}% off your booking`}
                               </span>
+                              {c.prepaidOnly && (
+                                <span className="mt-0.5 block text-[11px] font-medium text-orange-700">
+                                  Online payment only
+                                </span>
+                              )}
                             </span>
                             <span className="text-sm font-semibold text-orange-600">
                               {c.isApplied ? "APPLIED" : "Apply"}
@@ -805,12 +899,16 @@ export default function CheckoutPage() {
                   )}
                 </>
               )}
-              {couponError && <p className="mt-2 text-sm text-red-500">{couponError}</p>}
+              {couponError && (
+                <p className="mt-2 text-sm text-red-500">{couponError}</p>
+              )}
             </section>
 
             {/* Bill summary */}
             <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-gray-900">Bill summary</h2>
+              <h2 className="text-base font-bold text-gray-900">
+                Bill summary
+              </h2>
               <dl className="mt-4 space-y-2.5 text-sm">
                 <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
                 <Row label="Taxes (18%)" value={inr(summary.tax ?? 0)} />
@@ -823,8 +921,12 @@ export default function CheckoutPage() {
                 ) : null}
               </dl>
               <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
-                <span className="text-base font-bold text-gray-900">Amount payable</span>
-                <span className="text-lg font-bold text-gray-900">{inr(grandTotal)}</span>
+                <span className="text-base font-bold text-gray-900">
+                  Amount payable
+                </span>
+                <span className="text-lg font-bold text-gray-900">
+                  {inr(grandTotal)}
+                </span>
               </div>
             </section>
 
@@ -834,13 +936,20 @@ export default function CheckoutPage() {
               className="flex w-full items-center justify-between rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
             >
               <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                💵 {paymentMode ? PAYMENT_LABELS[paymentMode] : "Select payment method"}
+                💵{" "}
+                {paymentMode
+                  ? PAYMENT_LABELS[paymentMode]
+                  : "Select payment method"}
               </span>
-              <span className="text-sm font-semibold text-orange-600">Change ›</span>
+              <span className="text-sm font-semibold text-orange-600">
+                Change ›
+              </span>
             </button>
 
             {error ? (
-              <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
+              <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
+              </p>
             ) : null}
 
             {/* Place order */}
@@ -854,7 +963,8 @@ export default function CheckoutPage() {
 
             {!isLoggedIn ? (
               <p className="text-center text-xs text-gray-400">
-                You&apos;ll be asked to log in with your mobile number before placing the order.
+                You&apos;ll be asked to log in with your mobile number before
+                placing the order.
               </p>
             ) : null}
           </div>
@@ -902,22 +1012,54 @@ export default function CheckoutPage() {
               })}
             </div>
           ) : (
-            <p className="mb-4 text-sm text-gray-500">No saved addresses yet. Add one below.</p>
+            <p className="mb-4 text-sm text-gray-500">
+              No saved addresses yet. Add one below.
+            </p>
           )}
 
-          <p className="mb-2 text-sm font-semibold text-gray-900">Add / update address</p>
+          <p className="mb-2 text-sm font-semibold text-gray-900">
+            Add / update address
+          </p>
           <div className="space-y-2">
-            <Input value={addressLabel} onChange={setAddressLabel} placeholder="Label (Home, Work)" />
-            <Input value={address} onChange={setAddress} placeholder="Address" />
+            <Input
+              value={addressLabel}
+              onChange={setAddressLabel}
+              placeholder="Label (Home, Work)"
+            />
+            <Input
+              value={address}
+              onChange={setAddress}
+              placeholder="Address"
+            />
             <Input value={city} onChange={setCity} placeholder="City" />
             <div className="flex gap-2">
-              <Input value={stateName} onChange={setStateName} placeholder="State" />
-              <Input value={zipCode} onChange={setZipCode} placeholder="Zip code" />
+              <Input
+                value={stateName}
+                onChange={setStateName}
+                placeholder="State"
+              />
+              <Input
+                value={zipCode}
+                onChange={setZipCode}
+                placeholder="Zip code"
+              />
             </div>
-            <Input value={country} onChange={setCountry} placeholder="Country" />
+            <Input
+              value={country}
+              onChange={setCountry}
+              placeholder="Country"
+            />
             <div className="flex gap-2">
-              <Input value={latitude} onChange={setLatitude} placeholder="Latitude" />
-              <Input value={longitude} onChange={setLongitude} placeholder="Longitude" />
+              <Input
+                value={latitude}
+                onChange={setLatitude}
+                placeholder="Latitude"
+              />
+              <Input
+                value={longitude}
+                onChange={setLongitude}
+                placeholder="Longitude"
+              />
             </div>
           </div>
 
@@ -930,14 +1072,22 @@ export default function CheckoutPage() {
             disabled={isLocating}
             className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gray-700 py-3 text-sm font-semibold text-white hover:bg-gray-800 disabled:opacity-60"
           >
-            {isLocating ? <SpinnerIcon className="h-4 w-4" /> : "📍 Use current location"}
+            {isLocating ? (
+              <SpinnerIcon className="h-4 w-4" />
+            ) : (
+              "📍 Use current location"
+            )}
           </button>
           <button
             onClick={handleSaveAddress}
             disabled={isSavingAddress}
             className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60"
           >
-            {isSavingAddress ? <SpinnerIcon className="h-4 w-4" /> : "Save address"}
+            {isSavingAddress ? (
+              <SpinnerIcon className="h-4 w-4" />
+            ) : (
+              "Save address"
+            )}
           </button>
         </Sheet>
       )}
@@ -977,7 +1127,9 @@ export default function CheckoutPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-2xl">
             <p className="text-5xl">✅</p>
-            <h2 className="mt-3 text-xl font-bold text-gray-900">Booking confirmed!</h2>
+            <h2 className="mt-3 text-xl font-bold text-gray-900">
+              Booking confirmed!
+            </h2>
             <p className="mt-1 text-sm text-gray-500">
               Your order has been placed successfully.
             </p>
@@ -988,7 +1140,15 @@ export default function CheckoutPage() {
   );
 }
 
-function Row({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function Row({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+}) {
   return (
     <div className="flex items-center justify-between">
       <dt className="text-gray-500">{label}</dt>
@@ -1027,7 +1187,11 @@ function Sheet({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden
+      />
       <div className="relative z-10 max-h-[88vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-bold text-gray-900">{title}</h3>
@@ -1053,7 +1217,9 @@ function SlotEditModal({
   onClose: () => void;
 }) {
   const existing = getBookingSchedule(item.serviceId, item.variantId);
-  const { durationHours: parsedDuration, timing } = parseVariantShift(item.variantName);
+  const { durationHours: parsedDuration, timing } = parseVariantShift(
+    item.variantName,
+  );
   const durationHours = parsedDuration ?? 5;
   const slots = useMemo(
     () => buildShiftSlots(timing ? [timing] : undefined, durationHours),
@@ -1063,7 +1229,9 @@ function SlotEditModal({
 
   const [date, setDate] = useState(existing?.date ?? days[0]?.value ?? "");
   const [slotId, setSlotId] = useState<string | null>(
-    existing ? (slots.find((s) => s.label === existing.label)?.id ?? null) : slots[0]?.id ?? null,
+    existing
+      ? (slots.find((s) => s.label === existing.label)?.id ?? null)
+      : (slots[0]?.id ?? null),
   );
 
   const save = () => {
@@ -1090,7 +1258,9 @@ function SlotEditModal({
             key={d.value}
             onClick={() => setDate(d.value)}
             className={`shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition ${
-              d.value === date ? "bg-orange-600 text-white" : "bg-orange-50 text-orange-700"
+              d.value === date
+                ? "bg-orange-600 text-white"
+                : "bg-orange-50 text-orange-700"
             }`}
           >
             {d.weekday} {d.day}

@@ -61,10 +61,15 @@ export default function CampaignCouponsPage() {
       />
 
       <Card>
-        <TableShell head={["Code", "Customer pays", "Valid till", "Used", "Status", ""]}>
+        <TableShell
+          head={["Code", "Customer pays", "Valid till", "Used", "Status", ""]}
+        >
           {isLoading && <EmptyRow cols={6} label="Loading…" />}
           {!isLoading && !coupons.length && (
-            <EmptyRow cols={6} label="No coupons yet — create one to run a promotion." />
+            <EmptyRow
+              cols={6}
+              label="No coupons yet — create one to run a promotion."
+            />
           )}
           {coupons.map((c) => (
             <CouponRow key={c.couponId} coupon={c} canManage={canManage} />
@@ -77,17 +82,37 @@ export default function CampaignCouponsPage() {
   );
 }
 
-function CouponRow({ coupon: c, canManage }: { coupon: CampaignCoupon; canManage: boolean }) {
+function CouponRow({
+  coupon: c,
+  canManage,
+}: {
+  coupon: CampaignCoupon;
+  canManage: boolean;
+}) {
   const qc = useQueryClient();
   const toggle = useMutation({
-    mutationFn: () => customersApi.updateCampaign(c.couponId, { isActive: !c.isActive }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "coupon-campaigns"] }),
+    mutationFn: () =>
+      customersApi.updateCampaign(c.couponId, { isActive: !c.isActive }),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: ["admin", "coupon-campaigns"] }),
   });
 
   return (
     <tr className="transition-colors hover:bg-accent/50">
       <td className="px-4 py-3">
-        <div className="font-mono font-medium text-foreground">{c.code}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono font-medium text-foreground">
+            {c.code}
+          </span>
+          {c.prepaidOnly && (
+            <span
+              className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
+              title="Refused on cash on delivery — the customer must pay online"
+            >
+              Prepaid
+            </span>
+          )}
+        </div>
         <div className="text-xs text-muted-foreground">{c.description}</div>
       </td>
       <td className="px-4 py-3 text-foreground">
@@ -95,7 +120,9 @@ function CouponRow({ coupon: c, canManage }: { coupon: CampaignCoupon; canManage
           ? `₹${c.flatTotal} total`
           : "—"}
       </td>
-      <td className="px-4 py-3 text-muted-foreground">{fmtDate(c.validTill)}</td>
+      <td className="px-4 py-3 text-muted-foreground">
+        {fmtDate(c.validTill)}
+      </td>
       <td className="px-4 py-3 text-muted-foreground">
         {c.redemptions}
         {c.maxRedemptions != null ? ` / ${c.maxRedemptions}` : ""}
@@ -105,7 +132,12 @@ function CouponRow({ coupon: c, canManage }: { coupon: CampaignCoupon; canManage
       </td>
       <td className="px-4 py-3 text-right">
         {canManage && (
-          <Btn small tone="ghost" busy={toggle.isPending} onClick={() => toggle.mutate()}>
+          <Btn
+            small
+            tone="ghost"
+            busy={toggle.isPending}
+            onClick={() => toggle.mutate()}
+          >
             {c.isActive ? "Disable" : "Enable"}
           </Btn>
         )}
@@ -121,6 +153,10 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
   const [validTill, setValidTill] = useState("");
   const [description, setDescription] = useState("");
   const [maxRedemptions, setMaxRedemptions] = useState("");
+  // Off by default: an offer is taken up more readily when it works either way,
+  // and requiring prepayment is a deliberate decision about who carries the
+  // risk when a customer discounts a job and then is not there.
+  const [prepaidOnly, setPrepaidOnly] = useState(false);
   const [err, setErr] = useState("");
 
   const create = useMutation({
@@ -131,18 +167,23 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
         validTill,
         description: description.trim() || undefined,
         maxRedemptions: maxRedemptions ? Number(maxRedemptions) : undefined,
+        prepaidOnly,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "coupon-campaigns"] });
       onClose();
     },
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not create the coupon."),
+    onError: (e) =>
+      setErr(
+        e instanceof ApiError ? e.message : "Could not create the coupon.",
+      ),
   });
 
   const submit = () => {
     setErr("");
     if (!code.trim()) return setErr("Give the coupon a code.");
-    if (!(Number(flatTotal) >= 1)) return setErr("The lowest chargeable amount is ₹1.");
+    if (!(Number(flatTotal) >= 1))
+      return setErr("The lowest chargeable amount is ₹1.");
     if (!validTill) return setErr("Choose the date this coupon stops working.");
     create.mutate();
   };
@@ -180,6 +221,26 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-primary"
+            checked={prepaidOnly}
+            onChange={(e) => setPrepaidOnly(e.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium text-foreground">
+              Online payment only
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              The coupon is refused on cash on delivery. Use it when the
+              discount comes out of the platform&rsquo;s pocket — on COD a
+              customer can take the discount and then not be there, after the
+              partner has already travelled.
+            </span>
+          </span>
+        </label>
+
         <Field label="Description (shown to customers)">
           <input
             className={inputCls}
@@ -201,9 +262,9 @@ function CreateCouponModal({ onClose }: { onClose: () => void }) {
         </Field>
 
         <p className="rounded-xl bg-accent/40 px-4 py-3 text-xs text-muted-foreground">
-          Every customer can use this code once. Whatever the service costs, they pay the amount
-          above — the partner is still paid the job&rsquo;s full price, so the discount is the
-          platform&rsquo;s cost, not theirs.
+          Every customer can use this code once. Whatever the service costs,
+          they pay the amount above — the partner is still paid the job&rsquo;s
+          full price, so the discount is the platform&rsquo;s cost, not theirs.
         </p>
 
         <div className="flex justify-end gap-2">
