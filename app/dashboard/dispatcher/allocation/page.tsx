@@ -11,34 +11,107 @@ import {
 import { ApiError } from "@/src/api/apiClient";
 import { SpinnerIcon } from "@/src/components/icons";
 
-const METHODS: { key: AllocationMethod; label: string; description: string }[] = [
-  {
-    key: "BROADCAST",
-    label: "Broadcast",
-    description: "Every eligible partner in range gets the lead at the same time.",
-  },
-  {
-    key: "NEAREST",
-    label: "Nearest first",
-    description: "Closest partners get the lead, capped at the max partners below.",
-  },
-  {
-    key: "ROUND_ROBIN",
-    label: "Round robin",
-    description: "Partners with the fewest jobs get the lead first, so work rotates fairly.",
-  },
-];
+const METHODS: { key: AllocationMethod; label: string; description: string }[] =
+  [
+    {
+      key: "BROADCAST",
+      label: "Broadcast",
+      description:
+        "Every eligible partner in range gets the lead at the same time.",
+    },
+    {
+      key: "NEAREST",
+      label: "Nearest first",
+      description:
+        "Closest partners get the lead, capped at the max partners below.",
+    },
+    {
+      key: "ROUND_ROBIN",
+      label: "Round robin",
+      description:
+        "Partners with the fewest jobs get the lead first, so work rotates fairly.",
+    },
+  ];
+
+const RADIUS_PRESETS = [5, 10, 20, 30, 40];
+
+/**
+ * What a given radius means in practice. The number alone tells an admin
+ * nothing — 20 km is generous in a dense city core and barely adequate across
+ * a spread-out metro — so say which situation it suits.
+ */
+function radiusGuide(km: number): string {
+  if (km <= 7)
+    return "Tight. Suits a dense core where several partners cover each neighbourhood. Few partners see any one lead, so thin areas need zones to fill the gaps.";
+  if (km <= 15)
+    return "City-wide. A sensible default once coverage across the city is steady.";
+  if (km <= 25)
+    return "Metro and suburbs. The usual choice for Delhi NCR — most partners can still reach the job within about an hour.";
+  if (km <= 40)
+    return "Wide. Use where partners are thin on the ground and one job is worth the travel.";
+  return "Very wide. Close to every partner seeing every lead — reasonable only while building coverage in a new city.";
+}
+
+const RETRY_OPTIONS = [0, 1, 2, 3];
+
+/** What a retry count means in practice, so the number is not just a number. */
+function retryGuide(n: number): string {
+  if (n === 0)
+    return "Off. A lead is broadcast once — if nobody accepts, the booking stays pending until someone allocates it by hand.";
+  if (n === 1)
+    return "One extra attempt. Catches partners who were briefly away from their phone.";
+  if (n === 2)
+    return "Two extra attempts. A reasonable default — most leads are taken on the first or second offer.";
+  return "Aggressive. Worth it only where coverage is thin: the same partners are alarmed again and again, which teaches them to ignore the alarm.";
+}
+
+function Toggle({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+        checked ? "bg-success" : "bg-muted"
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+          checked ? "translate-x-5" : "translate-x-0.5"
+        }`}
+      />
+    </button>
+  );
+}
 
 type FormState = Pick<
   AllocationSettings,
-  "enabled" | "method" | "radiusKm" | "maxAgents" | "restrictToGeofence"
+  | "enabled"
+  | "method"
+  | "radiusKm"
+  | "maxAgents"
+  | "restrictToGeofence"
+  | "radiusInsideZone"
+  | "includeUnlocatedPartners"
+  | "leadRetryCount"
+  | "leadRetryAfterMinutes"
 >;
 
 export default function AutoAllocationPage() {
   const queryClient = useQueryClient();
   // Local edits overlay the server copy; null = no unsaved edits.
   const [edits, setEdits] = useState<FormState | null>(null);
-  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<{
+    kind: "ok" | "error";
+    text: string;
+  } | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: queryKeys.allocationSettings,
@@ -54,6 +127,10 @@ export default function AutoAllocationPage() {
           radiusKm: data.radiusKm,
           maxAgents: data.maxAgents,
           restrictToGeofence: data.restrictToGeofence,
+          radiusInsideZone: data.radiusInsideZone,
+          includeUnlocatedPartners: data.includeUnlocatedPartners,
+          leadRetryCount: data.leadRetryCount,
+          leadRetryAfterMinutes: data.leadRetryAfterMinutes,
         }
       : null);
   const setForm = (next: FormState) => setEdits(next);
@@ -63,12 +140,16 @@ export default function AutoAllocationPage() {
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKeys.allocationSettings, saved);
       setEdits(null);
-      setNotice({ kind: "ok", text: "Allocation settings saved. New bookings use them immediately." });
+      setNotice({
+        kind: "ok",
+        text: "Allocation settings saved. New bookings use them immediately.",
+      });
     },
     onError: (e) =>
       setNotice({
         kind: "error",
-        text: e instanceof ApiError ? e.message : "Could not save the settings.",
+        text:
+          e instanceof ApiError ? e.message : "Could not save the settings.",
       }),
   });
 
@@ -83,7 +164,9 @@ export default function AutoAllocationPage() {
   if (isError || !form) {
     return (
       <div className="flex h-72 flex-col items-center justify-center gap-3 text-center">
-        <p className="text-muted-foreground">Couldn’t load allocation settings.</p>
+        <p className="text-muted-foreground">
+          Couldn’t load allocation settings.
+        </p>
         <button
           onClick={() => refetch()}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
@@ -96,20 +179,61 @@ export default function AutoAllocationPage() {
 
   const capDisabled = form.method === "BROADCAST";
 
+  // Spell out what the combination of switches actually does. The radius and
+  // the geofence interact in a way no single field can express: inside a zone
+  // the radius is skipped unless asked for, and a partner with no coordinates
+  // sits outside the radius rule entirely.
+  const summaryLines: string[] = !form.enabled
+    ? [
+        "Auto allocation is off. No lead is broadcast — every booking must be assigned by hand.",
+      ]
+    : [
+        ...(form.restrictToGeofence
+          ? [
+              form.radiusInsideZone
+                ? `Booking inside a zone → that zone’s team, but only the members within ${form.radiusKm} km.`
+                : `Booking inside a zone → every partner on that zone’s team, at any distance. The ${form.radiusKm} km radius does not apply here.`,
+              `Booking outside every zone → partners within ${form.radiusKm} km.`,
+            ]
+          : [
+              `Zones are ignored → partners within ${form.radiusKm} km, wherever the booking falls.`,
+            ]),
+        form.includeUnlocatedPartners
+          ? "Partners with no saved location receive every lead as well, because their distance cannot be measured."
+          : "Partners with no saved location receive nothing until a location is captured.",
+        form.leadRetryCount > 0
+          ? `Nobody accepts → the lead is offered again up to ${form.leadRetryCount} more time${
+              form.leadRetryCount > 1 ? "s" : ""
+            }, ${form.leadRetryAfterMinutes} minutes apart.`
+          : "Nobody accepts → the booking stays pending until an admin allocates it by hand.",
+        form.method === "BROADCAST"
+          ? "Everyone eligible is alarmed at once, highest-rated first."
+          : `${form.method === "NEAREST" ? "Closest" : "Fewest-jobs"} partners go first${
+              form.maxAgents > 0
+                ? `, capped at ${form.maxAgents} per lead`
+                : " (no cap)"
+            }.`,
+      ];
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Auto Allocation</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Auto Allocation
+        </h1>
         <p className="text-sm text-muted-foreground">
-          How new booking leads are pushed to service partners. Changes apply to the next booking.
+          How new booking leads are pushed to service partners. Changes apply to
+          the next booking.
         </p>
       </div>
 
       {notice ? (
         <div
           className={`flex items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-sm ${
-            notice.kind === "ok" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"
+            notice.kind === "ok"
+              ? "bg-success/10 text-success"
+              : "bg-danger/10 text-danger"
           }`}
         >
           <span>{notice.text}</span>
@@ -123,10 +247,12 @@ export default function AutoAllocationPage() {
         {/* Master switch */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-foreground">Auto allocation</p>
+            <p className="text-sm font-semibold text-foreground">
+              Auto allocation
+            </p>
             <p className="text-sm text-muted-foreground">
-              When off, new bookings are <strong>not</strong> broadcast — leads must be handled
-              manually.
+              When off, new bookings are <strong>not</strong> broadcast — leads
+              must be handled manually.
             </p>
           </div>
           <button
@@ -148,7 +274,9 @@ export default function AutoAllocationPage() {
 
         {/* Method */}
         <div>
-          <p className="mb-2 text-sm font-semibold text-foreground">Allocation method</p>
+          <p className="mb-2 text-sm font-semibold text-foreground">
+            Allocation method
+          </p>
           <div className="grid gap-2 sm:grid-cols-3">
             {METHODS.map((m) => {
               const active = form.method === m.key;
@@ -163,10 +291,14 @@ export default function AutoAllocationPage() {
                       : "border-border bg-background hover:border-primary/40"
                   }`}
                 >
-                  <p className={`text-sm font-semibold ${active ? "text-primary" : "text-foreground"}`}>
+                  <p
+                    className={`text-sm font-semibold ${active ? "text-primary" : "text-foreground"}`}
+                  >
                     {m.label}
                   </p>
-                  <p className="mt-1 text-xs text-muted-foreground">{m.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {m.description}
+                  </p>
                 </button>
               );
             })}
@@ -185,11 +317,33 @@ export default function AutoAllocationPage() {
               max={500}
               step={0.5}
               value={form.radiusKm}
-              onChange={(e) => setForm({ ...form, radiusKm: Number(e.target.value) })}
+              onChange={(e) =>
+                setForm({ ...form, radiusKm: Number(e.target.value) })
+              }
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
             />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {RADIUS_PRESETS.map((km) => (
+                <button
+                  key={km}
+                  type="button"
+                  onClick={() => setForm({ ...form, radiusKm: km })}
+                  className={`rounded-lg border px-2.5 py-1 text-xs transition ${
+                    form.radiusKm === km
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  {km} km
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {radiusGuide(form.radiusKm)}
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Partners farther than this from the booking don’t receive the lead.
+              Rule of thumb: the distance a partner will actually travel for one
+              job — not the size of the city.
             </p>
           </div>
           <div>
@@ -202,7 +356,9 @@ export default function AutoAllocationPage() {
               max={100}
               value={form.maxAgents}
               disabled={capDisabled}
-              onChange={(e) => setForm({ ...form, maxAgents: Number(e.target.value) })}
+              onChange={(e) =>
+                setForm({ ...form, maxAgents: Number(e.target.value) })
+              }
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
             />
             <p className="mt-1 text-xs text-muted-foreground">
@@ -216,17 +372,22 @@ export default function AutoAllocationPage() {
         {/* Geofence restriction */}
         <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
           <div>
-            <p className="text-sm font-semibold text-foreground">Restrict to geofence</p>
+            <p className="text-sm font-semibold text-foreground">
+              Restrict to geofence
+            </p>
             <p className="text-sm text-muted-foreground">
-              When a booking lands inside an active zone, only that zone’s partners (or its team)
-              get the lead. Bookings outside every zone fall back to the radius rule.
+              When a booking lands inside an active zone, only that zone’s
+              partners (or its team) get the lead. Bookings outside every zone
+              fall back to the radius rule.
             </p>
           </div>
           <button
             type="button"
             role="switch"
             aria-checked={form.restrictToGeofence}
-            onClick={() => setForm({ ...form, restrictToGeofence: !form.restrictToGeofence })}
+            onClick={() =>
+              setForm({ ...form, restrictToGeofence: !form.restrictToGeofence })
+            }
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
               form.restrictToGeofence ? "bg-success" : "bg-muted"
             }`}
@@ -237,6 +398,130 @@ export default function AutoAllocationPage() {
               }`}
             />
           </button>
+        </div>
+
+        {/* Radius inside zones */}
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Apply the radius inside zones too
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Off, a zone’s team receives the lead however far away they are —
+              putting a team on a zone counts as a deliberate assignment that
+              outranks distance. Turn on for large zones where travel time
+              matters: a team member beyond {form.radiusKm} km then stops being
+              alarmed.
+            </p>
+          </div>
+          <Toggle
+            checked={form.radiusInsideZone}
+            onChange={() =>
+              setForm({ ...form, radiusInsideZone: !form.radiusInsideZone })
+            }
+          />
+        </div>
+
+        {/* Partners without coordinates */}
+        <div className="flex items-center justify-between gap-4 border-t border-border pt-5">
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Include partners with no saved location
+            </p>
+            <p className="text-sm text-muted-foreground">
+              A partner who registered without GPS has no measurable distance,
+              so the radius can neither include nor exclude them. On, they are
+              alarmed anyway so their leads are not silently lost. Off makes the
+              radius strict — they receive nothing until a location is captured.
+            </p>
+          </div>
+          <Toggle
+            checked={form.includeUnlocatedPartners}
+            onChange={() =>
+              setForm({
+                ...form,
+                includeUnlocatedPartners: !form.includeUnlocatedPartners,
+              })
+            }
+          />
+        </div>
+
+        {/* Retry */}
+        <div className="border-t border-border pt-5">
+          <p className="text-sm font-semibold text-foreground">
+            Retry unaccepted leads
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            If every partner lets the alarm ring out, offer the lead again.
+            Without this a booking nobody accepts stays pending with no one
+            assigned and nothing to flag it.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Extra attempts
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {RETRY_OPTIONS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setForm({ ...form, leadRetryCount: n })}
+                    className={`rounded-lg border px-3 py-1 text-xs transition ${
+                      form.leadRetryCount === n
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {n === 0 ? "Off" : n}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {retryGuide(form.leadRetryCount)}
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Wait before retrying (minutes)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={120}
+                value={form.leadRetryAfterMinutes}
+                disabled={form.leadRetryCount === 0}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    leadRetryAfterMinutes: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {form.leadRetryCount === 0
+                  ? "Set at least one attempt to use this."
+                  : `A lead rings unanswered for ${form.leadRetryAfterMinutes} minutes before being offered again. Total ${form.leadRetryCount + 1} attempts over about ${form.leadRetryAfterMinutes * form.leadRetryCount} minutes.`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Plain-English readback of the rules above, so the interaction between
+            the radius and the geofence is never left to be inferred. */}
+        <div className="rounded-xl border border-border bg-muted/40 p-4">
+          <p className="text-sm font-semibold text-foreground">
+            What happens with these settings
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {summaryLines.map((line, i) => (
+              <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+                <span className="text-primary">•</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Save */}

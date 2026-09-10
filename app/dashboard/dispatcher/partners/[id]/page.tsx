@@ -16,6 +16,7 @@ import {
 } from "@/src/api/api";
 import { ApiError } from "@/src/api/apiClient";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
+import { PartnerLeadActivitySection } from "@/src/components/dashboard/lead-activity";
 import {
   ONBOARDING_STATUS_META,
   PartnerStatusBadge,
@@ -93,7 +94,9 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
     partner.experience != null ? String(partner.experience) : "",
   );
   const [description, setDescription] = useState(partner.description ?? "");
-  const [categoryId, setCategoryId] = useState<number | "">(partner.categoryId ?? "");
+  const [categoryId, setCategoryId] = useState<number | "">(
+    partner.categoryId ?? "",
+  );
   // The rest of the registration form, so a half-filled profile can be
   // completed here instead of sending the partner back through the app.
   const [district, setDistrict] = useState(partner.district ?? "");
@@ -115,7 +118,9 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
   const categoryOptions = tree ?? [];
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.partner(partner.professionalId) });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.partner(partner.professionalId),
+    });
     queryClient.invalidateQueries({ queryKey: ["dispatcher", "partners"] });
   };
 
@@ -126,7 +131,8 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
       setNotice(res.message);
       invalidate();
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : "Could not update partner."),
+    onError: (e) =>
+      setError(e instanceof ApiError ? e.message : "Could not update partner."),
   });
 
   const blockMutation = useMutation({
@@ -136,20 +142,38 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
       setNotice(res.message);
       invalidate();
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : "Action failed."),
+    onError: (e) =>
+      setError(e instanceof ApiError ? e.message : "Action failed."),
   });
 
   const onboardingMutation = useMutation({
-    mutationFn: ({ status, reason }: { status: PartnerOnboardingStatus; reason?: string }) =>
-      dispatcherApi.setPartnerOnboarding(partner.professionalId, status, reason),
+    mutationFn: ({
+      status,
+      reason,
+    }: {
+      status: PartnerOnboardingStatus;
+      reason?: string;
+    }) =>
+      dispatcherApi.setPartnerOnboarding(
+        partner.professionalId,
+        status,
+        reason,
+      ),
     onSuccess: (res) => {
       setError(null);
       setNotice(res.message);
       setRejectOpen(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.partnerStatusCounts });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.partnerStatusCounts,
+      });
       invalidate();
     },
-    onError: (e) => setError(e instanceof ApiError ? e.message : "Could not update onboarding status."),
+    onError: (e) =>
+      setError(
+        e instanceof ApiError
+          ? e.message
+          : "Could not update onboarding status.",
+      ),
   });
 
   const deleteMutation = useMutation({
@@ -207,7 +231,8 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
               <PartnerStatusBadge status={partner.onboardingStatus} />
             </div>
             <p className="text-sm text-muted-foreground">
-              {partner.service ?? partner.category ?? "Service partner"} · Joined{" "}
+              {partner.service ?? partner.category ?? "Service partner"} ·
+              Joined{" "}
               {new Date(partner.joinedAt).toLocaleDateString("en-IN", {
                 day: "2-digit",
                 month: "short",
@@ -246,16 +271,22 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
       </div>
 
       {notice ? (
-        <div className="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">{notice}</div>
+        <div className="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
+          {notice}
+        </div>
       ) : null}
       {error ? (
-        <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+        <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
+          {error}
+        </div>
       ) : null}
 
       <OnboardingReview
         partner={partner}
         busy={onboardingMutation.isPending}
-        onTransition={(status, reason) => onboardingMutation.mutate({ status, reason })}
+        onTransition={(status, reason) =>
+          onboardingMutation.mutate({ status, reason })
+        }
         onReject={() => {
           setRejectReason(partner.rejectionReason ?? "");
           setRejectOpen(true);
@@ -268,7 +299,9 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           onSubmit={handleSave}
           className="space-y-4 rounded-2xl border border-border bg-card p-5 lg:col-span-2"
         >
-          <h2 className="text-base font-semibold text-foreground">Profile details</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Profile details
+          </h2>
           <Field label="Name" value={name} onChange={setName} />
           <Field label="City" value={city} onChange={setCity} />
           <Field
@@ -279,10 +312,16 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           />
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Category</label>
+            <label className="block text-sm font-medium text-foreground">
+              Category
+            </label>
             <select
               value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value === "" ? "" : Number(e.target.value))}
+              onChange={(e) =>
+                setCategoryId(
+                  e.target.value === "" ? "" : Number(e.target.value),
+                )
+              }
               className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
             >
               <option value="">Unassigned</option>
@@ -304,14 +343,32 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
             inputMode="numeric"
           />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Aadhaar number" value={aadharNo} onChange={setAadharNo} />
-            <Field label="Licence number" value={licenseNo} onChange={setLicenseNo} />
-            <Field label="Vehicle type" value={vehicleType} onChange={setVehicleType} />
-            <Field label="Vehicle colour" value={vehicleColor} onChange={setVehicleColor} />
+            <Field
+              label="Aadhaar number"
+              value={aadharNo}
+              onChange={setAadharNo}
+            />
+            <Field
+              label="Licence number"
+              value={licenseNo}
+              onChange={setLicenseNo}
+            />
+            <Field
+              label="Vehicle type"
+              value={vehicleType}
+              onChange={setVehicleType}
+            />
+            <Field
+              label="Vehicle colour"
+              value={vehicleColor}
+              onChange={setVehicleColor}
+            />
           </div>
 
           <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-foreground">Description</label>
+            <label className="block text-sm font-medium text-foreground">
+              Description
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -326,7 +383,9 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
               disabled={saveMutation.isPending}
               className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
             >
-              {saveMutation.isPending ? <SpinnerIcon className="h-4 w-4" /> : null}
+              {saveMutation.isPending ? (
+                <SpinnerIcon className="h-4 w-4" />
+              ) : null}
               Save changes
             </button>
           </div>
@@ -349,7 +408,10 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
               }
             />
             <Info label="Total jobs" value={String(partner.totalJobs)} />
-            <Info label="Wallet balance" value={`₹${Math.round(partner.walletBalance).toLocaleString("en-IN")}`} />
+            <Info
+              label="Wallet balance"
+              value={`₹${Math.round(partner.walletBalance).toLocaleString("en-IN")}`}
+            />
             <Info
               label="Onboarding"
               value={ONBOARDING_STATUS_META[partner.onboardingStatus].label}
@@ -359,7 +421,8 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           <div className="space-y-3 rounded-2xl border border-danger/30 bg-card p-5">
             <h2 className="text-base font-semibold text-danger">Danger zone</h2>
             <p className="text-sm text-muted-foreground">
-              Permanently delete this partner and erase all their data. This cannot be undone.
+              Permanently delete this partner and erase all their data. This
+              cannot be undone.
             </p>
             <button
               onClick={() => setConfirmDelete(true)}
@@ -376,6 +439,8 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           jobs did they finish versus cancel. */}
       <PartnerLedgerSection professionalId={partner.professionalId} />
 
+      <PartnerLeadActivitySection professionalId={partner.professionalId} />
+
       {confirmDelete && (
         <ConfirmDialog
           danger
@@ -386,10 +451,12 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           onConfirm={() => deleteMutation.mutate()}
           message={
             <>
-              This will permanently delete <strong className="text-foreground">{partner.name}</strong>{" "}
-              and erase <strong className="text-foreground">all associated data</strong> — profile,
-              bookings, wallet &amp; transactions, ratings, availability and subscriptions. This action
-              is irreversible.
+              This will permanently delete{" "}
+              <strong className="text-foreground">{partner.name}</strong> and
+              erase{" "}
+              <strong className="text-foreground">all associated data</strong> —
+              profile, bookings, wallet &amp; transactions, ratings,
+              availability and subscriptions. This action is irreversible.
             </>
           }
         />
@@ -402,7 +469,10 @@ function PartnerEditor({ partner }: { partner: PartnerDetail }) {
           onReasonChange={setRejectReason}
           onCancel={() => setRejectOpen(false)}
           onConfirm={() =>
-            onboardingMutation.mutate({ status: "REJECTED", reason: rejectReason.trim() || undefined })
+            onboardingMutation.mutate({
+              status: "REJECTED",
+              reason: rejectReason.trim() || undefined,
+            })
           }
         />
       )}
@@ -429,24 +499,61 @@ function OnboardingReview({
 
   // Replacing a document is per field: the API only touches what it receives,
   // so a new Aadhaar never disturbs the licence beside it.
-  const [uploadingField, setUploadingField] = useState<PartnerDocumentField | null>(null);
+  const [uploadingField, setUploadingField] =
+    useState<PartnerDocumentField | null>(null);
   const documentMutation = useMutation({
-    mutationFn: ({ field, file }: { field: PartnerDocumentField; file: File }) => {
+    mutationFn: ({
+      field,
+      file,
+    }: {
+      field: PartnerDocumentField;
+      file: File;
+    }) => {
       setUploadingField(field);
-      return dispatcherApi.updatePartnerDocument(partner.professionalId, field, file);
+      return dispatcherApi.updatePartnerDocument(
+        partner.professionalId,
+        field,
+        file,
+      );
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.partner(partner.professionalId) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.partner(partner.professionalId),
+      });
     },
     onSettled: () => setUploadingField(null),
   });
 
-  const docs: { label: string; url: string | null; field: PartnerDocumentField }[] = [
-    { label: "Aadhaar front", url: partner.documents.aadharFront, field: "aadharFront" as const },
-    { label: "Aadhaar back", url: partner.documents.aadharBack, field: "aadharBack" as const },
-    { label: "Driving licence", url: partner.documents.licenseDoc, field: "licenseDoc" as const },
-    { label: "PAN card", url: partner.documents.panCard, field: "panCard" as const },
-    { label: "Bank passbook", url: partner.documents.bankPassbook, field: "bankPassbook" as const },
+  const docs: {
+    label: string;
+    url: string | null;
+    field: PartnerDocumentField;
+  }[] = [
+    {
+      label: "Aadhaar front",
+      url: partner.documents.aadharFront,
+      field: "aadharFront" as const,
+    },
+    {
+      label: "Aadhaar back",
+      url: partner.documents.aadharBack,
+      field: "aadharBack" as const,
+    },
+    {
+      label: "Driving licence",
+      url: partner.documents.licenseDoc,
+      field: "licenseDoc" as const,
+    },
+    {
+      label: "PAN card",
+      url: partner.documents.panCard,
+      field: "panCard" as const,
+    },
+    {
+      label: "Bank passbook",
+      url: partner.documents.bankPassbook,
+      field: "bankPassbook" as const,
+    },
   ];
   const uploaded = docs.filter((d) => d.url);
 
@@ -477,10 +584,14 @@ function OnboardingReview({
       : null;
 
   return (
-    <section className={`space-y-5 rounded-2xl border bg-card p-5 ${meta.border}`}>
+    <section
+      className={`space-y-5 rounded-2xl border bg-card p-5 ${meta.border}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-base font-semibold text-foreground">Onboarding review</h2>
+          <h2 className="text-base font-semibold text-foreground">
+            Onboarding review
+          </h2>
           <p className="text-sm text-muted-foreground">
             {status === "PENDING"
               ? "Review the documents below, then verify and activate this partner."
@@ -508,20 +619,26 @@ function OnboardingReview({
         </span>
         {fmt(partner.verifiedAt) && (
           <span>
-            Verified · <span className="font-medium text-foreground">{fmt(partner.verifiedAt)}</span>
+            Verified ·{" "}
+            <span className="font-medium text-foreground">
+              {fmt(partner.verifiedAt)}
+            </span>
           </span>
         )}
         {fmt(partner.activatedAt) && (
           <span>
             Activated ·{" "}
-            <span className="font-medium text-foreground">{fmt(partner.activatedAt)}</span>
+            <span className="font-medium text-foreground">
+              {fmt(partner.activatedAt)}
+            </span>
           </span>
         )}
       </div>
 
       {status === "REJECTED" && partner.rejectionReason && (
         <div className="rounded-xl bg-danger/10 px-4 py-3 text-sm text-danger">
-          <span className="font-medium">Rejection reason:</span> {partner.rejectionReason}
+          <span className="font-medium">Rejection reason:</span>{" "}
+          {partner.rejectionReason}
         </div>
       )}
 
@@ -529,9 +646,14 @@ function OnboardingReview({
       {identityShown.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {identityShown.map((i) => (
-            <div key={i.label} className="rounded-xl border border-border bg-background px-3 py-2">
+            <div
+              key={i.label}
+              className="rounded-xl border border-border bg-background px-3 py-2"
+            >
               <p className="text-xs text-muted-foreground">{i.label}</p>
-              <p className="truncate text-sm font-medium text-foreground">{i.value}</p>
+              <p className="truncate text-sm font-medium text-foreground">
+                {i.value}
+              </p>
             </div>
           ))}
         </div>
@@ -547,7 +669,8 @@ function OnboardingReview({
         </p>
         {uploaded.length === 0 && (
           <p className="text-xs text-muted-foreground">
-            Nothing uploaded yet — you can add each document here on the partner’s behalf.
+            Nothing uploaded yet — you can add each document here on the
+            partner’s behalf.
           </p>
         )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -557,7 +680,9 @@ function OnboardingReview({
               label={d.label}
               url={d.url}
               busy={uploadingField === d.field}
-              onPick={(file) => documentMutation.mutate({ field: d.field, file })}
+              onPick={(file) =>
+                documentMutation.mutate({ field: d.field, file })
+              }
             />
           ))}
         </div>
@@ -678,18 +803,27 @@ function DocumentTile({
         <div className="flex h-28 items-center justify-center bg-muted/40 text-xs text-muted-foreground">
           Not uploaded
         </div>
-        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">{label}</div>
+        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+          {label}
+        </div>
         {picker}
       </div>
     );
   }
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border transition hover:border-primary">
-      <a href={url} target="_blank" rel="noopener noreferrer" title={`Open ${label}`}>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`Open ${label}`}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element -- external KYC document */}
         <img src={url} alt={label} className="h-28 w-full object-cover" />
       </a>
-      <div className="px-2 py-1.5 text-xs font-medium text-foreground">{label}</div>
+      <div className="px-2 py-1.5 text-xs font-medium text-foreground">
+        {label}
+      </div>
       {picker}
     </div>
   );
@@ -711,10 +845,12 @@ function RejectDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-foreground">Reject this application?</h3>
+        <h3 className="text-lg font-semibold text-foreground">
+          Reject this application?
+        </h3>
         <p className="text-sm text-muted-foreground">
-          The partner won’t be able to log in. The reason below is shown to them so they can fix and
-          re-apply.
+          The partner won’t be able to log in. The reason below is shown to them
+          so they can fix and re-apply.
         </p>
         <textarea
           value={reason}
@@ -760,7 +896,9 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-foreground">{label}</label>
+      <label className="block text-sm font-medium text-foreground">
+        {label}
+      </label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -832,13 +970,25 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
         {/* Service history */}
         <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground">Service history</h2>
-            <span className="text-xs text-muted-foreground">{jobs.total} jobs</span>
+            <h2 className="text-base font-semibold text-foreground">
+              Service history
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {jobs.total} jobs
+            </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Tally label="Completed" value={jobs.completed} tone="text-success" />
-            <Tally label="Cancelled" value={jobs.cancelled} tone="text-danger" />
+            <Tally
+              label="Completed"
+              value={jobs.completed}
+              tone="text-success"
+            />
+            <Tally
+              label="Cancelled"
+              value={jobs.cancelled}
+              tone="text-danger"
+            />
             <Tally label="In progress" value={jobs.inProgress} />
             <Tally label="Leads rejected" value={jobs.rejectedLeads} />
           </div>
@@ -846,7 +996,9 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
           {jobs.total > 0 && (
             <p className="text-xs text-muted-foreground">
               Cancellation rate {jobs.cancellationRate}%
-              {jobs.firstJobAt ? ` · first job ${istDate(jobs.firstJobAt)}` : ""}
+              {jobs.firstJobAt
+                ? ` · first job ${istDate(jobs.firstJobAt)}`
+                : ""}
               {jobs.lastJobAt ? ` · last job ${istDate(jobs.lastJobAt)}` : ""}
             </p>
           )}
@@ -869,9 +1021,13 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
                     <tr key={j.bookingId}>
                       <td className="py-2 pr-2 text-foreground">
                         {j.service}
-                        <span className="block text-xs text-muted-foreground">#{j.bookingId}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          #{j.bookingId}
+                        </span>
                       </td>
-                      <td className="py-2 pr-2 text-muted-foreground">{istDate(j.bookingDate)}</td>
+                      <td className="py-2 pr-2 text-muted-foreground">
+                        {istDate(j.bookingDate)}
+                      </td>
                       <td className="py-2 pr-2 text-right text-foreground">
                         ₹{inr(j.partnerEarning)}
                         {/* The customer can pay less than the partner earns on a
@@ -883,7 +1039,9 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
                         )}
                       </td>
                       <td className="py-2 text-right">
-                        <span className={`text-xs font-medium ${statusTone(j.status)}`}>
+                        <span
+                          className={`text-xs font-medium ${statusTone(j.status)}`}
+                        >
                           {j.status.replace(/_/g, " ")}
                         </span>
                       </td>
@@ -898,14 +1056,18 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
         {/* Wallet ledger */}
         <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground">Wallet ledger</h2>
+            <h2 className="text-base font-semibold text-foreground">
+              Wallet ledger
+            </h2>
             <span className="text-xs text-muted-foreground">
               Balance ₹{inr(wallet.balance)}
             </span>
           </div>
 
           {wallet.transactions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No wallet activity yet.</p>
+            <p className="text-sm text-muted-foreground">
+              No wallet activity yet.
+            </p>
           ) : (
             <div className="max-h-80 overflow-y-auto">
               <table className="w-full text-sm">
@@ -919,8 +1081,12 @@ function PartnerLedgerSection({ professionalId }: { professionalId: number }) {
                 <tbody className="divide-y divide-border">
                   {wallet.transactions.map((t) => (
                     <tr key={t.walletTransactionId}>
-                      <td className="py-2 pr-2 text-foreground">{t.description ?? "—"}</td>
-                      <td className="py-2 pr-2 text-muted-foreground">{istDate(t.createdAt)}</td>
+                      <td className="py-2 pr-2 text-foreground">
+                        {t.description ?? "—"}
+                      </td>
+                      <td className="py-2 pr-2 text-muted-foreground">
+                        {istDate(t.createdAt)}
+                      </td>
                       <td
                         className={`py-2 text-right font-medium ${
                           t.type === "CREDIT" ? "text-success" : "text-danger"
@@ -973,8 +1139,12 @@ function Money({
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold ${accent ? "text-primary" : "text-foreground"}`}>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p
+        className={`mt-1 text-2xl font-semibold ${accent ? "text-primary" : "text-foreground"}`}
+      >
         ₹{inr(value)}
       </p>
       {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
@@ -982,11 +1152,21 @@ function Money({
   );
 }
 
-function Tally({ label, value, tone }: { label: string; value: number; tone?: string }) {
+function Tally({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: string;
+}) {
   return (
     <div className="rounded-xl bg-accent/40 px-3 py-2">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-semibold ${tone ?? "text-foreground"}`}>{value}</p>
+      <p className={`text-lg font-semibold ${tone ?? "text-foreground"}`}>
+        {value}
+      </p>
     </div>
   );
 }

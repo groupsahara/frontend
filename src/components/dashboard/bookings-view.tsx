@@ -12,7 +12,12 @@
  */
 
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   crmApi,
   customersApi,
@@ -27,7 +32,10 @@ import {
 } from "@/src/api/api";
 import { ApiError, API_BASE_URL, getToken } from "@/src/api/apiClient";
 import { hasPermission } from "@/src/lib/auth";
-import { fetchPlaceSuggestions, type PlaceSuggestion } from "@/src/lib/google-maps";
+import {
+  fetchPlaceSuggestions,
+  type PlaceSuggestion,
+} from "@/src/lib/google-maps";
 import {
   BagIcon,
   ChevronDownIcon,
@@ -37,6 +45,7 @@ import {
   UsersIcon,
 } from "@/src/components/icons";
 import { BookingAnalytics } from "@/src/components/dashboard/booking-analytics";
+import { BookingLeadActivityPanel } from "@/src/components/dashboard/lead-activity";
 import { ConfirmDialog } from "@/src/components/dashboard/confirm-dialog";
 
 const PAGE_SIZE = 20;
@@ -97,7 +106,9 @@ function prettyStatus(status: AdminBookingStatus): string {
 
 /** A booking is allocatable when no partner has taken it and it isn't finished. */
 function canAllocate(b: AdminBooking): boolean {
-  return !b.professionalId && b.status !== "COMPLETED" && b.status !== "CANCELLED";
+  return (
+    !b.professionalId && b.status !== "COMPLETED" && b.status !== "CANCELLED"
+  );
 }
 
 /** Completed bookings — old or new — can have their invoice downloaded. The
@@ -120,7 +131,8 @@ async function downloadImportTemplate(): Promise<void> {
   const res = await fetch(`${API_BASE_URL}/v1/admin/bookings/import-template`, {
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
   });
-  if (!res.ok) throw new Error(`Could not download the template (${res.status})`);
+  if (!res.ok)
+    throw new Error(`Could not download the template (${res.status})`);
   saveBlob(await res.blob(), "booking-import-template.xlsx");
 }
 
@@ -139,7 +151,8 @@ async function uploadImportFile(file: File): Promise<{
     body: form,
   });
   const data = await res.json();
-  if (!res.ok) throw new Error(data?.message ?? `Import failed (${res.status})`);
+  if (!res.ok)
+    throw new Error(data?.message ?? `Import failed (${res.status})`);
   return data;
 }
 
@@ -149,19 +162,31 @@ async function uploadImportFile(file: File): Promise<{
  * A plain link can't carry the bearer token, so this fetches the file and
  * saves the blob. Filters are forwarded so the export matches what's on screen.
  */
-async function downloadBookingsCsv(params: Record<string, string | undefined>): Promise<void> {
+async function downloadBookingsCsv(
+  params: Record<string, string | undefined>,
+): Promise<void> {
   const qs = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v != null && v !== "") as [string, string][],
+    Object.entries(params).filter(([, v]) => v != null && v !== "") as [
+      string,
+      string,
+    ][],
   );
   const res = await fetch(`${API_BASE_URL}/v1/admin/bookings/export?${qs}`, {
     headers: { Authorization: `Bearer ${getToken() ?? ""}` },
   });
   if (!res.ok) throw new Error(`Export failed (${res.status})`);
-  saveBlob(await res.blob(), `bookings-${new Date().toISOString().slice(0, 10)}.csv`);
+  saveBlob(
+    await res.blob(),
+    `bookings-${new Date().toISOString().slice(0, 10)}.csv`,
+  );
 }
 
 function openInvoice(bookingId: number): void {
-  window.open(`${API_BASE_URL}/v1/booking/${bookingId}/invoice`, "_blank", "noopener,noreferrer");
+  window.open(
+    `${API_BASE_URL}/v1/booking/${bookingId}/invoice`,
+    "_blank",
+    "noopener,noreferrer",
+  );
 }
 
 export function BookingsView() {
@@ -175,7 +200,9 @@ export function BookingsView() {
   // and shown in the table — otherwise a cancellation has no explanation.
   const [cancelTarget, setCancelTarget] = useState<AdminBooking | null>(null);
   // Completing bills the customer and unlocks the invoice, so it confirms first.
-  const [completeTarget, setCompleteTarget] = useState<AdminBooking | null>(null);
+  const [completeTarget, setCompleteTarget] = useState<AdminBooking | null>(
+    null,
+  );
   const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
   // Checkbox multi-select for bulk delete (ids survive page/filter changes so
   // an admin can gather a selection across pages).
@@ -199,7 +226,9 @@ export function BookingsView() {
     try {
       await downloadImportTemplate();
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Could not download the template.");
+      setNotice(
+        e instanceof Error ? e.message : "Could not download the template.",
+      );
     }
   };
 
@@ -226,7 +255,10 @@ export function BookingsView() {
     try {
       // Same filters as the table, so the file matches what's on screen.
       await downloadBookingsCsv({
-        status: tab === "ALL" || tab === "OUT_OF_ZONE" || tab === "ANALYTICS" ? undefined : tab,
+        status:
+          tab === "ALL" || tab === "OUT_OF_ZONE" || tab === "ANALYTICS"
+            ? undefined
+            : tab,
         outOfServiceArea: tab === "OUT_OF_ZONE" ? "true" : undefined,
         search: search.trim() || undefined,
         from: dateFrom || undefined,
@@ -270,7 +302,10 @@ export function BookingsView() {
   }, [tab, search, dateFrom, dateTo]);
 
   const params = {
-    status: tab === "ALL" || tab === "OUT_OF_ZONE" || tab === "ANALYTICS" ? undefined : tab,
+    status:
+      tab === "ALL" || tab === "OUT_OF_ZONE" || tab === "ANALYTICS"
+        ? undefined
+        : tab,
     outOfServiceArea: tab === "OUT_OF_ZONE" ? true : undefined,
     search: search.trim() || undefined,
     from: dateFrom || undefined,
@@ -296,7 +331,9 @@ export function BookingsView() {
     },
     onError: (e) => {
       setDeleteTarget(null);
-      setNotice(e instanceof ApiError ? e.message : "Could not delete the booking.");
+      setNotice(
+        e instanceof ApiError ? e.message : "Could not delete the booking.",
+      );
     },
   });
 
@@ -313,7 +350,9 @@ export function BookingsView() {
     },
     onError: (e) => {
       setConfirmBulk(false);
-      setNotice(e instanceof ApiError ? e.message : "Could not delete the selection.");
+      setNotice(
+        e instanceof ApiError ? e.message : "Could not delete the selection.",
+      );
     },
   });
 
@@ -327,7 +366,9 @@ export function BookingsView() {
     },
     onError: (e) => {
       setCancelTarget(null);
-      setNotice(e instanceof ApiError ? e.message : "Could not cancel the booking.");
+      setNotice(
+        e instanceof ApiError ? e.message : "Could not cancel the booking.",
+      );
     },
   });
 
@@ -340,7 +381,9 @@ export function BookingsView() {
     },
     onError: (e) => {
       setCompleteTarget(null);
-      setNotice(e instanceof ApiError ? e.message : "Could not complete the booking.");
+      setNotice(
+        e instanceof ApiError ? e.message : "Could not complete the booking.",
+      );
     },
   });
 
@@ -351,7 +394,8 @@ export function BookingsView() {
   // Select-all covers the CURRENT page; the set itself accumulates across
   // pages so a cross-page selection is possible.
   const pageIds = bookings.map((b: AdminBooking) => b.bookingId);
-  const allOnPageSelected = pageIds.length > 0 && pageIds.every((id: number) => selected.has(id));
+  const allOnPageSelected =
+    pageIds.length > 0 && pageIds.every((id: number) => selected.has(id));
   const toggleRow = (bookingId: number) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -368,15 +412,22 @@ export function BookingsView() {
     });
   const showActions = canManage;
 
-  const from = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
-  const to = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
+  const from =
+    pagination && pagination.total > 0
+      ? (pagination.page - 1) * pagination.limit + 1
+      : 0;
+  const to = pagination
+    ? Math.min(pagination.page * pagination.limit, pagination.total)
+    : 0;
 
   return (
     <div className="mx-auto max-w-10xl space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bookings</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Bookings
+          </h1>
           <p className="text-sm text-muted-foreground">
             The complete booking history across all customers and services.
           </p>
@@ -428,7 +479,11 @@ export function BookingsView() {
                 title="Upload a filled template to create bookings in bulk"
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
               >
-                {importing ? <SpinnerIcon className="h-4 w-4" /> : <span>⬆</span>}
+                {importing ? (
+                  <SpinnerIcon className="h-4 w-4" />
+                ) : (
+                  <span>⬆</span>
+                )}
                 {importing ? "Importing…" : "Bulk import"}
               </button>
             </>
@@ -470,7 +525,9 @@ export function BookingsView() {
       )}
 
       {notice ? (
-        <div className="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">{notice}</div>
+        <div className="rounded-xl bg-success/10 px-4 py-3 text-sm text-success">
+          {notice}
+        </div>
       ) : null}
 
       {/* Tabs + search */}
@@ -495,7 +552,9 @@ export function BookingsView() {
                 }`}
               >
                 {t.label}
-                {t.key !== "ANALYTICS" && <sup className="ml-1 text-xs">({count ?? 0})</sup>}
+                {t.key !== "ANALYTICS" && (
+                  <sup className="ml-1 text-xs">({count ?? 0})</sup>
+                )}
               </button>
             );
           })}
@@ -518,444 +577,538 @@ export function BookingsView() {
         <BookingAnalytics />
       ) : (
         <>
-      {/* Date-range filter (by booking date) */}
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
-          <label htmlFor="date-from" className="text-xs font-medium text-muted-foreground">
-            From date
-          </label>
-          <input
-            id="date-from"
-            type="date"
-            value={dateFrom}
-            max={dateTo || undefined}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label htmlFor="date-to" className="text-xs font-medium text-muted-foreground">
-            To date
-          </label>
-          <input
-            id="date-to"
-            type="date"
-            value={dateTo}
-            min={dateFrom || undefined}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
-          />
-        </div>
-        {(dateFrom || dateTo) && (
-          <>
-            <button
-              onClick={() => {
-                setDateFrom("");
-                setDateTo("");
-              }}
-              className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
-            >
-              Clear dates
-            </button>
-            <span className="pb-2 text-xs text-muted-foreground">
-              {dateFrom && dateTo
-                ? `Showing bookings from ${dateFrom} to ${dateTo}`
-                : dateFrom
-                  ? `Showing bookings on/after ${dateFrom}`
-                  : `Showing bookings on/before ${dateTo}`}
-            </span>
-          </>
-        )}
-        {/* Bulk delete — always visible next to the filters, disabled until at
-            least one row is ticked. */}
-        {canDelete && (
-          <div className="ml-auto flex items-end gap-2">
-            {selected.size > 0 && (
+          {/* Date-range filter (by booking date) */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="date-from"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                From date
+              </label>
+              <input
+                id="date-from"
+                type="date"
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="date-to"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                To date
+              </label>
+              <input
+                id="date-to"
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+              />
+            </div>
+            {(dateFrom || dateTo) && (
               <>
-                <span className="pb-2 text-xs font-semibold text-foreground">
-                  {selected.size} selected
-                </span>
                 <button
-                  onClick={() => setSelected(new Set())}
+                  onClick={() => {
+                    setDateFrom("");
+                    setDateTo("");
+                  }}
                   className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
                 >
-                  Clear
+                  Clear dates
                 </button>
+                <span className="pb-2 text-xs text-muted-foreground">
+                  {dateFrom && dateTo
+                    ? `Showing bookings from ${dateFrom} to ${dateTo}`
+                    : dateFrom
+                      ? `Showing bookings on/after ${dateFrom}`
+                      : `Showing bookings on/before ${dateTo}`}
+                </span>
               </>
             )}
-            <button
-              onClick={() => setConfirmBulk(true)}
-              disabled={selected.size === 0}
-              title={selected.size === 0 ? "Tick bookings in the table to enable" : undefined}
-              className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              🗑 Delete selected
-            </button>
+            {/* Bulk delete — always visible next to the filters, disabled until at
+            least one row is ticked. */}
+            {canDelete && (
+              <div className="ml-auto flex items-end gap-2">
+                {selected.size > 0 && (
+                  <>
+                    <span className="pb-2 text-xs font-semibold text-foreground">
+                      {selected.size} selected
+                    </span>
+                    <button
+                      onClick={() => setSelected(new Set())}
+                      className="rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setConfirmBulk(true)}
+                  disabled={selected.size === 0}
+                  title={
+                    selected.size === 0
+                      ? "Tick bookings in the table to enable"
+                      : undefined
+                  }
+                  className="rounded-lg bg-danger px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  🗑 Delete selected
+                </button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-2xl border border-border bg-card">
-        {isLoading ? (
-          <div className="flex h-60 items-center justify-center text-muted-foreground">
-            <SpinnerIcon className="h-6 w-6" />
-          </div>
-        ) : isError ? (
-          <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
-            <p className="text-muted-foreground">Couldn’t load bookings.</p>
-            <button
-              onClick={() => refetch()}
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Retry
-            </button>
-          </div>
-        ) : bookings.length === 0 ? (
-          <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
-            <BagIcon className="h-10 w-10 text-muted-foreground" />
-            <p className="text-muted-foreground">
-              {search || tab !== "ALL"
-                ? "No bookings match this filter."
-                : "No bookings yet."}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  {canDelete && (
-                    <th className="py-3 pl-4 pr-0 font-medium">
-                      <input
-                        type="checkbox"
-                        checked={allOnPageSelected}
-                        onChange={toggleAllOnPage}
-                        title="Select all on this page"
-                        className="h-4 w-4 accent-primary"
-                      />
-                    </th>
-                  )}
-                  <th className="py-3 pl-4 pr-0 font-medium" />
-                  <th className="px-5 py-3 font-medium">Booking</th>
-                  <th className="px-5 py-3 font-medium">Restaurant</th>
-                  <th className="px-5 py-3 font-medium">Owner</th>
-                  <th className="px-5 py-3 font-medium">GST</th>
-                  <th className="px-5 py-3 font-medium">Mobile</th>
-                  <th className="px-5 py-3 font-medium">Service</th>
-                  <th className="px-5 py-3 font-medium">Slot / Shift</th>
-                  <th className="px-5 py-3 font-medium">Area</th>
-                  <th className="px-5 py-3 font-medium">Amount</th>
-                  <th className="px-5 py-3 font-medium">Payment</th>
-                  <th className="px-5 py-3 font-medium">Partner</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="w-px whitespace-nowrap px-5 py-3 font-medium">Date</th>
-                  <th className="w-px whitespace-nowrap py-3 pl-2 pr-5 text-right font-medium">
-                    Action
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {bookings.map((b: AdminBooking) => {
-                  const isOpen = expanded.has(b.bookingId);
-                  return (
-                  <Fragment key={b.bookingId}>
-                  <tr
-                    className={`border-t border-border transition-colors hover:bg-muted/40 ${selected.has(b.bookingId) ? "bg-primary/5" : ""}`}
-                  >
-                    {canDelete && (
-                      <td className="py-3 pl-4 pr-0 align-top">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(b.bookingId)}
-                          onChange={() => toggleRow(b.bookingId)}
-                          className="h-4 w-4 accent-primary"
-                        />
-                      </td>
-                    )}
-                    <td className="py-3 pl-4 pr-0 align-top">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(b.bookingId)}
-                        aria-expanded={isOpen}
-                        title={isOpen ? "Hide full details" : "Show full details"}
-                        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      >
-                        <ChevronDownIcon
-                          className={`h-4 w-4 transition-transform ${isOpen ? "" : "-rotate-90"}`}
-                        />
-                      </button>
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">{b.id}</td>
-                    {/* Business profile captured at checkout, split into its own
-                        columns: the restaurant, who owns it, and its GST. */}
-                    <td className="whitespace-nowrap px-5 py-3 text-foreground">{b.restaurantName ?? "—"}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.customer}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.gstNumber ?? "—"}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.mobile ?? "—"}</td>
-                    <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">{b.service}</td>
-                    <td className="px-5 py-3">
-                      {b.startTime || b.shift ? (
-                        <div className="flex max-w-[15rem] flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            {b.slotPeriod && (
-                              <span
-                                className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                  PERIOD_STYLES[b.slotPeriod] ?? "bg-muted text-muted-foreground"
-                                }`}
+          {/* Table */}
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            {isLoading ? (
+              <div className="flex h-60 items-center justify-center text-muted-foreground">
+                <SpinnerIcon className="h-6 w-6" />
+              </div>
+            ) : isError ? (
+              <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
+                <p className="text-muted-foreground">Couldn’t load bookings.</p>
+                <button
+                  onClick={() => refetch()}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : bookings.length === 0 ? (
+              <div className="flex h-60 flex-col items-center justify-center gap-3 text-center">
+                <BagIcon className="h-10 w-10 text-muted-foreground" />
+                <p className="text-muted-foreground">
+                  {search || tab !== "ALL"
+                    ? "No bookings match this filter."
+                    : "No bookings yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
+                      {canDelete && (
+                        <th className="py-3 pl-4 pr-0 font-medium">
+                          <input
+                            type="checkbox"
+                            checked={allOnPageSelected}
+                            onChange={toggleAllOnPage}
+                            title="Select all on this page"
+                            className="h-4 w-4 accent-primary"
+                          />
+                        </th>
+                      )}
+                      <th className="py-3 pl-4 pr-0 font-medium" />
+                      <th className="px-5 py-3 font-medium">Booking</th>
+                      <th className="px-5 py-3 font-medium">Restaurant</th>
+                      <th className="px-5 py-3 font-medium">Owner</th>
+                      <th className="px-5 py-3 font-medium">GST</th>
+                      <th className="px-5 py-3 font-medium">Mobile</th>
+                      <th className="px-5 py-3 font-medium">Service</th>
+                      <th className="px-5 py-3 font-medium">Slot / Shift</th>
+                      <th className="px-5 py-3 font-medium">Area</th>
+                      <th className="px-5 py-3 font-medium">Amount</th>
+                      <th className="px-5 py-3 font-medium">Payment</th>
+                      <th className="px-5 py-3 font-medium">Lead sent</th>
+                      <th className="px-5 py-3 font-medium">Partner</th>
+                      <th className="px-5 py-3 font-medium">Status</th>
+                      <th className="w-px whitespace-nowrap px-5 py-3 font-medium">
+                        Date
+                      </th>
+                      <th className="w-px whitespace-nowrap py-3 pl-2 pr-5 text-right font-medium">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookings.map((b: AdminBooking) => {
+                      const isOpen = expanded.has(b.bookingId);
+                      return (
+                        <Fragment key={b.bookingId}>
+                          <tr
+                            className={`border-t border-border transition-colors hover:bg-muted/40 ${selected.has(b.bookingId) ? "bg-primary/5" : ""}`}
+                          >
+                            {canDelete && (
+                              <td className="py-3 pl-4 pr-0 align-top">
+                                <input
+                                  type="checkbox"
+                                  checked={selected.has(b.bookingId)}
+                                  onChange={() => toggleRow(b.bookingId)}
+                                  className="h-4 w-4 accent-primary"
+                                />
+                              </td>
+                            )}
+                            <td className="py-3 pl-4 pr-0 align-top">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpanded(b.bookingId)}
+                                aria-expanded={isOpen}
+                                title={
+                                  isOpen
+                                    ? "Hide full details"
+                                    : "Show full details"
+                                }
+                                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                               >
-                                {b.slotPeriod}
-                              </span>
-                            )}
-                            {b.startTime && (
-                              <span className="text-xs text-foreground">
-                                {formatTime(b.startTime)}
-                                {b.endTime ? ` – ${formatTime(b.endTime)}` : ""}
-                              </span>
-                            )}
-                          </div>
-                          {b.shift && (
-                            <span className="truncate text-xs text-muted-foreground" title={b.shift}>
-                              {b.shift}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="flex max-w-[14rem] flex-col gap-1">
-                        <span className="truncate text-foreground" title={b.address ?? undefined}>
-                          {b.city || "—"}
-                        </span>
-                        {b.outOfServiceArea && (
-                          <span
-                            className="inline-flex w-fit items-center rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning"
-                            title="Placed outside every active service zone — recorded as demand, shown to the customer as “Coming soon in your area” and not dispatched to a partner."
-                          >
-                            Coming soon · out of zone
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
-                      ₹{b.amount.toLocaleString("en-IN")}
-                      {/* Older bookings stored a pre-tax total and have no split. */}
-                      {b.taxAmount != null && b.baseAmount != null && (
-                        <div
-                          className="text-[11px] font-normal text-muted-foreground"
-                          title={`Base ₹${b.baseAmount.toLocaleString("en-IN")} + GST ₹${b.taxAmount.toLocaleString("en-IN")}`}
-                        >
-                          incl. GST ₹{b.taxAmount.toLocaleString("en-IN")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <div className="text-muted-foreground">{b.paymentMode}</div>
-                      {/* Partner's in-app confirmation that the money is in hand. */}
-                      {b.paymentCollected && (
-                        <span
-                          className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success"
-                          title={
-                            b.paymentCollectedAt
-                              ? `Partner confirmed on ${new Date(b.paymentCollectedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
-                              : "Partner confirmed payment received"
-                          }
-                        >
-                          ✓ Collected
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      {b.professionalName ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-foreground">{b.professionalName}</span>
-                          {b.assignmentSource && (
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                                b.assignmentSource === "MANUAL"
-                                  ? "bg-primary/10 text-primary"
-                                  : "bg-success/10 text-success"
-                              }`}
-                              title={
-                                b.assignmentSource === "MANUAL"
-                                  ? "Allocated manually by an admin"
-                                  : "Accepted from the auto-allocation broadcast"
-                              }
-                            >
-                              {b.assignmentSource === "MANUAL" ? "Manual" : "Auto"}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-xs font-medium text-warning">Unassigned</span>
-                      )}
-                      {/* Declines explain WHY a lead is still unassigned, instead
+                                <ChevronDownIcon
+                                  className={`h-4 w-4 transition-transform ${isOpen ? "" : "-rotate-90"}`}
+                                />
+                              </button>
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
+                              {b.id}
+                            </td>
+                            {/* Business profile captured at checkout, split into its own
+                        columns: the restaurant, who owns it, and its GST. */}
+                            <td className="whitespace-nowrap px-5 py-3 text-foreground">
+                              {b.restaurantName ?? "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                              {b.customer}
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                              {b.gstNumber ?? "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                              {b.mobile ?? "—"}
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-3 text-muted-foreground">
+                              {b.service}
+                            </td>
+                            <td className="px-5 py-3">
+                              {b.startTime || b.shift ? (
+                                <div className="flex max-w-[15rem] flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    {b.slotPeriod && (
+                                      <span
+                                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                          PERIOD_STYLES[b.slotPeriod] ??
+                                          "bg-muted text-muted-foreground"
+                                        }`}
+                                      >
+                                        {b.slotPeriod}
+                                      </span>
+                                    )}
+                                    {b.startTime && (
+                                      <span className="text-xs text-foreground">
+                                        {formatTime(b.startTime)}
+                                        {b.endTime
+                                          ? ` – ${formatTime(b.endTime)}`
+                                          : ""}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {b.shift && (
+                                    <span
+                                      className="truncate text-xs text-muted-foreground"
+                                      title={b.shift}
+                                    >
+                                      {b.shift}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="flex max-w-[14rem] flex-col gap-1">
+                                <span
+                                  className="truncate text-foreground"
+                                  title={b.address ?? undefined}
+                                >
+                                  {b.city || "—"}
+                                </span>
+                                {b.outOfServiceArea && (
+                                  <span
+                                    className="inline-flex w-fit items-center rounded-full bg-warning/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning"
+                                    title="Placed outside every active service zone — recorded as demand, shown to the customer as “Coming soon in your area” and not dispatched to a partner."
+                                  >
+                                    Coming soon · out of zone
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="whitespace-nowrap px-5 py-3 font-medium text-foreground">
+                              ₹{b.amount.toLocaleString("en-IN")}
+                              {/* Older bookings stored a pre-tax total and have no split. */}
+                              {b.taxAmount != null && b.baseAmount != null && (
+                                <div
+                                  className="text-[11px] font-normal text-muted-foreground"
+                                  title={`Base ₹${b.baseAmount.toLocaleString("en-IN")} + GST ₹${b.taxAmount.toLocaleString("en-IN")}`}
+                                >
+                                  incl. GST ₹
+                                  {b.taxAmount.toLocaleString("en-IN")}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-5 py-3">
+                              <div className="text-muted-foreground">
+                                {b.paymentMode}
+                              </div>
+                              {/* Partner's in-app confirmation that the money is in hand. */}
+                              {b.paymentCollected && (
+                                <span
+                                  className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success"
+                                  title={
+                                    b.paymentCollectedAt
+                                      ? `Partner confirmed on ${new Date(b.paymentCollectedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}`
+                                      : "Partner confirmed payment received"
+                                  }
+                                >
+                                  ✓ Collected
+                                </span>
+                              )}
+                            </td>
+                            {/* How far the lead actually got: partners reached and
+                                how many rounds it took. Expand the row for the
+                                roster of who accepted, rejected or never
+                                answered. */}
+                            <td className="whitespace-nowrap px-5 py-3">
+                              {b.broadcastCount > 0 ||
+                              b.leadPartnerCount > 0 ? (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-foreground">
+                                    {b.leadPartnerCount} partner
+                                    {b.leadPartnerCount === 1 ? "" : "s"}
+                                  </span>
+                                  <span className="text-[11px] text-muted-foreground">
+                                    {b.broadcastCount} round
+                                    {b.broadcastCount === 1 ? "" : "s"}
+                                    {b.rejectionCount > 0
+                                      ? ` · ${b.rejectionCount} rejected`
+                                      : ""}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span
+                                  className="text-xs text-muted-foreground"
+                                  title="No roster recorded — this lead went out before dispatch logging existed, or was never broadcast"
+                                >
+                                  —
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-5 py-3">
+                              {b.professionalName ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="text-foreground">
+                                    {b.professionalName}
+                                  </span>
+                                  {b.assignmentSource && (
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                        b.assignmentSource === "MANUAL"
+                                          ? "bg-primary/10 text-primary"
+                                          : "bg-success/10 text-success"
+                                      }`}
+                                      title={
+                                        b.assignmentSource === "MANUAL"
+                                          ? "Allocated manually by an admin"
+                                          : "Accepted from the auto-allocation broadcast"
+                                      }
+                                    >
+                                      {b.assignmentSource === "MANUAL"
+                                        ? "Manual"
+                                        : "Auto"}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs font-medium text-warning">
+                                  Unassigned
+                                </span>
+                              )}
+                              {/* Declines explain WHY a lead is still unassigned, instead
                           of it looking like nobody was ever asked. */}
-                      {b.rejectionCount > 0 && (
-                        <div
-                          className="mt-1 cursor-help text-[11px] font-medium text-danger"
-                          title={b.rejections
-                            .map(
-                              (r) =>
-                                `${r.professionalName}${r.reason ? ` — ${r.reason}` : ""} (${new Date(
-                                  r.rejectedAt,
-                                ).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })})`,
-                            )
-                            .join("\n")}
-                        >
-                          ✕ Rejected by {b.rejectionCount}{" "}
-                          {b.rejectionCount === 1 ? "partner" : "partners"}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-3 align-top">
-                      <span
-                        className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
-                      >
-                        {prettyStatus(b.status)}
-                      </span>
-                      {b.status === "CANCELLED" && (
-                        <div className="mt-1 max-w-[200px] text-[11px] text-danger">
-                          {b.cancelledAt && (
-                            <div className="whitespace-nowrap">
-                              {new Date(b.cancelledAt).toLocaleString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                timeZone: "Asia/Kolkata",
-                              })}
-                            </div>
-                          )}
-                          {b.cancellationReason && (
-                            <div
-                              className="line-clamp-2 text-muted-foreground"
-                              title={b.cancellationReason}
-                            >
-                              “{b.cancellationReason}”
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="w-px whitespace-nowrap px-5 py-3 text-muted-foreground">
-                      <div>{b.date}</div>
-                      <div className="text-[11px]">
-                        Created{" "}
-                        {new Date(b.createdAt).toLocaleDateString("en-IN", {
-                          day: "2-digit",
-                          month: "short",
-                          timeZone: "Asia/Kolkata",
-                        })}
-                      </div>
-                    </td>
-                    <td className="w-px py-3 pl-2 pr-5">
-                      <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
-                        {b.status === "COMPLETED" && (
-                          <button
-                            onClick={() => openInvoice(b.bookingId)}
-                            title="Download the invoice (PDF)"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-accent"
-                          >
-                            🧾 Invoice
-                          </button>
-                        )}
-                        {showActions && canAllocate(b) ? (
-                          <button
-                            onClick={() => {
-                              setNotice(null);
-                              setAllocating(b);
-                            }}
-                            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
-                          >
-                            Allocate
-                          </button>
-                        ) : null}
-                        {showActions && (
-                          <button
-                            onClick={() => {
-                              setNotice(null);
-                              setDeleteTarget(b);
-                            }}
-                            title="Delete this booking"
-                            className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                        {showActions && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
-                          <button
-                            onClick={() => {
-                              setNotice(null);
-                              setCompleteTarget(b);
-                            }}
-                            title="Mark this booking as completed"
-                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-success transition hover:bg-success/10"
-                          >
-                            Complete
-                          </button>
-                        ) : null}
-                        {/* Cancelling asks for a reason, stored on the booking
+                              {b.rejectionCount > 0 && (
+                                <div
+                                  className="mt-1 cursor-help text-[11px] font-medium text-danger"
+                                  title={b.rejections
+                                    .map(
+                                      (r) =>
+                                        `${r.professionalName}${r.reason ? ` — ${r.reason}` : ""} (${new Date(
+                                          r.rejectedAt,
+                                        ).toLocaleString("en-IN", {
+                                          timeZone: "Asia/Kolkata",
+                                        })})`,
+                                    )
+                                    .join("\n")}
+                                >
+                                  ✕ Rejected by {b.rejectionCount}{" "}
+                                  {b.rejectionCount === 1
+                                    ? "partner"
+                                    : "partners"}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-5 py-3 align-top">
+                              <span
+                                className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
+                              >
+                                {prettyStatus(b.status)}
+                              </span>
+                              {b.status === "CANCELLED" && (
+                                <div className="mt-1 max-w-[200px] text-[11px] text-danger">
+                                  {b.cancelledAt && (
+                                    <div className="whitespace-nowrap">
+                                      {new Date(b.cancelledAt).toLocaleString(
+                                        "en-IN",
+                                        {
+                                          day: "2-digit",
+                                          month: "short",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                          timeZone: "Asia/Kolkata",
+                                        },
+                                      )}
+                                    </div>
+                                  )}
+                                  {b.cancellationReason && (
+                                    <div
+                                      className="line-clamp-2 text-muted-foreground"
+                                      title={b.cancellationReason}
+                                    >
+                                      “{b.cancellationReason}”
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="w-px whitespace-nowrap px-5 py-3 text-muted-foreground">
+                              <div>{b.date}</div>
+                              <div className="text-[11px]">
+                                Created{" "}
+                                {new Date(b.createdAt).toLocaleDateString(
+                                  "en-IN",
+                                  {
+                                    day: "2-digit",
+                                    month: "short",
+                                    timeZone: "Asia/Kolkata",
+                                  },
+                                )}
+                              </div>
+                            </td>
+                            <td className="w-px py-3 pl-2 pr-5">
+                              <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+                                {b.status === "COMPLETED" && (
+                                  <button
+                                    onClick={() => openInvoice(b.bookingId)}
+                                    title="Download the invoice (PDF)"
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-accent"
+                                  >
+                                    🧾 Invoice
+                                  </button>
+                                )}
+                                {showActions && canAllocate(b) ? (
+                                  <button
+                                    onClick={() => {
+                                      setNotice(null);
+                                      setAllocating(b);
+                                    }}
+                                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
+                                  >
+                                    Allocate
+                                  </button>
+                                ) : null}
+                                {showActions && (
+                                  <button
+                                    onClick={() => {
+                                      setNotice(null);
+                                      setDeleteTarget(b);
+                                    }}
+                                    title="Delete this booking"
+                                    className="rounded-lg p-1.5 text-muted-foreground transition hover:bg-danger/10 hover:text-danger"
+                                  >
+                                    <TrashIcon className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {showActions &&
+                                b.status !== "COMPLETED" &&
+                                b.status !== "CANCELLED" ? (
+                                  <button
+                                    onClick={() => {
+                                      setNotice(null);
+                                      setCompleteTarget(b);
+                                    }}
+                                    title="Mark this booking as completed"
+                                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-success transition hover:bg-success/10"
+                                  >
+                                    Complete
+                                  </button>
+                                ) : null}
+                                {/* Cancelling asks for a reason, stored on the booking
                             and shown in this table. */}
-                        {showActions && b.status !== "COMPLETED" && b.status !== "CANCELLED" ? (
-                          <button
-                            onClick={() => {
-                              setNotice(null);
-                              setCancelChoice(null);
-                              setCancelReason("");
-                              setCancelTarget(b);
-                            }}
-                            className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-danger/10"
-                          >
-                            Cancel
-                          </button>
-                        ) : null}
-                        {!showActions && b.status !== "COMPLETED" ? (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                  {isOpen && <BookingDetailsRow booking={b} />}
-                  </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                                {showActions &&
+                                b.status !== "COMPLETED" &&
+                                b.status !== "CANCELLED" ? (
+                                  <button
+                                    onClick={() => {
+                                      setNotice(null);
+                                      setCancelChoice(null);
+                                      setCancelReason("");
+                                      setCancelTarget(b);
+                                    }}
+                                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-danger transition hover:bg-danger/10"
+                                  >
+                                    Cancel
+                                  </button>
+                                ) : null}
+                                {!showActions && b.status !== "COMPLETED" ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    —
+                                  </span>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                          {isOpen && <BookingDetailsRow booking={b} />}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-        {/* Pagination footer */}
-        {pagination && bookings.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3 text-sm text-muted-foreground">
-            <span>
-              Showing {from}–{to} of {pagination.total} bookings
-              {isFetching ? " · updating…" : ""}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={pagination.page <= 1}
-                className="rounded-lg border border-border px-3 py-1.5 font-medium text-foreground transition hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
-              >
-                ‹ Prev
-              </button>
-              <span className="text-xs">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                disabled={pagination.page >= pagination.totalPages}
-                className="rounded-lg border border-border px-3 py-1.5 font-medium text-foreground transition hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
-              >
-                Next ›
-              </button>
-            </div>
+            {/* Pagination footer */}
+            {pagination && bookings.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3 text-sm text-muted-foreground">
+                <span>
+                  Showing {from}–{to} of {pagination.total} bookings
+                  {isFetching ? " · updating…" : ""}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={pagination.page <= 1}
+                    className="rounded-lg border border-border px-3 py-1.5 font-medium text-foreground transition hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    ‹ Prev
+                  </button>
+                  <span className="text-xs">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  <button
+                    onClick={() =>
+                      setPage((p) => Math.min(pagination.totalPages, p + 1))
+                    }
+                    disabled={pagination.page >= pagination.totalPages}
+                    className="rounded-lg border border-border px-3 py-1.5 font-medium text-foreground transition hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+                  >
+                    Next ›
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
         </>
       )}
 
@@ -972,14 +1125,19 @@ export function BookingsView() {
 
       {confirmBulk && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setConfirmBulk(false)} aria-hidden />
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setConfirmBulk(false)}
+            aria-hidden
+          />
           <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <h3 className="text-lg font-semibold text-foreground">
               Delete {selected.size} booking{selected.size === 1 ? "" : "s"}?
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              This permanently removes the selected bookings — completed ones included — along
-              with their ratings, invoices and lead records. This cannot be undone.
+              This permanently removes the selected bookings — completed ones
+              included — along with their ratings, invoices and lead records.
+              This cannot be undone.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -1009,13 +1167,19 @@ export function BookingsView() {
             aria-hidden
           />
           <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
-            <h3 className="text-base font-semibold text-foreground">Delete {deleteTarget.id}?</h3>
+            <h3 className="text-base font-semibold text-foreground">
+              Delete {deleteTarget.id}?
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              {deleteTarget.restaurantName ? `${deleteTarget.restaurantName} · ` : ""}
-              {deleteTarget.customer} · ₹{deleteTarget.amount.toLocaleString("en-IN")}
+              {deleteTarget.restaurantName
+                ? `${deleteTarget.restaurantName} · `
+                : ""}
+              {deleteTarget.customer} · ₹
+              {deleteTarget.amount.toLocaleString("en-IN")}
             </p>
             <p className="mt-3 text-sm text-danger">
-              This permanently removes the booking and its rejection history. It cannot be undone.
+              This permanently removes the booking and its rejection history. It
+              cannot be undone.
               {deleteTarget.status === "COMPLETED"
                 ? " Completed bookings are refused — cancel it instead."
                 : ""}
@@ -1054,7 +1218,11 @@ export function BookingsView() {
             const note = cancelReason.trim();
             // "Other" stores just the note; a preset stores the preset plus any note.
             const reason =
-              cancelChoice === "Other" ? note : note ? `${cancelChoice} — ${note}` : cancelChoice;
+              cancelChoice === "Other"
+                ? note
+                : note
+                  ? `${cancelChoice} — ${note}`
+                  : cancelChoice;
             cancelBooking.mutate({ id: cancelTarget.bookingId, reason });
           }}
         />
@@ -1107,7 +1275,9 @@ function Field({
         {label} {required && <span className="text-danger">*</span>}
       </span>
       {children}
-      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
+      {hint && (
+        <span className="text-[11px] text-muted-foreground">{hint}</span>
+      )}
     </label>
   );
 }
@@ -1124,7 +1294,12 @@ const inputClass =
 function LocationSearchField({
   onPick,
 }: {
-  onPick: (place: { address: string; city: string | null; lat: number; lng: number }) => void;
+  onPick: (place: {
+    address: string;
+    city: string | null;
+    lat: number;
+    lng: number;
+  }) => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlaceSuggestion[]>([]);
@@ -1168,7 +1343,8 @@ function LocationSearchField({
 
   useEffect(() => {
     function onDown(e: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+      if (boxRef.current && !boxRef.current.contains(e.target as Node))
+        setOpen(false);
     }
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -1217,10 +1393,13 @@ function LocationSearchField({
         <div className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-border bg-card shadow-xl">
           {failed ? (
             <p className="px-4 py-3 text-sm text-muted-foreground">
-              Location search is unavailable — enter the coordinates manually below.
+              Location search is unavailable — enter the coordinates manually
+              below.
             </p>
           ) : results.length === 0 && !searching ? (
-            <p className="px-4 py-3 text-sm text-muted-foreground">No places found.</p>
+            <p className="px-4 py-3 text-sm text-muted-foreground">
+              No places found.
+            </p>
           ) : (
             results.map((s) => (
               <button
@@ -1229,8 +1408,12 @@ function LocationSearchField({
                 onClick={() => pick(s)}
                 className="flex w-full flex-col items-start gap-0.5 px-4 py-2.5 text-left transition hover:bg-accent"
               >
-                <span className="text-sm font-medium text-foreground">{s.label}</span>
-                <span className="text-xs text-muted-foreground">{s.address}</span>
+                <span className="text-sm font-medium text-foreground">
+                  {s.label}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {s.address}
+                </span>
               </button>
             ))
           )}
@@ -1300,12 +1483,14 @@ function NewBookingModal({
 
   const { data: partners } = useQuery({
     queryKey: queryKeys.partners(partnerSearch.trim(), "ACTIVE"),
-    queryFn: () => dispatcherApi.listPartners(partnerSearch.trim() || undefined, "ACTIVE"),
+    queryFn: () =>
+      dispatcherApi.listPartners(partnerSearch.trim() || undefined, "ACTIVE"),
     enabled: assign,
     placeholderData: keepPreviousData,
   });
 
-  const selectedService = services?.find((s) => String(s.serviceId) === serviceId) ?? null;
+  const selectedService =
+    services?.find((s) => String(s.serviceId) === serviceId) ?? null;
 
   // Categories in the order the backend sorted them, de-duplicated.
   const categories: { id: string; name: string }[] = [];
@@ -1346,7 +1531,8 @@ function NewBookingModal({
   const total = validAmount ? Math.round((base + tax) * 100) / 100 : 0;
 
   const digits = mobile.replace(/\D/g, "");
-  const customerOk = mode === "existing" ? customer != null : digits.length >= 10;
+  const customerOk =
+    mode === "existing" ? customer != null : digits.length >= 10;
   const canSubmit =
     customerOk &&
     serviceId !== "" &&
@@ -1379,14 +1565,18 @@ function NewBookingModal({
         serviceAddress: serviceAddress.trim(),
         serviceLat: lat.trim() ? Number(lat) : undefined,
         serviceLng: lng.trim() ? Number(lng) : undefined,
-        professionalId: assign && professionalId ? Number(professionalId) : undefined,
+        professionalId:
+          assign && professionalId ? Number(professionalId) : undefined,
       };
       return dashboardApi.createBooking(body);
     },
     // The note explains what happened to the lead (broadcast, assigned, or
     // demand-only), which the admin can't tell from the booking id alone.
     onSuccess: (res) => onDone(`${res.message}. ${res.note}`),
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not create the booking."),
+    onError: (e) =>
+      setErr(
+        e instanceof ApiError ? e.message : "Could not create the booking.",
+      ),
   });
 
   return (
@@ -1398,10 +1588,12 @@ function NewBookingModal({
       />
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-border bg-card shadow-2xl">
         <div className="border-b border-border p-5">
-          <h3 className="text-lg font-semibold text-foreground">Create booking</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Create booking
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create a booking on a customer&apos;s behalf. GST is added automatically, exactly as in
-            the app.
+            Create a booking on a customer&apos;s behalf. GST is added
+            automatically, exactly as in the app.
           </p>
         </div>
 
@@ -1409,7 +1601,9 @@ function NewBookingModal({
           {/* Customer */}
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <h4 className="text-sm font-semibold text-foreground">Customer</h4>
+              <h4 className="text-sm font-semibold text-foreground">
+                Customer
+              </h4>
               <div className="flex gap-1 rounded-lg bg-muted/60 p-0.5">
                 {(["existing", "new"] as const).map((m) => (
                   <button
@@ -1417,7 +1611,9 @@ function NewBookingModal({
                     type="button"
                     onClick={() => setMode(m)}
                     className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                      mode === m ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
+                      mode === m
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {m === "existing" ? "Existing" : "New"}
@@ -1444,8 +1640,8 @@ function NewBookingModal({
                     </div>
                   ) : (customers ?? []).length === 0 ? (
                     <p className="p-4 text-center text-sm text-muted-foreground">
-                      No customer found. Switch to <span className="font-medium">New</span> to
-                      create one.
+                      No customer found. Switch to{" "}
+                      <span className="font-medium">New</span> to create one.
                     </p>
                   ) : (
                     <ul className="divide-y divide-border">
@@ -1465,7 +1661,9 @@ function NewBookingModal({
                                   {c.name || "Unnamed"}
                                 </span>
                                 <span className="block truncate text-xs text-muted-foreground">
-                                  {[c.mobile, c.restaurantName].filter(Boolean).join(" · ") || "—"}
+                                  {[c.mobile, c.restaurantName]
+                                    .filter(Boolean)
+                                    .join(" · ") || "—"}
                                 </span>
                               </span>
                               {on && (
@@ -1483,7 +1681,11 @@ function NewBookingModal({
               </>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Mobile" required hint="An existing account with this number is reused.">
+                <Field
+                  label="Mobile"
+                  required
+                  hint="An existing account with this number is reused."
+                >
                   <input
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
@@ -1575,7 +1777,9 @@ function NewBookingModal({
                 <select
                   value={variantId}
                   onChange={(e) => chooseVariant(e.target.value)}
-                  disabled={!selectedService || selectedService.variants.length === 0}
+                  disabled={
+                    !selectedService || selectedService.variants.length === 0
+                  }
                   className={`${inputClass} disabled:opacity-50`}
                 >
                   <option value="">None</option>
@@ -1607,7 +1811,9 @@ function NewBookingModal({
               <Field label="Payment mode">
                 <select
                   value={paymentMode}
-                  onChange={(e) => setPaymentMode(e.target.value as "COD" | "RAZORPAY")}
+                  onChange={(e) =>
+                    setPaymentMode(e.target.value as "COD" | "RAZORPAY")
+                  }
                   className={inputClass}
                 >
                   <option value="COD">COD</option>
@@ -1730,7 +1936,11 @@ function NewBookingModal({
                     className={inputClass}
                   />
                 </Field>
-                <Field label="Partner" required hint="₹30 lead fee is charged, as on allocation.">
+                <Field
+                  label="Partner"
+                  required
+                  hint="₹30 lead fee is charged, as on allocation."
+                >
                   <select
                     value={professionalId}
                     onChange={(e) => setProfessionalId(e.target.value)}
@@ -1754,12 +1964,16 @@ function NewBookingModal({
         </div>
 
         {err ? (
-          <div className="border-t border-border px-5 py-3 text-sm text-danger">{err}</div>
+          <div className="border-t border-border px-5 py-3 text-sm text-danger">
+            {err}
+          </div>
         ) : null}
 
         <div className="flex items-center justify-between gap-2 border-t border-border p-4">
           <span className="text-sm text-muted-foreground">
-            {validAmount ? `Payable ₹${total.toLocaleString("en-IN")} (incl. GST)` : ""}
+            {validAmount
+              ? `Payable ₹${total.toLocaleString("en-IN")} (incl. GST)`
+              : ""}
           </span>
           <span className="flex items-center gap-2">
             <button
@@ -1777,7 +1991,9 @@ function NewBookingModal({
                 setErr(null);
                 create.mutate();
               }}
-              title={canSubmit ? undefined : "Fill in every required field first"}
+              title={
+                canSubmit ? undefined : "Fill in every required field first"
+              }
               className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
             >
               {create.isPending ? <SpinnerIcon className="h-4 w-4" /> : null}
@@ -1806,7 +2022,8 @@ function AllocatePartnerModal({
 
   const { data, isLoading } = useQuery({
     queryKey: queryKeys.partners(search.trim(), "ACTIVE"),
-    queryFn: () => dispatcherApi.listPartners(search.trim() || undefined, "ACTIVE"),
+    queryFn: () =>
+      dispatcherApi.listPartners(search.trim() || undefined, "ACTIVE"),
     placeholderData: keepPreviousData,
   });
   const partners = (data ?? []).filter((p) => !p.isBlocked);
@@ -1815,7 +2032,8 @@ function AllocatePartnerModal({
     mutationFn: (professionalId: number) =>
       dashboardApi.allocateBooking(booking.bookingId, professionalId),
     onSuccess: (res) => onDone(res.message),
-    onError: (e) => setErr(e instanceof ApiError ? e.message : "Could not allocate partner."),
+    onError: (e) =>
+      setErr(e instanceof ApiError ? e.message : "Could not allocate partner."),
   });
 
   return (
@@ -1827,9 +2045,12 @@ function AllocatePartnerModal({
       />
       <div className="relative z-10 flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-border bg-card shadow-2xl">
         <div className="border-b border-border p-5">
-          <h3 className="text-lg font-semibold text-foreground">Allocate a partner</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Allocate a partner
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Booking <span className="font-medium text-foreground">{booking.id}</span> ·{" "}
+            Booking{" "}
+            <span className="font-medium text-foreground">{booking.id}</span> ·{" "}
             {booking.service} · {booking.customer}
           </p>
         </div>
@@ -1876,16 +2097,24 @@ function AllocatePartnerModal({
                           {p.name}
                           <span
                             className={`inline-block h-2 w-2 shrink-0 rounded-full ${
-                              p.isOnline ? "bg-success" : "bg-muted-foreground/40"
+                              p.isOnline
+                                ? "bg-success"
+                                : "bg-muted-foreground/40"
                             }`}
                             title={p.isOnline ? "Online" : "Offline"}
                           />
                         </p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {[p.category, p.city, p.mobile].filter(Boolean).join(" · ") || "—"}
+                          {[p.category, p.city, p.mobile]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
                         </p>
                       </div>
-                      {isSel && <span className="shrink-0 text-xs font-semibold text-primary">Selected</span>}
+                      {isSel && (
+                        <span className="shrink-0 text-xs font-semibold text-primary">
+                          Selected
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
@@ -1895,7 +2124,9 @@ function AllocatePartnerModal({
         </div>
 
         {err ? (
-          <div className="border-t border-border px-5 py-3 text-sm text-danger">{err}</div>
+          <div className="border-t border-border px-5 py-3 text-sm text-danger">
+            {err}
+          </div>
         ) : null}
 
         <div className="flex items-center justify-end gap-2 border-t border-border p-4">
@@ -1927,7 +2158,9 @@ function AllocatePartnerModal({
 function Detail({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
       <dd className="mt-0.5 break-words text-sm text-foreground">{children}</dd>
     </div>
   );
@@ -1954,7 +2187,7 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
   return (
     <tr className="border-t border-border bg-muted/30">
       <td />
-      <td colSpan={15} className="px-5 pb-5 pt-1">
+      <td colSpan={16} className="px-5 pb-5 pt-1">
         <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
           <Detail label="Restaurant">{b.restaurantName ?? "—"}</Detail>
           <Detail label="Owner">{b.customer}</Detail>
@@ -1974,8 +2207,11 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
                 <span className="flex flex-col gap-0.5">
                   {b.addons.map((a) => (
                     <span key={a.addonId}>
-                      {a.quantity} × {a.name} — ₹{a.amount.toLocaleString("en-IN")}
-                      {a.quantity > 1 ? ` (₹${a.unitPrice.toLocaleString("en-IN")} each)` : ""}
+                      {a.quantity} × {a.name} — ₹
+                      {a.amount.toLocaleString("en-IN")}
+                      {a.quantity > 1
+                        ? ` (₹${a.unitPrice.toLocaleString("en-IN")} each)`
+                        : ""}
                     </span>
                   ))}
                 </span>
@@ -1988,16 +2224,24 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
               : "Not confirmed by partner yet"}
           </Detail>
 
-          <Detail label="Amount paid">₹{b.amount.toLocaleString("en-IN")}</Detail>
+          <Detail label="Amount paid">
+            ₹{b.amount.toLocaleString("en-IN")}
+          </Detail>
           <Detail label="Base (pre-GST)">
-            {b.baseAmount != null ? `₹${b.baseAmount.toLocaleString("en-IN")}` : "—"}
+            {b.baseAmount != null
+              ? `₹${b.baseAmount.toLocaleString("en-IN")}`
+              : "—"}
           </Detail>
           <Detail label="GST">
-            {b.taxAmount != null ? `₹${b.taxAmount.toLocaleString("en-IN")}` : "—"}
+            {b.taxAmount != null
+              ? `₹${b.taxAmount.toLocaleString("en-IN")}`
+              : "—"}
           </Detail>
           <Detail label="Partner">
             {b.professionalName ?? "Unassigned"}
-            {b.assignmentSource ? ` (${b.assignmentSource === "MANUAL" ? "manual" : "auto"})` : ""}
+            {b.assignmentSource
+              ? ` (${b.assignmentSource === "MANUAL" ? "manual" : "auto"})`
+              : ""}
           </Detail>
 
           <div className="sm:col-span-2 lg:col-span-4">
@@ -2020,9 +2264,13 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
               <Detail label={`Rejected by ${b.rejectionCount}`}>
                 <span className="flex flex-col gap-0.5">
                   {b.rejections.map((r) => (
-                    <span key={r.rejectionId} className="text-xs text-muted-foreground">
+                    <span
+                      key={r.rejectionId}
+                      className="text-xs text-muted-foreground"
+                    >
                       {r.professionalName}
-                      {r.reason ? ` — ${r.reason}` : ""} · {istDateTime(r.rejectedAt)}
+                      {r.reason ? ` — ${r.reason}` : ""} ·{" "}
+                      {istDateTime(r.rejectedAt)}
                     </span>
                   ))}
                 </span>
@@ -2030,6 +2278,16 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
             </div>
           )}
         </dl>
+
+        {/* Who the lead actually reached. The rejection list above names only
+            the partners who said no; this shows everyone it went to, including
+            the ones who never answered at all. */}
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Lead activity
+          </p>
+          <BookingLeadActivityPanel bookingId={b.bookingId} />
+        </div>
       </td>
     </tr>
   );
@@ -2070,13 +2328,20 @@ function CancelBookingDialog({
 }) {
   if (!booking) return null;
   // "Other" carries only the typed note, so it must not be empty.
-  const valid = choice != null && (choice !== "Other" || reason.trim().length > 0);
+  const valid =
+    choice != null && (choice !== "Other" || reason.trim().length > 0);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div
+        className="absolute inset-0 bg-black/50"
+        onClick={onClose}
+        aria-hidden
+      />
       <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl">
         <div className="border-b border-border p-4">
-          <h3 className="text-base font-semibold text-foreground">Cancel {booking.id}?</h3>
+          <h3 className="text-base font-semibold text-foreground">
+            Cancel {booking.id}?
+          </h3>
           <p className="mt-1 text-sm text-muted-foreground">
             {booking.restaurantName ? `${booking.restaurantName} · ` : ""}
             {booking.customer} · ₹{booking.amount.toLocaleString("en-IN")}
@@ -2110,7 +2375,11 @@ function CancelBookingDialog({
             onChange={(e) => onReasonChange(e.target.value)}
             rows={2}
             maxLength={300}
-            placeholder={choice === "Other" ? "Tell us what happened" : "Anything to add? (optional)"}
+            placeholder={
+              choice === "Other"
+                ? "Tell us what happened"
+                : "Anything to add? (optional)"
+            }
             className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring/30"
           />
           <span className="block text-xs text-muted-foreground">

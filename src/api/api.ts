@@ -160,6 +160,13 @@ export interface AdminBooking {
   /** Set only on cancelled bookings: when and why the customer cancelled. */
   cancelledAt: string | null;
   cancellationReason: string | null;
+  /** How many distinct partners the lead reached (retries don't double-count). */
+  leadPartnerCount: number;
+  /** Total offers including retries — how many alarms actually rang. */
+  leadOfferCount: number;
+  /** How many broadcast rounds this lead has had. */
+  broadcastCount: number;
+  lastBroadcastAt: string | null;
   /** Partners who declined this lead — explains why a booking is still unassigned. */
   rejectionCount: number;
   rejections: {
@@ -529,6 +536,71 @@ export interface PartnerEarnings {
       customerPaid: number;
     }[];
   };
+}
+
+/** What a partner did with a lead. Derived server-side from the booking. */
+export type LeadOutcome = "ACCEPTED" | "REJECTED" | "NO_RESPONSE";
+
+export interface BookingLeadRecipient {
+  professionalId: number;
+  name: string;
+  mobile: string | null;
+  city: string | null;
+  isOnline: boolean;
+  /** Which broadcast round; null for leads sent before the roster was logged. */
+  attempt: number | null;
+  /** Distance when the lead was sent, not now — partners move. */
+  distanceKm: number | null;
+  sentAt: string;
+  outcome: LeadOutcome;
+  rejectionReason: string | null;
+  respondedAt: string | null;
+}
+
+export interface BookingLeadActivity {
+  bookingId: number;
+  status: string;
+  acceptedBy: number | null;
+  acceptedAt: string | null;
+  broadcastCount: number;
+  lastBroadcastAt: string | null;
+  counts: {
+    sent: number;
+    accepted: number;
+    rejected: number;
+    noResponse: number;
+  };
+  recipients: BookingLeadRecipient[];
+}
+
+export interface PartnerLeadRow {
+  bookingId: number;
+  serviceName: string;
+  bookingDate: string;
+  startTime: string | null;
+  city: string | null;
+  totalAmount: number;
+  attempt: number;
+  distanceKm: number | null;
+  sentAt: string;
+  outcome: LeadOutcome;
+  rejectionReason: string | null;
+  bookingStatus: string;
+  /** The job went to someone else — "lost it" rather than "nobody took it". */
+  takenByOther: boolean;
+}
+
+export interface PartnerLeadActivity {
+  total: number;
+  page: number;
+  limit: number;
+  counts: {
+    offers: number;
+    accepted: number;
+    rejected: number;
+    noResponse: number;
+  };
+  leads: PartnerLeadRow[];
 }
 
 export interface PartnerDetail extends PartnerRow {
@@ -939,6 +1011,19 @@ export const dispatcherApi = {
   getPartnerEarnings: (professionalId: number) =>
     apiClient.get<PartnerEarnings>(
       `/v1/admin/partners/${professionalId}/earnings`,
+    ),
+  /** Every lead this partner was offered, and what they did with each. */
+  getPartnerLeadActivity: (
+    professionalId: number,
+    params: { page?: number; limit?: number } = {},
+  ) =>
+    apiClient.get<PartnerLeadActivity>(
+      `/v1/admin/partners/${professionalId}/lead-activity${toQueryString(params)}`,
+    ),
+  /** Who this booking's lead reached, and what each of them did with it. */
+  getBookingLeadActivity: (bookingId: number) =>
+    apiClient.get<BookingLeadActivity>(
+      `/v1/admin/bookings/${bookingId}/lead-activity`,
     ),
 
   /** DELETE /v1/admin/partners/:id — remove a partner. */
@@ -2577,6 +2662,14 @@ export interface AllocationSettings {
   maxAgents: number;
   /** Restrict leads to partners of the geofence covering the booking point. */
   restrictToGeofence: boolean;
+  /** Apply the radius inside a zone too; off = a zone's team is trusted at any distance. */
+  radiusInsideZone: boolean;
+  /** Alarm partners whose profile has no GPS; off = the radius is strict. */
+  includeUnlocatedPartners: boolean;
+  /** Extra times an unaccepted lead is re-offered; 0 = broadcast once and stop. */
+  leadRetryCount: number;
+  /** Minutes to wait after a broadcast before re-offering. */
+  leadRetryAfterMinutes: number;
   updatedAt: string;
 }
 
