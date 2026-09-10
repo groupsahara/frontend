@@ -125,20 +125,16 @@ export default function CartPage() {
               <dl className="mt-4 space-y-2.5 text-sm">
                 <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
                 <Row label="Taxes (18%)" value={inr(summary.tax ?? 0)} />
-                {summary.discount ? (
-                  <Row
-                    label="Discount"
-                    value={`− ${inr(summary.discount)}`}
-                    accent="text-green-600"
-                  />
-                ) : null}
               </dl>
               <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
                 <span className="text-base font-bold text-gray-900">
                   Grand total
                 </span>
                 <span className="text-lg font-bold text-gray-900">
-                  {inr(summary.grandTotal ?? 0)}
+                  {/* Item total + GST, as the customer app shows it — the API's
+                      own grandTotal has a discount taken off that no booking
+                      honours. Coupons are applied at checkout. */}
+                  {inr((summary.itemTotal ?? 0) + (summary.tax ?? 0))}
                 </span>
               </div>
               <Link
