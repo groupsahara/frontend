@@ -245,7 +245,12 @@ export default function CheckoutPage() {
   // costs, so the saving is the remainder rather than a percentage of one line.
   const isFlatCoupon =
     appliedCoupon?.discountType === "FLAT_TOTAL" && appliedCoupon.flatTotal != null;
-  const cartGrandTotal = summary.grandTotal ?? 0;
+  // Mirror the customer app: the payable amount is item total + GST, less the
+  // coupon — nothing else. The cart API also returns a `discount` and a
+  // `grandTotal` with it already taken off, but no booking honours that
+  // discount (each bills its own price + GST), so building on it showed — and
+  // collected online — less than the bookings actually charge.
+  const cartGrandTotal = (summary.itemTotal ?? 0) + (summary.tax ?? 0);
   const couponBaseDiscount =
     appliedCoupon && couponTarget && !isFlatCoupon
       ? Math.round((couponTarget.total || couponTarget.price) * (appliedCoupon.discountPercent / 100) * 100) / 100
@@ -809,9 +814,6 @@ export default function CheckoutPage() {
               <dl className="mt-4 space-y-2.5 text-sm">
                 <Row label="Item total" value={inr(summary.itemTotal ?? 0)} />
                 <Row label="Taxes (18%)" value={inr(summary.tax ?? 0)} />
-                {summary.discount ? (
-                  <Row label="Discount" value={`− ${inr(summary.discount)}`} accent="text-green-600" />
-                ) : null}
                 {appliedCoupon && couponSaving > 0 ? (
                   <Row
                     label={`Coupon ${appliedCoupon.code}`}
