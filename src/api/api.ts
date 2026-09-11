@@ -1241,21 +1241,64 @@ export interface CustomerDetail {
 }
 
 /** A coupon every customer may redeem once, priced as a fixed total. */
+export type CouponVisibility = "PUBLIC" | "PRIVATE";
+
+/** A customer on a private coupon's list. */
+export interface CouponAudienceMember {
+  userId: number;
+  name: string;
+  mobile: string | null;
+}
+
 export interface CampaignCoupon {
   couponId: number;
   code: string;
   description: string;
+  /** Nobody wrote the description — it is generated from the terms and follows them. */
+  descriptionIsAuto: boolean;
   discountType: "PERCENT" | "FLAT_TOTAL";
+  /** For PERCENT: percentage off; null for a fixed-total coupon. */
+  discountPercent: number | null;
   /** What the customer pays in total, GST included. */
   flatTotal: number | null;
+  /** For PERCENT: the most it takes off, in ₹ (GST included); null = no cap. */
+  maxDiscount: number | null;
+  /** The booking must come to at least this much (GST included); null = any. */
+  minOrderAmount: number | null;
+  /** PUBLIC = every customer; PRIVATE = only the customers in `audience`. */
+  visibility: CouponVisibility;
+  /** Service categories it is good for; empty = every category. */
+  categoryIds: number[];
+  categories: { categoryId: number; name: string }[];
+  audienceCount: number;
+  audience: CouponAudienceMember[];
   validTill: string;
   isActive: boolean;
   maxRedemptions: number | null;
+  /** Offered only to customers who have never booked. */
+  firstOrderOnly: boolean;
   /** Only redeemable when the customer pays online, never on COD. */
   prepaidOnly: boolean;
   redemptions: number;
   status: "ACTIVE" | "DISABLED" | "EXPIRED" | "EXHAUSTED";
   createdAt: string;
+}
+
+/** Everything an admin can set on a campaign coupon. */
+export interface CampaignCouponRules {
+  discountType?: "PERCENT" | "FLAT_TOTAL";
+  discountPercent?: number;
+  flatTotal?: number;
+  maxDiscount?: number | null;
+  minOrderAmount?: number | null;
+  visibility?: CouponVisibility;
+  categoryIds?: number[];
+  /** For PRIVATE: replaces the whole list. */
+  userIds?: number[];
+  description?: string;
+  maxRedemptions?: number;
+  firstOrderOnly?: boolean;
+  prepaidOnly?: boolean;
 }
 
 export interface AdminCoupon {
@@ -1291,29 +1334,25 @@ export const customersApi = {
   campaigns: () =>
     apiClient.get<CampaignCoupon[]>("/v1/admin/coupons/campaigns"),
 
-  /** POST /v1/admin/coupons/campaigns — create one (e.g. pay ₹1 for any service). */
-  createCampaign: (body: {
-    code: string;
-    flatTotal: number;
-    validTill: string;
-    description?: string;
-    maxRedemptions?: number;
-    prepaidOnly?: boolean;
-  }) => apiClient.post<CampaignCoupon>("/v1/admin/coupons/campaigns", body),
+  /** POST /v1/admin/coupons/campaigns — create one (20% off up to ₹300, pay ₹1, a private code…). */
+  createCampaign: (
+    body: CampaignCouponRules & { code: string; validTill: string },
+  ) => apiClient.post<CampaignCoupon>("/v1/admin/coupons/campaigns", body),
 
-  /** PATCH /v1/admin/coupons/campaigns/:id — switch off or change validity. */
+  /** PATCH /v1/admin/coupons/campaigns/:id — change terms, audience, categories, validity or status. */
   updateCampaign: (
     couponId: number,
-    body: {
-      isActive?: boolean;
-      validTill?: string;
-      maxRedemptions?: number;
-      prepaidOnly?: boolean;
-    },
+    body: CampaignCouponRules & { isActive?: boolean; validTill?: string },
   ) =>
     apiClient.patch<CampaignCoupon>(
       `/v1/admin/coupons/campaigns/${couponId}`,
       body,
+    ),
+
+  /** DELETE /v1/admin/coupons/campaigns/:id/audience/:userId — take one customer off a private list. */
+  removeCampaignAudience: (couponId: number, userId: number) =>
+    apiClient.delete<CampaignCoupon>(
+      `/v1/admin/coupons/campaigns/${couponId}/audience/${userId}`,
     ),
 
   /** POST /v1/admin/customers/:id/coupons — grant N one-time 50%-off coupons. */
