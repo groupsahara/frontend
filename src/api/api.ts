@@ -2680,6 +2680,8 @@ export interface AllocationSettings {
   leadRetryCount: number;
   /** Minutes to wait after a broadcast before re-offering. */
   leadRetryAfterMinutes: number;
+  /** Metres a partner must be within to enter the OTP and start the job. */
+  startRadiusMeters: number;
   updatedAt: string;
 }
 

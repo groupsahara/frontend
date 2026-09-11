@@ -64,7 +64,6 @@ function retryGuide(n: number): string {
     return "Two extra attempts. A reasonable default — most leads are taken on the first or second offer.";
   return "Aggressive. Worth it only where coverage is thin: the same partners are alarmed again and again, which teaches them to ignore the alarm.";
 }
-
 function Toggle({
   checked,
   onChange,
@@ -102,6 +101,7 @@ type FormState = Pick<
   | "includeUnlocatedPartners"
   | "leadRetryCount"
   | "leadRetryAfterMinutes"
+  | "startRadiusMeters"
 >;
 
 export default function AutoAllocationPage() {
@@ -131,6 +131,7 @@ export default function AutoAllocationPage() {
           includeUnlocatedPartners: data.includeUnlocatedPartners,
           leadRetryCount: data.leadRetryCount,
           leadRetryAfterMinutes: data.leadRetryAfterMinutes,
+          startRadiusMeters: data.startRadiusMeters,
         }
       : null);
   const setForm = (next: FormState) => setEdits(next);
@@ -201,6 +202,7 @@ export default function AutoAllocationPage() {
         form.includeUnlocatedPartners
           ? "Partners with no saved location receive every lead as well, because their distance cannot be measured."
           : "Partners with no saved location receive nothing until a location is captured.",
+        `A partner can enter the OTP and start the job only within ${form.startRadiusMeters} m of the customer.`,
         form.leadRetryCount > 0
           ? `Nobody accepts → the lead is offered again up to ${form.leadRetryCount} more time${
               form.leadRetryCount > 1 ? "s" : ""
@@ -508,6 +510,40 @@ export default function AutoAllocationPage() {
           </div>
         </div>
 
+        {/* Arrival gate */}
+        <div className="border-t border-border pt-5">
+          <p className="text-sm font-semibold text-foreground">
+            Start-service distance
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            How close a partner must be to the customer before the app lets them
+            enter the OTP and start the job. Stops a partner starting from home
+            to lock in the earning.
+          </p>
+          <div className="mt-3 max-w-sm">
+            <label className="mb-1.5 block text-sm font-medium text-foreground">
+              Distance (metres)
+            </label>
+            <input
+              type="number"
+              min={25}
+              max={5000}
+              step={25}
+              value={form.startRadiusMeters}
+              onChange={(e) =>
+                setForm({ ...form, startRadiusMeters: Number(e.target.value) })
+              }
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              A partner farther than {form.startRadiusMeters} m cannot enter the
+              OTP. Set it wide enough to absorb the GPS error a phone reports at
+              the property, and narrow enough that a partner in the next street
+              cannot start the job from there.
+            </p>
+          </div>
+        </div>
+
         {/* Plain-English readback of the rules above, so the interaction between
             the radius and the geofence is never left to be inferred. */}
         <div className="rounded-xl border border-border bg-muted/40 p-4">
@@ -540,7 +576,11 @@ export default function AutoAllocationPage() {
           <button
             type="button"
             onClick={() => mutation.mutate(form)}
-            disabled={mutation.isPending || form.radiusKm < 0.5}
+            disabled={
+              mutation.isPending ||
+              form.radiusKm < 0.5 ||
+              form.startRadiusMeters < 25
+            }
             className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
           >
             {mutation.isPending ? <SpinnerIcon className="h-4 w-4" /> : null}
