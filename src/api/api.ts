@@ -2682,6 +2682,10 @@ export interface AllocationSettings {
   leadRetryAfterMinutes: number;
   /** Metres a partner must be within to enter the OTP and start the job. */
   startRadiusMeters: number;
+  /** Minutes the app may be silent before duty hours pause (duty status is untouched). */
+  presenceStaleMinutes: number;
+  /** The most one duty session can be worth, in hours. */
+  dutySessionMaxHours: number;
   updatedAt: string;
 }
 

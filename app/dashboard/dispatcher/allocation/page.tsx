@@ -102,6 +102,8 @@ type FormState = Pick<
   | "leadRetryCount"
   | "leadRetryAfterMinutes"
   | "startRadiusMeters"
+  | "presenceStaleMinutes"
+  | "dutySessionMaxHours"
 >;
 
 export default function AutoAllocationPage() {
@@ -132,6 +134,8 @@ export default function AutoAllocationPage() {
           leadRetryCount: data.leadRetryCount,
           leadRetryAfterMinutes: data.leadRetryAfterMinutes,
           startRadiusMeters: data.startRadiusMeters,
+          presenceStaleMinutes: data.presenceStaleMinutes,
+          dutySessionMaxHours: data.dutySessionMaxHours,
         }
       : null);
   const setForm = (next: FormState) => setEdits(next);
@@ -203,6 +207,7 @@ export default function AutoAllocationPage() {
           ? "Partners with no saved location receive every lead as well, because their distance cannot be measured."
           : "Partners with no saved location receive nothing until a location is captured.",
         `A partner can enter the OTP and start the job only within ${form.startRadiusMeters} m of the customer.`,
+        `A partner stays on duty until they switch off themselves. If their app is silent for ${form.presenceStaleMinutes} minutes, duty hours pause — and resume the moment the app is heard from again. One session is worth at most ${form.dutySessionMaxHours} hours.`,
         form.leadRetryCount > 0
           ? `Nobody accepts → the lead is offered again up to ${form.leadRetryCount} more time${
               form.leadRetryCount > 1 ? "s" : ""
@@ -544,6 +549,66 @@ export default function AutoAllocationPage() {
           </div>
         </div>
 
+        {/* Duty presence */}
+        <div className="border-t border-border pt-5">
+          <p className="text-sm font-semibold text-foreground">Duty time</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Going on duty is the partner&rsquo;s choice and stays until they
+            switch off. These control only how duty <em>hours</em> are counted —
+            a partner whose app has gone quiet keeps receiving leads through the
+            call alarm, but is not credited hours nobody can vouch for.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Pause hours after silence (minutes)
+              </label>
+              <input
+                type="number"
+                min={5}
+                max={1440}
+                value={form.presenceStaleMinutes}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    presenceStaleMinutes: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                After {form.presenceStaleMinutes} minutes without a heartbeat
+                from the app, the partner&rsquo;s current duty session closes at
+                the last moment it was heard. They stay on duty; hours start
+                again when the app is next seen.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Longest single session (hours)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={24}
+                value={form.dutySessionMaxHours}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    dutySessionMaxHours: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                No single session can be worth more than{" "}
+                {form.dutySessionMaxHours} hours, so an abandoned one can never
+                inflate the duty-time report.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Plain-English readback of the rules above, so the interaction between
             the radius and the geofence is never left to be inferred. */}
         <div className="rounded-xl border border-border bg-muted/40 p-4">
@@ -579,7 +644,9 @@ export default function AutoAllocationPage() {
             disabled={
               mutation.isPending ||
               form.radiusKm < 0.5 ||
-              form.startRadiusMeters < 25
+              form.startRadiusMeters < 25 ||
+              form.presenceStaleMinutes < 5 ||
+              form.dutySessionMaxHours < 1
             }
             className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
           >
