@@ -540,6 +540,13 @@ export interface PartnerEarnings {
 
 /** What a partner did with a lead. Derived server-side from the booking. */
 export type LeadOutcome = "ACCEPTED" | "REJECTED" | "NO_RESPONSE";
+/**
+ * What became of the push for one partner. SENT = FCM accepted it for a device
+ * (the phone's own settings decide whether it rings); NO_TOKEN = never logged in
+ * on a device; TOKEN_DEAD = every registered device has expired — the partner
+ * must log in again; FAILED = FCM turned it down for another reason.
+ */
+export type LeadPushStatus = "SENT" | "NO_TOKEN" | "TOKEN_DEAD" | "FAILED";
 
 export interface BookingLeadRecipient {
   professionalId: number;
@@ -552,6 +559,10 @@ export interface BookingLeadRecipient {
   /** Distance when the lead was sent, not now — partners move. */
   distanceKm: number | null;
   sentAt: string;
+  /** What became of the push; null for rows logged before this was kept. */
+  pushStatus: LeadPushStatus | null;
+  /** The partner's app held a live socket when the lead went out. */
+  socketLive: boolean;
   outcome: LeadOutcome;
   rejectionReason: string | null;
   respondedAt: string | null;
@@ -583,6 +594,8 @@ export interface PartnerLeadRow {
   attempt: number;
   distanceKm: number | null;
   sentAt: string;
+  pushStatus: LeadPushStatus | null;
+  socketLive: boolean;
   outcome: LeadOutcome;
   rejectionReason: string | null;
   bookingStatus: string;
@@ -2686,6 +2699,10 @@ export interface AllocationSettings {
   presenceStaleMinutes: number;
   /** The most one duty session can be worth, in hours. */
   dutySessionMaxHours: number;
+  /** How many MORE times a lead rings each partner who has not answered; 0 = ring once. */
+  leadRingRepeatCount: number;
+  /** Seconds between repeat rings. */
+  leadRingRepeatSeconds: number;
   updatedAt: string;
 }
 

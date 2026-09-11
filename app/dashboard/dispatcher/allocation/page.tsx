@@ -64,6 +64,19 @@ function retryGuide(n: number): string {
     return "Two extra attempts. A reasonable default — most leads are taken on the first or second offer.";
   return "Aggressive. Worth it only where coverage is thin: the same partners are alarmed again and again, which teaches them to ignore the alarm.";
 }
+const RING_OPTIONS = [0, 1, 2, 3];
+
+/** What repeat rings mean for the partner holding the phone. */
+function ringGuide(n: number): string {
+  if (n === 0)
+    return "Off. Each partner is alerted once per offer. If that one alert is missed — phone between networks, app just reopened — the lead is silent for them.";
+  if (n === 1)
+    return "One more ring. Covers a first alert that was delayed or missed.";
+  if (n === 2)
+    return "Two more rings. A reasonable default — the lead sounds three times, like a call that keeps ringing until it is answered or declined.";
+  return "Persistent. The alarm keeps sounding; partners who have already answered or gone off duty are never rung again.";
+}
+
 function Toggle({
   checked,
   onChange,
@@ -104,6 +117,8 @@ type FormState = Pick<
   | "startRadiusMeters"
   | "presenceStaleMinutes"
   | "dutySessionMaxHours"
+  | "leadRingRepeatCount"
+  | "leadRingRepeatSeconds"
 >;
 
 export default function AutoAllocationPage() {
@@ -136,6 +151,8 @@ export default function AutoAllocationPage() {
           startRadiusMeters: data.startRadiusMeters,
           presenceStaleMinutes: data.presenceStaleMinutes,
           dutySessionMaxHours: data.dutySessionMaxHours,
+          leadRingRepeatCount: data.leadRingRepeatCount,
+          leadRingRepeatSeconds: data.leadRingRepeatSeconds,
         }
       : null);
   const setForm = (next: FormState) => setEdits(next);
@@ -208,6 +225,9 @@ export default function AutoAllocationPage() {
           : "Partners with no saved location receive nothing until a location is captured.",
         `A partner can enter the OTP and start the job only within ${form.startRadiusMeters} m of the customer.`,
         `A partner stays on duty until they switch off themselves. If their app is silent for ${form.presenceStaleMinutes} minutes, duty hours pause — and resume the moment the app is heard from again. One session is worth at most ${form.dutySessionMaxHours} hours.`,
+        form.leadRingRepeatCount > 0
+          ? `Each offer rings a partner ${form.leadRingRepeatCount + 1} times, ${form.leadRingRepeatSeconds} seconds apart, until they accept, reject or go off duty. Only partners who are on duty are alerted; the alert reaches a closed app too.`
+          : "Each offer rings a partner once. Only partners who are on duty are alerted; the alert reaches a closed app too.",
         form.leadRetryCount > 0
           ? `Nobody accepts → the lead is offered again up to ${form.leadRetryCount} more time${
               form.leadRetryCount > 1 ? "s" : ""
@@ -453,6 +473,69 @@ export default function AutoAllocationPage() {
           />
         </div>
 
+        {/* Ring again */}
+        <div className="border-t border-border pt-5">
+          <p className="text-sm font-semibold text-foreground">
+            Ring again if not answered
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            A lead used to alert each partner exactly once. Sound it again, a
+            few seconds apart, for anyone who has not accepted or rejected it
+            yet — a missed first alert no longer means a missed job. Partners
+            who answered, or went off duty, are not rung again.
+          </p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Extra rings
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {RING_OPTIONS.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setForm({ ...form, leadRingRepeatCount: n })}
+                    className={`rounded-lg border px-3 py-1 text-xs transition ${
+                      form.leadRingRepeatCount === n
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {n === 0 ? "Off" : n}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {ringGuide(form.leadRingRepeatCount)}
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">
+                Seconds between rings
+              </label>
+              <input
+                type="number"
+                min={10}
+                max={120}
+                value={form.leadRingRepeatSeconds}
+                disabled={form.leadRingRepeatCount === 0}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    leadRingRepeatSeconds: Number(e.target.value),
+                  })
+                }
+                className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/30 disabled:opacity-50"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                {form.leadRingRepeatCount === 0
+                  ? "Set at least one extra ring to use this."
+                  : `A partner who has not answered hears the lead ${form.leadRingRepeatCount + 1} times over about ${form.leadRingRepeatSeconds * form.leadRingRepeatCount} seconds.`}
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Retry */}
         <div className="border-t border-border pt-5">
           <p className="text-sm font-semibold text-foreground">
@@ -646,7 +729,8 @@ export default function AutoAllocationPage() {
               form.radiusKm < 0.5 ||
               form.startRadiusMeters < 25 ||
               form.presenceStaleMinutes < 5 ||
-              form.dutySessionMaxHours < 1
+              form.dutySessionMaxHours < 1 ||
+              form.leadRingRepeatSeconds < 10
             }
             className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
           >

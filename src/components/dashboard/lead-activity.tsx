@@ -1,7 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { dispatcherApi, type LeadOutcome } from "@/src/api/api";
+import {
+  dispatcherApi,
+  type LeadOutcome,
+  type LeadPushStatus,
+} from "@/src/api/api";
 
 /**
  * Who a lead reached, and what each partner did with it.
@@ -30,6 +34,43 @@ function OutcomeBadge({ outcome }: { outcome: LeadOutcome }) {
       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${OUTCOME_CLASS[outcome]}`}
     >
       {OUTCOME_LABEL[outcome]}
+    </span>
+  );
+}
+
+/**
+ * How the alert reached the partner — or why it could not. Distinguishes "the
+ * partner ignored it" from "their phone never got it", and names the one case
+ * an admin can act on: a dead device token, which a fresh login replaces.
+ */
+const PUSH_LABEL: Record<LeadPushStatus, { text: string; className: string }> =
+  {
+    SENT: { text: "Push sent", className: "text-muted-foreground" },
+    NO_TOKEN: { text: "No device — never logged in", className: "text-danger" },
+    TOKEN_DEAD: {
+      text: "Device expired — must log in again",
+      className: "text-danger",
+    },
+    FAILED: { text: "Push failed", className: "text-warning" },
+  };
+
+function Delivery({
+  pushStatus,
+  socketLive,
+}: {
+  pushStatus: LeadPushStatus | null;
+  socketLive: boolean;
+}) {
+  if (pushStatus == null && !socketLive) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const push = pushStatus ? PUSH_LABEL[pushStatus] : null;
+  return (
+    <span className="inline-flex flex-col gap-0.5">
+      {socketLive ? (
+        <span className="text-success">App open — rang in app</span>
+      ) : null}
+      {push ? <span className={push.className}>{push.text}</span> : null}
     </span>
   );
 }
@@ -106,6 +147,7 @@ export function BookingLeadActivityPanel({ bookingId }: { bookingId: number }) {
                 "Distance when sent",
                 "Round",
                 "Sent",
+                "Delivery",
                 "Outcome",
                 "Reason",
               ].map((h) => (
@@ -140,6 +182,12 @@ export function BookingLeadActivityPanel({ bookingId }: { bookingId: number }) {
                 </td>
                 <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
                   {stamp(r.sentAt)}
+                </td>
+                <td className="whitespace-nowrap px-3 py-2">
+                  <Delivery
+                    pushStatus={r.pushStatus}
+                    socketLive={r.socketLive}
+                  />
                 </td>
                 <td className="whitespace-nowrap px-3 py-2">
                   <OutcomeBadge outcome={r.outcome} />
@@ -218,6 +266,7 @@ export function PartnerLeadActivitySection({
                   "Service",
                   "Distance when sent",
                   "Sent",
+                  "Delivery",
                   "Outcome",
                   "Note",
                 ].map((h) => (
@@ -247,6 +296,12 @@ export function PartnerLeadActivitySection({
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
                     {stamp(l.sentAt)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2">
+                    <Delivery
+                      pushStatus={l.pushStatus}
+                      socketLive={l.socketLive}
+                    />
                   </td>
                   <td className="whitespace-nowrap px-3 py-2">
                     <OutcomeBadge outcome={l.outcome} />
