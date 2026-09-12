@@ -146,6 +146,7 @@ function CouponRow({
     conditions.push(
       `${c.audienceCount} customer${c.audienceCount === 1 ? "" : "s"} only`,
     );
+  if (c.visibility === "UNLISTED") conditions.push("Anyone with the code");
 
   return (
     <tr className="transition-colors hover:bg-accent/50">
@@ -157,6 +158,11 @@ function CouponRow({
           {c.visibility === "PRIVATE" && (
             <Tag title="Only the customers on its list can see or use it">
               Private
+            </Tag>
+          )}
+          {c.visibility === "UNLISTED" && (
+            <Tag title="Shown to nobody — anyone who types the code can use it">
+              Code only
             </Tag>
           )}
           {c.prepaidOnly && (
@@ -520,6 +526,12 @@ function CouponModal({
               onClick={() => setVisibility("PRIVATE")}
               title="Private"
               detail="only the customers you pick — e.g. codes the sales team hands out"
+            />
+            <Choice
+              active={visibility === "UNLISTED"}
+              onClick={() => setVisibility("UNLISTED")}
+              title="Code only"
+              detail="shown to nobody; anyone you give the code to can use it — no list to keep"
             />
           </div>
           {visibility === "PRIVATE" && (

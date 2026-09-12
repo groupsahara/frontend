@@ -1241,7 +1241,11 @@ export interface CustomerDetail {
 }
 
 /** A coupon every customer may redeem once, priced as a fixed total. */
-export type CouponVisibility = "PUBLIC" | "PRIVATE";
+/**
+ * PUBLIC = every customer sees it; PRIVATE = only the customers on its list;
+ * UNLISTED = shown to nobody, but anyone who types the code can use it.
+ */
+export type CouponVisibility = "PUBLIC" | "PRIVATE" | "UNLISTED";
 
 /** A customer on a private coupon's list. */
 export interface CouponAudienceMember {
@@ -1265,7 +1269,6 @@ export interface CampaignCoupon {
   maxDiscount: number | null;
   /** The booking must come to at least this much (GST included); null = any. */
   minOrderAmount: number | null;
-  /** PUBLIC = every customer; PRIVATE = only the customers in `audience`. */
   visibility: CouponVisibility;
   /** Service categories it is good for; empty = every category. */
   categoryIds: number[];
