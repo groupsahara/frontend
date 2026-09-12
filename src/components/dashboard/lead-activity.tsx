@@ -77,6 +77,19 @@ function Delivery({
 
 const km = (d: number | null) => (d == null ? "—" : `${d.toFixed(1)} km`);
 
+/** " — Rahul, Meena kumari": who, so the count alone never has to be chased. */
+const namesWith = (
+  recipients: { name: string; outcome: LeadOutcome }[],
+  outcome: LeadOutcome,
+) => {
+  const names = [
+    ...new Set(
+      recipients.filter((r) => r.outcome === outcome).map((r) => r.name),
+    ),
+  ];
+  return names.length ? ` — ${names.join(", ")}` : "";
+};
+
 const stamp = (v: string | null) =>
   v
     ? new Date(v).toLocaleString("en-IN", {
@@ -125,8 +138,14 @@ export function BookingLeadActivityPanel({ bookingId }: { bookingId: number }) {
         <span className="font-semibold text-foreground">
           Sent to {data.counts.sent} partner{data.counts.sent === 1 ? "" : "s"}
         </span>
-        <span className="text-success">{data.counts.accepted} accepted</span>
-        <span className="text-danger">{data.counts.rejected} rejected</span>
+        <span className="text-success">
+          {data.counts.accepted} accepted
+          {namesWith(data.recipients, "ACCEPTED")}
+        </span>
+        <span className="text-danger">
+          {data.counts.rejected} rejected
+          {namesWith(data.recipients, "REJECTED")}
+        </span>
         <span className="text-muted-foreground">
           {data.counts.noResponse} no response
         </span>

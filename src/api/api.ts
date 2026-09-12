@@ -1597,6 +1597,15 @@ export const dashboardApi = {
       professionalId: number;
       status: AdminBookingStatus;
     }>(`/v1/admin/bookings/${bookingId}/allocate`, { professionalId }),
+
+  /** PATCH /v1/admin/bookings/:id/reopen — back to PENDING with no partner, ready to allocate again. */
+  reopenBooking: (bookingId: number) =>
+    apiClient.patch<{
+      message: string;
+      bookingId: number;
+      status: AdminBookingStatus;
+      releasedProfessionalId: number | null;
+    }>(`/v1/admin/bookings/${bookingId}/reopen`, {}),
 };
 
 /* ============================== Vendors ================================= */
