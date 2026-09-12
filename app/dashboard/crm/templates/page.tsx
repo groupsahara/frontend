@@ -231,8 +231,19 @@ function NewTemplateModal({
   const [name, setName] = useState("");
   const [category, setCategory] = useState("MARKETING");
   const [language, setLanguage] = useState("en");
+  const [headerFormat, setHeaderFormat] = useState<"NONE" | "TEXT" | "IMAGE">(
+    "NONE",
+  );
   const [header, setHeader] = useState("");
   const [headerExample, setHeaderExample] = useState("");
+  // The uploaded picture: Meta's handle goes on the template, the URL is what
+  // the preview shows (and what campaigns send the finished template with).
+  const [headerImage, setHeaderImage] = useState<{
+    handle: string;
+    url: string;
+  } | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const headerRef = useRef<HTMLInputElement>(null);
@@ -294,6 +305,18 @@ function NewTemplateModal({
     [body, filledExamples],
   );
 
+  const uploadImage = useMutation({
+    mutationFn: (file: File) => crmCampaignsApi.uploadTemplateHeaderImage(file),
+    onSuccess: (r) => {
+      setHeaderImage(r);
+      setImageError(null);
+    },
+    onError: (e) =>
+      setImageError(
+        e instanceof ApiError ? e.message : "Could not upload the image.",
+      ),
+  });
+
   const create = useMutation({
     mutationFn: () =>
       crmCampaignsApi.createTemplate({
@@ -302,10 +325,16 @@ function NewTemplateModal({
         language: language.trim(),
         body: body.trim(),
         bodyExamples: filledExamples,
-        header: header.trim() || undefined,
-        headerExample: headerHasVar
-          ? headerExample.trim() || undefined
-          : undefined,
+        headerFormat: headerFormat === "NONE" ? undefined : headerFormat,
+        header:
+          headerFormat === "TEXT" ? header.trim() || undefined : undefined,
+        headerHandle:
+          headerFormat === "IMAGE" ? headerImage?.handle : undefined,
+        headerImageUrl: headerFormat === "IMAGE" ? headerImage?.url : undefined,
+        headerExample:
+          headerFormat === "TEXT" && headerHasVar
+            ? headerExample.trim() || undefined
+            : undefined,
         footer: footer.trim() || undefined,
         buttons: buttons.length ? buttons : undefined,
       }),
@@ -361,38 +390,116 @@ function NewTemplateModal({
 
         <Field
           label="Header"
-          hint="Optional bold line at the top of the message"
+          hint="What sits at the top of the message: nothing, a bold line, or a picture"
         >
           <div className="space-y-2">
-            <input
-              ref={headerRef}
-              className={inputCls}
-              value={header}
-              maxLength={60}
-              onChange={(e) => setHeader(e.target.value)}
-              placeholder="Diwali offer"
-            />
-            <div className="flex items-center justify-between">
-              <Btn
-                tone="ghost"
-                small
-                onClick={insertHeaderVariable}
-                disabled={headerHasVar}
-              >
-                <PlusIcon className="h-3.5 w-3.5" />
-                Add variable
-              </Btn>
-              <span className="text-xs text-muted-foreground">
-                {header.length}/60
-              </span>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ["NONE", "None"],
+                  ["TEXT", "Text"],
+                  ["IMAGE", "Image"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setHeaderFormat(key)}
+                  className={`rounded-lg border px-3 py-1 text-xs transition ${
+                    headerFormat === key
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
-            {headerHasVar && (
-              <input
-                className={inputCls}
-                value={headerExample}
-                onChange={(e) => setHeaderExample(e.target.value)}
-                placeholder="Sample for the header variable, e.g. Diwali"
-              />
+
+            {headerFormat === "TEXT" && (
+              <>
+                <input
+                  ref={headerRef}
+                  className={inputCls}
+                  value={header}
+                  maxLength={60}
+                  onChange={(e) => setHeader(e.target.value)}
+                  placeholder="Diwali offer"
+                />
+                <div className="flex items-center justify-between">
+                  <Btn
+                    tone="ghost"
+                    small
+                    onClick={insertHeaderVariable}
+                    disabled={headerHasVar}
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    Add variable
+                  </Btn>
+                  <span className="text-xs text-muted-foreground">
+                    {header.length}/60
+                  </span>
+                </div>
+                {headerHasVar && (
+                  <input
+                    className={inputCls}
+                    value={headerExample}
+                    onChange={(e) => setHeaderExample(e.target.value)}
+                    placeholder="Sample for the header variable, e.g. Diwali"
+                  />
+                )}
+              </>
+            )}
+
+            {headerFormat === "IMAGE" && (
+              <div className="space-y-2">
+                <input
+                  ref={imageRef}
+                  type="file"
+                  accept="image/png,image/jpeg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      setImageError("The image must be 5 MB or smaller.");
+                      return;
+                    }
+                    uploadImage.mutate(file);
+                  }}
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  {headerImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={headerImage.url}
+                      alt="Header"
+                      className="h-20 w-36 rounded-lg border border-border object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-36 items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+                      No image yet
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <Btn
+                      tone="ghost"
+                      small
+                      busy={uploadImage.isPending}
+                      onClick={() => imageRef.current?.click()}
+                    >
+                      {headerImage ? "Replace image" : "Upload image"}
+                    </Btn>
+                    <p className="text-xs text-muted-foreground">
+                      JPEG or PNG, up to 5 MB. Landscape works best — WhatsApp
+                      shows it about 1.9 : 1. This is the sample Meta reviews
+                      and the picture campaigns send.
+                    </p>
+                  </div>
+                </div>
+                {imageError && <Notice kind="error">{imageError}</Notice>}
+              </div>
             )}
           </div>
         </Field>
@@ -468,7 +575,7 @@ function NewTemplateModal({
 
         <Field
           label="Buttons"
-          hint="Up to 3. A link opens a page, a call button dials you, a quick reply sends its own text back."
+          hint="Up to 3. A link opens a page, a call button dials you, a quick reply sends its own text back, a copy button puts the coupon code on the clipboard (the real code is set when you send)."
         >
           <div className="space-y-2">
             {buttons.map((b, i) => (
@@ -485,14 +592,30 @@ function NewTemplateModal({
                   <option value="URL">Visit website</option>
                   <option value="PHONE_NUMBER">Call phone number</option>
                   <option value="QUICK_REPLY">Quick reply</option>
+                  <option value="COPY_CODE">Copy offer code</option>
                 </select>
-                <input
-                  className={`${inputCls} w-40`}
-                  value={b.text}
-                  maxLength={25}
-                  onChange={(e) => setButtonAt(i, { text: e.target.value })}
-                  placeholder="Book now"
-                />
+                {b.type === "COPY_CODE" ? (
+                  <input
+                    className={`${inputCls} w-44`}
+                    value={b.example ?? ""}
+                    maxLength={15}
+                    onChange={(e) =>
+                      setButtonAt(i, {
+                        example: e.target.value.toUpperCase(),
+                        text: "Copy offer code",
+                      })
+                    }
+                    placeholder="Sample code, e.g. RESTO200"
+                  />
+                ) : (
+                  <input
+                    className={`${inputCls} w-40`}
+                    value={b.text}
+                    maxLength={25}
+                    onChange={(e) => setButtonAt(i, { text: e.target.value })}
+                    placeholder="Book now"
+                  />
+                )}
                 {b.type === "URL" && (
                   <input
                     className={`${inputCls} flex-1`}
@@ -541,34 +664,18 @@ function NewTemplateModal({
           </div>
         </Field>
 
-        {body.trim() !== "" && (
-          <div className="rounded-xl border border-border bg-accent/20 px-4 py-3">
-            <p className="mb-1 text-xs text-muted-foreground">Preview</p>
-            {header.trim() && (
-              <p className="text-sm font-semibold text-foreground">{header}</p>
-            )}
-            <p className="whitespace-pre-wrap text-sm text-foreground">
-              {preview}
-            </p>
-            {footer.trim() && (
-              <p className="mt-2 text-xs text-muted-foreground">{footer}</p>
-            )}
-            {buttons.filter((b) => b.text.trim()).length > 0 && (
-              <div className="mt-3 space-y-1 border-t border-border pt-2">
-                {buttons
-                  .filter((b) => b.text.trim())
-                  .map((b, i) => (
-                    <p
-                      key={i}
-                      className="text-center text-sm font-medium text-primary"
-                    >
-                      {b.text}
-                    </p>
-                  ))}
-              </div>
-            )}
-          </div>
-        )}
+        <WhatsappPreview
+          headerFormat={headerFormat}
+          headerText={
+            headerHasVar
+              ? header.replace(/\{\{1\}\}/g, headerExample || "{{1}}")
+              : header
+          }
+          imageUrl={headerImage?.url ?? null}
+          body={preview}
+          footer={footer}
+          buttons={buttons}
+        />
 
         <p className="text-xs text-muted-foreground">
           Meta reviews every template. It arrives as PENDING and only becomes
@@ -589,7 +696,7 @@ function NewTemplateModal({
                 return setError(
                   "Fill every example value — Meta rejects a blank one.",
                 );
-              if (buttons.some((b) => !b.text.trim()))
+              if (buttons.some((b) => b.type !== "COPY_CODE" && !b.text.trim()))
                 return setError("Every button needs a label.");
               if (buttons.some((b) => b.type === "URL" && !b.url?.trim()))
                 return setError("A website button needs a URL.");
@@ -599,8 +706,22 @@ function NewTemplateModal({
                 )
               )
                 return setError("A call button needs a phone number.");
-              if (headerHasVar && !headerExample.trim())
+              if (
+                headerFormat === "TEXT" &&
+                headerHasVar &&
+                !headerExample.trim()
+              )
                 return setError("The header variable needs an example value.");
+              if (headerFormat === "TEXT" && !header.trim())
+                return setError("Type the header, or set the header to None.");
+              if (headerFormat === "IMAGE" && !headerImage)
+                return setError("Upload the header image first.");
+              if (
+                buttons.some(
+                  (b) => b.type === "COPY_CODE" && !b.example?.trim(),
+                )
+              )
+                return setError("A copy-code button needs a sample code.");
               setError(null);
               create.mutate();
             }}
@@ -610,5 +731,109 @@ function NewTemplateModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * The message the way WhatsApp will draw it — the same picture Meta shows in
+ * its own template editor — so what an admin approves here is what a customer
+ * sees: picture or bold line on top, the body with samples filled in, the
+ * small-print footer, a time stamp, and each button on its own row with its
+ * icon. Empty until there is a body to show.
+ */
+function WhatsappPreview({
+  headerFormat,
+  headerText,
+  imageUrl,
+  body,
+  footer,
+  buttons,
+}: {
+  headerFormat: "NONE" | "TEXT" | "IMAGE";
+  headerText: string;
+  imageUrl: string | null;
+  body: string;
+  footer: string;
+  buttons: TemplateButton[];
+}) {
+  if (!body.trim() && headerFormat === "NONE") return null;
+  const shown = buttons.filter((b) =>
+    b.type === "COPY_CODE" ? true : b.text.trim(),
+  );
+  const label = (b: TemplateButton) =>
+    b.type === "COPY_CODE" ? "Copy offer code" : b.text;
+  const glyph = (b: TemplateButton) =>
+    b.type === "URL"
+      ? "↗"
+      : b.type === "PHONE_NUMBER"
+        ? "📞"
+        : b.type === "COPY_CODE"
+          ? "⧉"
+          : "↩";
+
+  return (
+    <div>
+      <p className="mb-1 text-xs text-muted-foreground">
+        Preview — as the customer will see it
+      </p>
+      <div
+        className="rounded-xl px-4 py-5"
+        style={{
+          backgroundColor: "#e5ddd5",
+          backgroundImage:
+            "radial-gradient(circle at 1px 1px, rgba(0,0,0,0.06) 1px, transparent 0)",
+          backgroundSize: "18px 18px",
+        }}
+      >
+        <div
+          className="max-w-sm overflow-hidden rounded-lg bg-white text-[#111b21] shadow"
+          style={{ borderTopLeftRadius: 0 }}
+        >
+          {headerFormat === "IMAGE" && (
+            <div className="p-1">
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="aspect-[1.91/1] w-full rounded-md object-cover"
+                />
+              ) : (
+                <div className="flex aspect-[1.91/1] w-full items-center justify-center rounded-md bg-[#f0f2f5] text-xs text-[#667781]">
+                  Header image
+                </div>
+              )}
+            </div>
+          )}
+          <div className="px-3 pb-2 pt-2">
+            {headerFormat === "TEXT" && headerText.trim() && (
+              <p className="mb-1 text-[15px] font-semibold">{headerText}</p>
+            )}
+            <p className="whitespace-pre-wrap text-[15px] leading-snug">
+              {body}
+            </p>
+            {footer.trim() && (
+              <p className="mt-1 text-[13px] text-[#667781]">{footer}</p>
+            )}
+            <p className="mt-1 text-right text-[11px] text-[#667781]">
+              {new Date().toLocaleTimeString("en-IN", {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </p>
+          </div>
+          {shown.map((b, i) => (
+            <div
+              key={i}
+              className="flex items-center justify-center gap-2 border-t border-[#e9edef] py-2.5 text-[15px] font-medium text-[#027eb5]"
+            >
+              <span aria-hidden>{glyph(b)}</span>
+              {label(b)}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
