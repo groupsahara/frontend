@@ -104,6 +104,24 @@ function prettyStatus(status: AdminBookingStatus): string {
     .join(" ");
 }
 
+/**
+ * The statuses an admin may move a booking to from where it is. Pending takes
+ * the partner off it (or undoes a cancellation) so it can be allocated again;
+ * Completed and Cancelled go through their own dialogs. The in-between states
+ * (accepted, on the way, in progress) belong to the partner's app.
+ */
+function adminStatusMoves(b: AdminBooking): AdminBookingStatus[] {
+  const moves: AdminBookingStatus[] = [];
+  const open = b.status === "PENDING" && !b.professionalId;
+  if (!open && b.status !== "COMPLETED" && b.status !== "IN_PROGRESS") {
+    moves.push("PENDING");
+  }
+  if (b.status !== "COMPLETED" && b.status !== "CANCELLED") {
+    moves.push("COMPLETED", "CANCELLED");
+  }
+  return moves;
+}
+
 /** A booking is allocatable when no partner has taken it and it isn't finished. */
 function canAllocate(b: AdminBooking): boolean {
   return (
@@ -204,6 +222,9 @@ export function BookingsView() {
     null,
   );
   const [deleteTarget, setDeleteTarget] = useState<AdminBooking | null>(null);
+  // "Pending" from the status dropdown: confirmed first, because it takes the
+  // job away from whoever holds it.
+  const [reopenTarget, setReopenTarget] = useState<AdminBooking | null>(null);
   // Checkbox multi-select for bulk delete (ids survive page/filter changes so
   // an admin can gather a selection across pages).
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -320,6 +341,21 @@ export function BookingsView() {
     placeholderData: keepPreviousData,
     // The analytics tab renders its own report — don't fetch the table behind it.
     enabled: tab !== "ANALYTICS",
+  });
+
+  const reopenBooking = useMutation({
+    mutationFn: (id: number) => dashboardApi.reopenBooking(id),
+    onSuccess: (r) => {
+      setReopenTarget(null);
+      setNotice(r.message);
+      queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+    },
+    onError: (e) => {
+      setReopenTarget(null);
+      setNotice(
+        e instanceof ApiError ? e.message : "Could not reopen the booking.",
+      );
+    },
   });
 
   const deleteBooking = useMutation({
@@ -927,10 +963,12 @@ export function BookingsView() {
                                 </span>
                               )}
                               {/* Declines explain WHY a lead is still unassigned, instead
-                          of it looking like nobody was ever asked. */}
+                          of it looking like nobody was ever asked. Named, and
+                          set apart from the assigned partner above: "Rejected by
+                          1 partner" under "Tinku Sharma" read as Tinku rejecting. */}
                               {b.rejectionCount > 0 && (
                                 <div
-                                  className="mt-1 cursor-help text-[11px] font-medium text-danger"
+                                  className="mt-1.5 cursor-help border-t border-border/60 pt-1 text-[11px] font-medium text-danger"
                                   title={b.rejections
                                     .map(
                                       (r) =>
@@ -942,19 +980,69 @@ export function BookingsView() {
                                     )
                                     .join("\n")}
                                 >
-                                  ✕ Rejected by {b.rejectionCount}{" "}
-                                  {b.rejectionCount === 1
-                                    ? "partner"
-                                    : "partners"}
+                                  ✕ Declined by {rejecterNames(b.rejections)}
                                 </div>
                               )}
                             </td>
                             <td className="px-5 py-3 align-top">
-                              <span
-                                className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
-                              >
-                                {prettyStatus(b.status)}
-                              </span>
+                              {showActions && adminStatusMoves(b).length ? (
+                                // The badge is a dropdown: pick Pending to take
+                                // the job back and allocate it again, Completed
+                                // or Cancelled to finish it through their dialogs.
+                                <span className="relative inline-flex">
+                                  <select
+                                    value={b.status}
+                                    title="Change status"
+                                    onChange={(e) => {
+                                      const next = e.target
+                                        .value as AdminBookingStatus;
+                                      if (next === b.status) return;
+                                      setNotice(null);
+                                      if (next === "PENDING")
+                                        setReopenTarget(b);
+                                      else if (next === "COMPLETED")
+                                        setCompleteTarget(b);
+                                      else if (next === "CANCELLED") {
+                                        setCancelChoice(null);
+                                        setCancelReason("");
+                                        setCancelTarget(b);
+                                      }
+                                    }}
+                                    className={`cursor-pointer appearance-none whitespace-nowrap rounded-full py-1 pl-2.5 pr-6 text-xs font-medium outline-none focus:ring-2 focus:ring-ring/30 ${STATUS_STYLES[b.status]}`}
+                                  >
+                                    <option value={b.status}>
+                                      {prettyStatus(b.status)}
+                                    </option>
+                                    {adminStatusMoves(b).map((st) => (
+                                      <option key={st} value={st}>
+                                        {st === "PENDING"
+                                          ? b.professionalId
+                                            ? "Pending — take back & reallocate"
+                                            : "Pending — reopen"
+                                          : prettyStatus(st)}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <svg
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                    aria-hidden
+                                    className={`pointer-events-none absolute right-1.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${STATUS_STYLES[b.status].split(" ")[1]}`}
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </span>
+                              ) : (
+                                <span
+                                  className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLES[b.status]}`}
+                                >
+                                  {prettyStatus(b.status)}
+                                </span>
+                              )}
                               {b.status === "CANCELLED" && (
                                 <div className="mt-1 max-w-[200px] text-[11px] text-danger">
                                   {b.cancelledAt && (
@@ -1198,6 +1286,53 @@ export function BookingsView() {
               >
                 {deleteBooking.isPending && <SpinnerIcon className="h-4 w-4" />}
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reopenTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setReopenTarget(null)}
+            aria-hidden
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-foreground">
+              Set {reopenTarget.id} back to Pending?
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {reopenTarget.restaurantName
+                ? `${reopenTarget.restaurantName} · `
+                : ""}
+              {reopenTarget.customer} · ₹
+              {reopenTarget.amount.toLocaleString("en-IN")}
+            </p>
+            <p className="mt-3 text-sm text-foreground">
+              {reopenTarget.professionalId
+                ? `${reopenTarget.professionalName ?? "The assigned partner"} is taken off the booking — their job screen closes and their lead fee is refunded. `
+                : reopenTarget.status === "CANCELLED"
+                  ? "The cancellation is undone. "
+                  : ""}
+              The booking then waits unassigned, with the Allocate button back,
+              until you pick a partner. It is not re-broadcast on its own.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setReopenTarget(null)}
+                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent"
+              >
+                Keep as is
+              </button>
+              <button
+                onClick={() => reopenBooking.mutate(reopenTarget.bookingId)}
+                disabled={reopenBooking.isPending}
+                className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {reopenBooking.isPending && <SpinnerIcon className="h-4 w-4" />}
+                Set to Pending
               </button>
             </div>
           </div>
@@ -2179,6 +2314,13 @@ function istDateTime(iso: string | null): string {
   });
 }
 
+/** "Akhtar Ali", "Akhtar Ali and Rahul", "Akhtar Ali, Rahul and 2 more". */
+function rejecterNames(rejections: { professionalName: string }[]): string {
+  const names = [...new Set(rejections.map((r) => r.professionalName))];
+  if (names.length <= 2) return names.join(" and ");
+  return `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+}
+
 /**
  * Everything the columns can't fit, so a booking's full record is visible
  * without leaving the table. Identical in the admin and CRM tabs.
@@ -2188,108 +2330,153 @@ function BookingDetailsRow({ booking: b }: { booking: AdminBooking }) {
     <tr className="border-t border-border bg-muted/30">
       <td />
       <td colSpan={16} className="px-5 pb-5 pt-1">
-        <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Detail label="Restaurant">{b.restaurantName ?? "—"}</Detail>
-          <Detail label="Owner">{b.customer}</Detail>
-          <Detail label="GST number">{b.gstNumber ?? "—"}</Detail>
-          <Detail label="Mobile">{b.mobile ?? "—"}</Detail>
+        <VisiblePane>
+          <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Detail label="Restaurant">{b.restaurantName ?? "—"}</Detail>
+            <Detail label="Owner">{b.customer}</Detail>
+            <Detail label="GST number">{b.gstNumber ?? "—"}</Detail>
+            <Detail label="Mobile">{b.mobile ?? "—"}</Detail>
 
-          <Detail label="Service">{b.service}</Detail>
-          <Detail label="Shift">{b.shift ?? "—"}</Detail>
-          <Detail label="Slot">
-            {b.startTime && b.endTime ? `${b.startTime} – ${b.endTime}` : "—"}
-            {b.slotPeriod ? ` · ${b.slotPeriod}` : ""}
-          </Detail>
-          <Detail label="Payment">{b.paymentMode}</Detail>
-          {b.addons.length > 0 && (
-            <div className="sm:col-span-2 lg:col-span-4">
-              <Detail label={`Added on site (${b.addons.length})`}>
-                <span className="flex flex-col gap-0.5">
-                  {b.addons.map((a) => (
-                    <span key={a.addonId}>
-                      {a.quantity} × {a.name} — ₹
-                      {a.amount.toLocaleString("en-IN")}
-                      {a.quantity > 1
-                        ? ` (₹${a.unitPrice.toLocaleString("en-IN")} each)`
-                        : ""}
-                    </span>
-                  ))}
-                </span>
-              </Detail>
-            </div>
-          )}
-          <Detail label="Payment collected">
-            {b.paymentCollected
-              ? `Yes — partner confirmed${b.paymentCollectedAt ? ` on ${istDateTime(b.paymentCollectedAt)}` : ""}`
-              : "Not confirmed by partner yet"}
-          </Detail>
-
-          <Detail label="Amount paid">
-            ₹{b.amount.toLocaleString("en-IN")}
-          </Detail>
-          <Detail label="Base (pre-GST)">
-            {b.baseAmount != null
-              ? `₹${b.baseAmount.toLocaleString("en-IN")}`
-              : "—"}
-          </Detail>
-          <Detail label="GST">
-            {b.taxAmount != null
-              ? `₹${b.taxAmount.toLocaleString("en-IN")}`
-              : "—"}
-          </Detail>
-          <Detail label="Partner">
-            {b.professionalName ?? "Unassigned"}
-            {b.assignmentSource
-              ? ` (${b.assignmentSource === "MANUAL" ? "manual" : "auto"})`
-              : ""}
-          </Detail>
-
-          <div className="sm:col-span-2 lg:col-span-4">
-            <Detail label="Service address">
-              {b.address ?? "—"}
-              {b.city ? ` · ${b.city}` : ""}
-              {b.outOfServiceArea ? " · outside every active zone" : ""}
+            <Detail label="Service">{b.service}</Detail>
+            <Detail label="Shift">{b.shift ?? "—"}</Detail>
+            <Detail label="Slot">
+              {b.startTime && b.endTime ? `${b.startTime} – ${b.endTime}` : "—"}
+              {b.slotPeriod ? ` · ${b.slotPeriod}` : ""}
             </Detail>
-          </div>
+            <Detail label="Payment">{b.paymentMode}</Detail>
+            {b.addons.length > 0 && (
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Detail label={`Added on site (${b.addons.length})`}>
+                  <span className="flex flex-col gap-0.5">
+                    {b.addons.map((a) => (
+                      <span key={a.addonId}>
+                        {a.quantity} × {a.name} — ₹
+                        {a.amount.toLocaleString("en-IN")}
+                        {a.quantity > 1
+                          ? ` (₹${a.unitPrice.toLocaleString("en-IN")} each)`
+                          : ""}
+                      </span>
+                    ))}
+                  </span>
+                </Detail>
+              </div>
+            )}
+            <Detail label="Payment collected">
+              {b.paymentCollected
+                ? `Yes — partner confirmed${b.paymentCollectedAt ? ` on ${istDateTime(b.paymentCollectedAt)}` : ""}`
+                : "Not confirmed by partner yet"}
+            </Detail>
 
-          <Detail label="Booked for">{b.date}</Detail>
-          <Detail label="Created">{istDateTime(b.createdAt)}</Detail>
-          <Detail label="Cancelled">{istDateTime(b.cancelledAt)}</Detail>
-          <Detail label="Cancellation reason">
-            {b.cancellationReason ? `“${b.cancellationReason}”` : "—"}
-          </Detail>
+            <Detail label="Amount paid">
+              ₹{b.amount.toLocaleString("en-IN")}
+            </Detail>
+            <Detail label="Base (pre-GST)">
+              {b.baseAmount != null
+                ? `₹${b.baseAmount.toLocaleString("en-IN")}`
+                : "—"}
+            </Detail>
+            <Detail label="GST">
+              {b.taxAmount != null
+                ? `₹${b.taxAmount.toLocaleString("en-IN")}`
+                : "—"}
+            </Detail>
+            <Detail label="Partner">
+              {b.professionalName ?? "Unassigned"}
+              {b.assignmentSource
+                ? ` (${b.assignmentSource === "MANUAL" ? "manual" : "auto"})`
+                : ""}
+            </Detail>
 
-          {b.rejectionCount > 0 && (
             <div className="sm:col-span-2 lg:col-span-4">
-              <Detail label={`Rejected by ${b.rejectionCount}`}>
-                <span className="flex flex-col gap-0.5">
-                  {b.rejections.map((r) => (
-                    <span
-                      key={r.rejectionId}
-                      className="text-xs text-muted-foreground"
-                    >
-                      {r.professionalName}
-                      {r.reason ? ` — ${r.reason}` : ""} ·{" "}
-                      {istDateTime(r.rejectedAt)}
-                    </span>
-                  ))}
-                </span>
+              <Detail label="Service address">
+                {b.address ?? "—"}
+                {b.city ? ` · ${b.city}` : ""}
+                {b.outOfServiceArea ? " · outside every active zone" : ""}
               </Detail>
             </div>
-          )}
-        </dl>
 
-        {/* Who the lead actually reached. The rejection list above names only
+            <Detail label="Booked for">{b.date}</Detail>
+            <Detail label="Created">{istDateTime(b.createdAt)}</Detail>
+            <Detail label="Cancelled">{istDateTime(b.cancelledAt)}</Detail>
+            <Detail label="Cancellation reason">
+              {b.cancellationReason ? `“${b.cancellationReason}”` : "—"}
+            </Detail>
+
+            {b.rejectionCount > 0 && (
+              <div className="sm:col-span-2 lg:col-span-4">
+                <Detail label={`Rejected by ${b.rejectionCount}`}>
+                  <span className="flex flex-col gap-0.5">
+                    {b.rejections.map((r) => (
+                      <span
+                        key={r.rejectionId}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {r.professionalName}
+                        {r.reason ? ` — ${r.reason}` : ""} ·{" "}
+                        {istDateTime(r.rejectedAt)}
+                      </span>
+                    ))}
+                  </span>
+                </Detail>
+              </div>
+            )}
+          </dl>
+
+          {/* Who the lead actually reached. The rejection list above names only
             the partners who said no; this shows everyone it went to, including
             the ones who never answered at all. */}
-        <div className="mt-5 border-t border-border pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Lead activity
-          </p>
-          <BookingLeadActivityPanel bookingId={b.bookingId} />
-        </div>
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Lead activity
+            </p>
+            <BookingLeadActivityPanel bookingId={b.bookingId} />
+          </div>
+        </VisiblePane>
       </td>
     </tr>
+  );
+}
+
+/**
+ * Keeps an expanded row's content inside the part of the table you can see.
+ *
+ * The details cell spans every column of a table that is much wider than the
+ * screen, so anything laid out "full width" inside it — the detail grid, the
+ * lead activity table — stretched across the whole scroll width and its right
+ * half (Delivery, Outcome, who rejected) sat off-screen where nobody found it.
+ * This pins the content to the visible edge and sizes it to the viewport of
+ * the scroll container, following it as the window resizes.
+ */
+function VisiblePane({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    const scroller = el?.closest(".overflow-x-auto") as HTMLElement | null;
+    if (!el || !scroller) return;
+    const cell = el.parentElement;
+    const update = () => {
+      const pad = cell
+        ? parseFloat(getComputedStyle(cell).paddingLeft) +
+          parseFloat(getComputedStyle(cell).paddingRight)
+        : 0;
+      setWidth(Math.max(0, scroller.clientWidth - pad));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(scroller);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className="sticky left-5"
+      style={width != null ? { width } : undefined}
+    >
+      {children}
+    </div>
   );
 }
 
