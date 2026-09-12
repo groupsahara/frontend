@@ -495,6 +495,9 @@ const ACTION_LABEL: Record<string, Record<string, string>> = {
     // Separate from "manage" on purpose: this changes what the business is
     // allowed to say, and every template goes to Meta for review.
     templates: "Create & delete WhatsApp templates",
+    // A support seat: what customers write back to the business number, and
+    // answering them. Deliberately not bundled with sending campaigns.
+    inbox: "WhatsApp inbox — read customer replies and answer them",
   },
   tasks: {
     view: "All Tasks (tab)",

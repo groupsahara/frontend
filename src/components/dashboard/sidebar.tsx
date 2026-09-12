@@ -449,6 +449,14 @@ const CRM_NAV: NavGroup = {
       icon: ImageIcon,
       permission: "campaigns.templates",
     },
+    // What customers write back to the business number — replies to a
+    // campaign, questions — and the admin's answers, laid out like WhatsApp.
+    {
+      label: "WhatsApp Inbox",
+      href: "/dashboard/crm/whatsapp",
+      icon: MailIcon,
+      permission: "campaigns.inbox",
+    },
     {
       label: "Reports",
       href: "/dashboard/crm/reports",
@@ -868,7 +876,12 @@ export function Sidebar({
 
 // Section roots ("/dashboard", "/dashboard/crm") match exactly, else every
 // child page would light them (and their group) up too.
-const EXACT_HREFS = new Set(["/dashboard", "/dashboard/crm", "/dashboard/tasks", "/real-estate"]);
+const EXACT_HREFS = new Set([
+  "/dashboard",
+  "/dashboard/crm",
+  "/dashboard/tasks",
+  "/real-estate",
+]);
 
 function leafActive(href: string, pathname: string): boolean {
   return EXACT_HREFS.has(href) ? pathname === href : pathname.startsWith(href);
