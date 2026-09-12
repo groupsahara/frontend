@@ -3917,10 +3917,13 @@ export interface CampaignRecipientList {
 
 /** One button under a template — Meta's three kinds. */
 export interface TemplateButton {
-  type: "URL" | "PHONE_NUMBER" | "QUICK_REPLY";
+  type: "URL" | "PHONE_NUMBER" | "QUICK_REPLY" | "COPY_CODE";
+  /** Label, max 25 chars. COPY_CODE has none — WhatsApp draws "Copy offer code". */
   text: string;
   url?: string;
   phoneNumber?: string;
+  /** COPY_CODE only: a sample code for Meta's review, e.g. RESTO200. */
+  example?: string;
 }
 
 /** An approved template on the WABA, as Meta reports it. */
@@ -3944,6 +3947,73 @@ export interface WhatsappTemplate {
   headerMediaExample: string | null;
   buttons: TemplateButtonInfo[];
 }
+
+/* ============================ WhatsApp inbox ============================ */
+
+/** One thread with a phone number that has written to, or been written by, the business number. */
+export interface WhatsappConversation {
+  conversationId: number;
+  waId: string;
+  /** "+91 98765 43210" */
+  phone: string;
+  /** The customer's account name, else their WhatsApp profile name. */
+  name: string | null;
+  whatsappName: string | null;
+  restaurantName: string | null;
+  /** Matched customer account, when the number is on file. */
+  userId: number | null;
+  lastMessageAt: string | null;
+  lastInboundAt: string | null;
+  lastPreview: string | null;
+  unreadCount: number;
+  /** A typed reply is allowed only within 24h of the customer's last message. */
+  replyWindowOpen: boolean;
+  replyWindowEndsAt: string | null;
+}
+
+export interface WhatsappInboxMessage {
+  messageId: number;
+  direction: "INBOUND" | "OUTBOUND";
+  /** text, image, video, audio, document, sticker, location, template, ... */
+  type: string;
+  body: string | null;
+  mediaId: string | null;
+  mediaUrl: string | null;
+  mediaMime: string | null;
+  /** Outbound: SENT → DELIVERED → READ, or FAILED. */
+  status: string | null;
+  error: string | null;
+  sentByUserId: number | null;
+  sentAt: string;
+}
+
+export const whatsappInboxApi = {
+  conversations: (search?: string) =>
+    apiClient.get<WhatsappConversation[]>(
+      `/v1/crm/whatsapp/conversations${toQueryString({ search })}`,
+    ),
+  conversation: (id: number) =>
+    apiClient.get<WhatsappConversation>(`/v1/crm/whatsapp/conversations/${id}`),
+  messages: (id: number, before?: number) =>
+    apiClient.get<{ messages: WhatsappInboxMessage[]; hasMore: boolean }>(
+      `/v1/crm/whatsapp/conversations/${id}/messages${toQueryString({ before, limit: 80 })}`,
+    ),
+  markRead: (id: number) =>
+    apiClient.post<{ ok: boolean }>(
+      `/v1/crm/whatsapp/conversations/${id}/read`,
+      {},
+    ),
+  reply: (id: number, text: string) =>
+    apiClient.post<{ ok: boolean }>(
+      `/v1/crm/whatsapp/conversations/${id}/messages`,
+      { text },
+    ),
+  /** A photo the customer sent, as a data URL. */
+  media: (messageId: number) =>
+    apiClient.get<{ mime: string; dataUrl: string }>(
+      `/v1/crm/whatsapp/messages/${messageId}/media`,
+    ),
+};
 
 export const crmCampaignsApi = {
   list: (params: {
@@ -4023,6 +4093,10 @@ export const crmCampaignsApi = {
     bodyExamples?: string[];
     header?: string;
     headerExample?: string;
+    /** TEXT (default) uses `header`; IMAGE uses `headerHandle` from uploadTemplateHeaderImage. */
+    headerFormat?: "TEXT" | "IMAGE";
+    headerHandle?: string;
+    headerImageUrl?: string;
     footer?: string;
     buttons?: TemplateButton[];
   }) =>
@@ -4030,6 +4104,15 @@ export const crmCampaignsApi = {
       "/v1/crm/campaigns/templates",
       body,
     ),
+  /** The picture for an IMAGE header: Meta's handle (for the template) plus a lasting URL (for sending). */
+  uploadTemplateHeaderImage: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadFile<{ handle: string; url: string }>(
+      "/v1/crm/campaigns/templates/header-image",
+      fd,
+    );
+  },
   deleteTemplate: (name: string) =>
     apiClient.delete<{ success: boolean }>(
       `/v1/crm/campaigns/templates/${encodeURIComponent(name)}`,
