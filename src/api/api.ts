@@ -1149,6 +1149,20 @@ export interface ConfigureField {
   value: string;
   /** Where the current value comes from. */
   source: "database" | "env" | "unset";
+  /** A fixed set of choices → rendered as a dropdown. */
+  options: { value: string; label: string }[] | null;
+  hint: string | null;
+}
+
+export type OtpProvider = "FABMEDIA" | "MSG91" | "WHATSAPP";
+
+export interface OtpDeliveryStatus {
+  provider: OtpProvider;
+  whatsappTemplate: { name: string; language: string };
+  /** Meta's state for the OTP template: APPROVED / PENDING / REJECTED / MISSING; null if WhatsApp is unreachable. */
+  whatsappTemplateStatus: string | null;
+  /** What each service still needs before it can be switched on. */
+  missing: Record<OtpProvider, string[]>;
 }
 
 export interface ConfigureGroup {
@@ -1170,6 +1184,23 @@ export const configureApi = {
   /** PUT /v1/configure — upsert the given key/value overrides (super admin). */
   update: (values: { key: string; value: string }[]) =>
     apiClient.put<{ updated: number }>("/v1/configure", { values }),
+
+  /** GET /v1/configure/otp/status — which OTP service is on and what each needs. */
+  otpStatus: () => apiClient.get<OtpDeliveryStatus>("/v1/configure/otp/status"),
+  /** POST /v1/configure/otp/test — send a real test OTP through a service. */
+  otpTest: (mobile: string, provider?: OtpProvider) =>
+    apiClient.post<{
+      provider: OtpProvider;
+      detail: string;
+      mobile: string;
+      otp: string;
+    }>("/v1/configure/otp/test", { mobile, provider }),
+  /** POST /v1/configure/otp/whatsapp-template — create/confirm the WhatsApp OTP template. */
+  createWhatsappOtpTemplate: () =>
+    apiClient.post<{ name: string; language: string; status: string }>(
+      "/v1/configure/otp/whatsapp-template",
+      {},
+    ),
 };
 
 /* ------------------------------ Customers ------------------------------- */
