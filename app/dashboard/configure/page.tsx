@@ -364,16 +364,30 @@ export default function ConfigurePage() {
                 saving={savingGroup === group.key}
                 onSave={() => saveGroup(group)}
               >
-                {group.fields.map((field) => (
-                  <CredentialInput
-                    key={field.key}
-                    field={field}
-                    value={valueOf(field)}
-                    onChange={(val) =>
-                      setDrafts((prev) => ({ ...prev, [field.key]: val }))
-                    }
-                  />
-                ))}
+                {group.fields
+                  // A field tied to a choice (the OTP service's own settings)
+                  // appears only while that choice is selected, so the card
+                  // shows one service's settings at a time.
+                  .filter((field) => {
+                    if (!field.showWhen) return true;
+                    const controller = group.fields.find(
+                      (f) => f.key === field.showWhen!.key,
+                    );
+                    const current = controller
+                      ? valueOf(controller) || controller.placeholder
+                      : "";
+                    return current === field.showWhen.value;
+                  })
+                  .map((field) => (
+                    <CredentialInput
+                      key={field.key}
+                      field={field}
+                      value={valueOf(field)}
+                      onChange={(val) =>
+                        setDrafts((prev) => ({ ...prev, [field.key]: val }))
+                      }
+                    />
+                  ))}
                 {group.key === "otp" && (
                   <OtpDeliveryTools
                     draftProvider={

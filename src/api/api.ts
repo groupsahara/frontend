@@ -1152,6 +1152,8 @@ export interface ConfigureField {
   /** A fixed set of choices → rendered as a dropdown. */
   options: { value: string; label: string }[] | null;
   hint: string | null;
+  /** Shown only while another field in the same card holds this value. */
+  showWhen: { key: string; value: string } | null;
 }
 
 export type OtpProvider = "FABMEDIA" | "MSG91" | "WHATSAPP";
