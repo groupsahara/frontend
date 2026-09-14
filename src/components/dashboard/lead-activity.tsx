@@ -7,14 +7,7 @@ import {
   type LeadPushStatus,
 } from "@/src/api/api";
 
-/**
- * Who a lead reached, and what each partner did with it.
- *
- * Acceptance and rejection were always recorded; the roster was not, so a
- * booking that went unassigned gave an admin nothing to look at — "every
- * partner ignored it" and "it reached nobody" looked the same. These two views
- * read the same log from either end: by booking, and by partner.
- */
+
 
 const OUTCOME_LABEL: Record<LeadOutcome, string> = {
   ACCEPTED: "Accepted",
@@ -38,11 +31,7 @@ function OutcomeBadge({ outcome }: { outcome: LeadOutcome }) {
   );
 }
 
-/**
- * How the alert reached the partner — or why it could not. Distinguishes "the
- * partner ignored it" from "their phone never got it", and names the one case
- * an admin can act on: a dead device token, which a fresh login replaces.
- */
+
 const PUSH_LABEL: Record<LeadPushStatus, { text: string; className: string }> =
   {
     SENT: { text: "Push sent", className: "text-muted-foreground" },
