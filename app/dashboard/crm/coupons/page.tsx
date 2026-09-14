@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   categoryApi,
@@ -147,11 +147,21 @@ function CouponRow({
       `${c.audienceCount} customer${c.audienceCount === 1 ? "" : "s"} only`,
     );
   if (c.visibility === "UNLISTED") conditions.push("Anyone with the code");
+  if (c.usesPerCustomer > 1)
+    conditions.push(`Up to ${c.usesPerCustomer} uses per customer`);
 
   return (
     <tr className="transition-colors hover:bg-accent/50">
       <td className="px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
+          {c.imageUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={c.imageUrl}
+              alt=""
+              className="h-9 w-14 rounded-md border border-border object-cover"
+            />
+          )}
           <span className="font-mono font-medium text-foreground">
             {c.code}
           </span>
@@ -290,6 +300,28 @@ function CouponModal({
   const [maxRedemptions, setMaxRedemptions] = useState(
     coupon?.maxRedemptions != null ? String(coupon.maxRedemptions) : "",
   );
+  const [usesPerCustomer, setUsesPerCustomer] = useState(
+    String(coupon?.usesPerCustomer ?? 1),
+  );
+  // The offer's picture: uploaded as soon as it is chosen, saved with the form.
+  const [image, setImage] = useState<{ url: string; publicId: string } | null>(
+    coupon?.imageUrl
+      ? { url: coupon.imageUrl, publicId: coupon.imagePublicId ?? "" }
+      : null,
+  );
+  const [imageError, setImageError] = useState<string | null>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const uploadImage = useMutation({
+    mutationFn: (file: File) => customersApi.uploadCampaignImage(file),
+    onSuccess: (r) => {
+      setImage(r);
+      setImageError(null);
+    },
+    onError: (e) =>
+      setImageError(
+        e instanceof ApiError ? e.message : "Could not upload the image.",
+      ),
+  });
   const [err, setErr] = useState("");
 
   const { data: categories } = useQuery({
@@ -314,6 +346,9 @@ function CouponModal({
     prepaidOnly,
     description: description.trim() || undefined,
     maxRedemptions: maxRedemptions ? Number(maxRedemptions) : undefined,
+    usesPerCustomer: Number(usesPerCustomer) || 1,
+    imageUrl: image?.url ?? null,
+    imagePublicId: image?.publicId ?? null,
   });
 
   const save = useMutation({
@@ -359,6 +394,8 @@ function CouponModal({
     if (!validTill) return setErr("Choose the date this coupon stops working.");
     if (visibility === "PRIVATE" && !audience.length)
       return setErr("Add at least one customer, or make the coupon public.");
+    if (!(Number(usesPerCustomer) >= 1))
+      return setErr("Uses per customer must be at least 1.");
     save.mutate();
   };
 
@@ -582,10 +619,87 @@ function CouponModal({
           </Field>
         </div>
 
+        <Field
+          label="Uses per customer"
+          hint="How many times the same customer may use this code. 1 = once each. A private or code-only coupon handed to a regular can be made good for several bookings."
+        >
+          <input
+            type="number"
+            min={1}
+            max={1000}
+            className={`${inputCls} max-w-[12rem]`}
+            value={usesPerCustomer}
+            onChange={(e) => setUsesPerCustomer(e.target.value)}
+          />
+        </Field>
+
+        {/* Optional picture */}
+        <div className="rounded-xl border border-border p-4">
+          <p className="text-sm font-semibold text-foreground">
+            Image (optional)
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            A picture shown beside the offer in the app and on the website.
+            JPEG, PNG or WebP, up to 3 MB; landscape works best.
+          </p>
+          <input
+            ref={imageRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              if (file.size > 3 * 1024 * 1024) {
+                setImageError("The image must be 3 MB or smaller.");
+                return;
+              }
+              uploadImage.mutate(file);
+            }}
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={image.url}
+                alt="Coupon"
+                className="h-20 w-36 rounded-lg border border-border object-cover"
+              />
+            ) : (
+              <div className="flex h-20 w-36 items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+                No image
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <Btn
+                tone="ghost"
+                small
+                busy={uploadImage.isPending}
+                onClick={() => imageRef.current?.click()}
+              >
+                {image ? "Replace image" : "Upload image"}
+              </Btn>
+              {image && (
+                <Btn tone="ghost" small onClick={() => setImage(null)}>
+                  Remove
+                </Btn>
+              )}
+            </div>
+          </div>
+          {imageError && (
+            <div className="mt-2">
+              <Notice kind="error">{imageError}</Notice>
+            </div>
+          )}
+        </div>
+
         <p className="rounded-xl bg-accent/40 px-4 py-3 text-xs text-muted-foreground">
-          Each customer can use this code once. The partner is still paid the
-          job&rsquo;s full price, so the discount is the platform&rsquo;s cost,
-          not theirs.
+          {Number(usesPerCustomer) > 1
+            ? `Each customer can use this code up to ${Number(usesPerCustomer)} times. `
+            : "Each customer can use this code once. "}
+          The partner is still paid the job&rsquo;s full price, so the discount
+          is the platform&rsquo;s cost, not theirs.
         </p>
 
         <div className="flex justify-end gap-2">

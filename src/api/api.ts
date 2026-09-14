@@ -1311,6 +1311,11 @@ export interface CampaignCoupon {
   validTill: string;
   isActive: boolean;
   maxRedemptions: number | null;
+  /** How many times one customer may use it; 1 = once each. */
+  usesPerCustomer: number;
+  /** The offer's picture, if one was uploaded. */
+  imageUrl: string | null;
+  imagePublicId: string | null;
   /** Offered only to customers who have never booked. */
   firstOrderOnly: boolean;
   /** Only redeemable when the customer pays online, never on COD. */
@@ -1333,6 +1338,10 @@ export interface CampaignCouponRules {
   userIds?: number[];
   description?: string;
   maxRedemptions?: number;
+  usesPerCustomer?: number;
+  /** From uploadCampaignImage; null removes the picture. */
+  imageUrl?: string | null;
+  imagePublicId?: string | null;
   firstOrderOnly?: boolean;
   prepaidOnly?: boolean;
 }
@@ -1384,6 +1393,16 @@ export const customersApi = {
       `/v1/admin/coupons/campaigns/${couponId}`,
       body,
     ),
+
+  /** POST /v1/admin/coupons/campaigns/image — upload a coupon picture; save its URL on the coupon. */
+  uploadCampaignImage: (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return uploadFile<{ url: string; publicId: string }>(
+      "/v1/admin/coupons/campaigns/image",
+      fd,
+    );
+  },
 
   /** DELETE /v1/admin/coupons/campaigns/:id/audience/:userId — take one customer off a private list. */
   removeCampaignAudience: (couponId: number, userId: number) =>
